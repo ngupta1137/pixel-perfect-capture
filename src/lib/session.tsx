@@ -3,6 +3,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 export interface Persona { id: string; name: string; label: string; role: string }
 export interface Channel { id: string; label: string }
 
+const DEFAULT_PERSONA: Persona = { id: "priya", name: "Priya", label: "Pharmacy advocate", role: "pharmacy_advocate" };
 export const PERSONAS: Persona[] = [
   { id: "priya", name: "Priya", label: "Pharmacy advocate", role: "pharmacy_advocate" },
   { id: "marcus", name: "Marcus", label: "Insurance advocate", role: "insurance_advocate" },
@@ -28,13 +29,13 @@ interface SessionState {
 const SessionContext = createContext<SessionState | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [persona, setP] = useState<Persona>(PERSONAS[0]);
+  const [persona, setP] = useState<Persona>(DEFAULT_PERSONA);
   const [channel, setC] = useState("advocate_view");
   const isMember = persona.role === "member_chat";
   const allowedChannels = isMember ? CHANNELS.filter((c) => MEMBER_CHANNELS.includes(c.id)) : CHANNELS;
 
   const setPersona = (id: string) => {
-    const p = PERSONAS.find((x) => x.id === id) ?? PERSONAS[0];
+    const p = PERSONAS.find((x) => x.id === id) ?? DEFAULT_PERSONA;
     setP(p);
     if (p.role === "member_chat" && !MEMBER_CHANNELS.includes(channel)) setC("member_chat");
   };

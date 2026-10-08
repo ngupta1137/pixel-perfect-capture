@@ -7,7 +7,7 @@ describe("mock search fixtures", () => {
   it("pricing disclaimer is not authorized for insurance advocates", () => {
     const r = mockSearch({ ...base, role: "insurance_advocate", query: "Pricing Disclaimer" });
     expect(r.outcome).toBe("not_authorized");
-    expect(r.parts[0].owner_team).toBe("Compliance");
+    expect(r.parts[0]?.owner_team).toBe("Compliance");
   });
   it("copay needs a state, answers for KY, gap for others", () => {
     expect(mockSearch({ ...base, query: "copay" }).outcome).toBe("needs_clarification");
