@@ -28,7 +28,7 @@ export function TraceDrawer({ res }: { res: SearchResponse }) {
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-xs font-semibold">{t.n}</span>
               <div>
                 <span className="font-semibold">{t.title}</span>{" "}
-                {t.tag && <span className={`ml-1 rounded border px-1.5 text-xs font-bold ${TAG_CLASS[t.tag] ?? TAG_CLASS.D}`}>{t.tag}</span>}
+                {t.tag && <span className={`ml-1 rounded border px-1.5 text-xs font-bold ${TAG_CLASS[t.tag] ?? TAG_CLASS["D"]}`}>{t.tag}</span>}
                 <p className="text-ink-muted">{t.detail}</p>
               </div>
             </li>
