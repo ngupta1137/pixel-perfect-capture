@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Check, Copy, Lock, Phone } from "lucide-react";
+import { Check, Copy, Lock, Phone, Volume2, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Citation, Part } from "@/services/verity";
 import { OutcomePill } from "./outcomeMeta";
+import { CHANNELS } from "@/lib/session";
+import { MessageResponse } from "@/components/ai-elements/message";
 
 function CitationLine({ c }: { c: Citation }) {
   return (
@@ -35,13 +37,13 @@ function VerbatimBox({ text }: { text: string }) {
   );
 }
 
-function Body({ part }: { part: Part }) {
+function Body({ part, compact }: { part: Part; compact: boolean }) {
   const c0 = part.citations[0];
   switch (part.outcome) {
     case "answer":
       return (
         <>
-          {c0?.verbatim && part.text ? <VerbatimBox text={part.text} /> : <p className="text-xl leading-relaxed">{part.text}</p>}
+          {c0?.verbatim && part.text ? <VerbatimBox text={part.text} /> : compact ? <MessageResponse className="text-lg leading-relaxed">{part.text ?? ""}</MessageResponse> : <p className="text-xl leading-relaxed">{part.text}</p>}
           {c0 && <CitationLine c={c0} />}
         </>
       );
@@ -104,12 +106,25 @@ function Body({ part }: { part: Part }) {
   }
 }
 
-export function OutcomeCard({ part }: { part: Part }) {
+export function OutcomeCard({ part, channel, compact = false, speaking = false, speechSupported = true, onRead, onStop }: {
+  part: Part; channel: string; compact?: boolean; speaking?: boolean; speechSupported?: boolean;
+  onRead?: () => void; onStop?: () => void;
+}) {
   const safety = part.outcome === "safety_escalation";
   return (
-    <article className={`rounded-lg bg-surface p-6 ${safety ? "border-2 border-outcome-safety" : "border border-border"}`}>
-      <div className="mb-4"><OutcomePill outcome={part.outcome} /></div>
-      <Body part={part} />
+    <article className={`rounded-lg bg-surface ${compact ? "p-4 text-lg [&_p.text-xl]:text-lg [&_p.text-2xl]:text-lg" : "p-6"} ${safety ? "border-2 border-outcome-safety" : "border border-border"}`}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <OutcomePill outcome={part.outcome} />
+        <span className="rounded-full border border-border bg-surface-alt px-2 py-1 text-xs text-ink-muted">Channel · {CHANNELS.find((c) => c.id === channel)?.label ?? channel}</span>
+      </div>
+      <Body part={part} compact={compact} />
+      {onRead && <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={speaking ? onStop : onRead} disabled={!speechSupported}>
+          {speaking ? <Square /> : <Volume2 />} {speaking ? "Stop reading" : "Read aloud"}
+        </Button>
+        {speaking && <span role="status" className="text-sm text-brand-green-dark">{part.citations.some((c) => c.verbatim) ? "Reading approved verbatim exactly" : "Reading aloud..."}</span>}
+        {!speechSupported && <span className="text-sm text-ink-muted">Read aloud is unavailable in this browser.</span>}
+      </div>}
     </article>
   );
 }
