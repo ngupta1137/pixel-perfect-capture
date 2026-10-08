@@ -1,6 +1,6 @@
 // Author page server logic: ingest -> queue -> approval gate -> live on Ask.
 import { beforeEach, describe, expect, it } from "vitest";
-import { authoringState, changeAccess, decide, ingestSource, proposeCandidates, proposeGap, resetDemo } from "../verity-engine/authoring";
+import { authoringState, changeAccess, claimGap, claimReview, decide, ingestSource, proposeCandidates, proposeGap, resetDemo } from "../verity-engine/authoring";
 import { getStore, serveEngine } from "../verity-engine/server";
 
 const sample = (id: string) => authoringState().samples.find((s) => s.id === id)!.text;
@@ -100,5 +100,27 @@ describe("authoring", () => {
     expect(r.ok).toBe(false);
     expect(r.error).toMatch(/^Blocked/);
     expect(authoringState().queue.find((x) => x.draft_id === d.draft_id)!.status).toBe("pending");
+  });
+});
+
+describe("owner queue and gap claims", () => {
+  beforeEach(() => resetDemo());
+  it("a stale answer opens an owner item once, repeats raise the count, and a claim is recorded", () => {
+    const ask = (q: string) => serveEngine({ query: q, role: "pharmacy_advocate", channel: "advocate_view", lob: "MAPD", state: null } as never);
+    ask("is there a shipping fee for mail order");
+    ask("is there a shipping fee for mail order");
+    const items = authoringState().reviews;
+    expect(items).toHaveLength(1);
+    expect(items[0]!.asks).toBe(2);
+    expect(claimReview(items[0]!.item_id, "Dana").ok).toBe(true);
+    expect(authoringState().reviews[0]!.claimed_by).toBe("Dana");
+  });
+  it("gap clusters show age and suggested owner; the first claim holds", () => {
+    const g = authoringState().gaps[0]!;
+    expect(g.age_days).toBeGreaterThan(0);
+    expect(g.suggested_owner).toBeTruthy();
+    claimGap(g.cluster_id, "Dana");
+    claimGap(g.cluster_id, "Lee");
+    expect(authoringState().gaps[0]!.claimed_by).toBe("Dana");
   });
 });

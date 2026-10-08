@@ -8,10 +8,10 @@ import type { Outcome } from "@/services/verity";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  accessFn, decideFn, getAuthoring, ingestSourceFn, proposeFn, proposeGapFn, resetDemoFn,
+  accessFn, claimGapFn, claimReviewFn, decideFn, getAuthoring, ingestSourceFn, proposeFn, proposeGapFn, resetDemoFn,
 } from "@/services/authoring.functions";
 import type {
-  ActionResult, ApproverRole, AuthoringState, CandidateView, DraftView, GapCluster, IngestView, SuggestionView,
+  ActionResult, ApproverRole, AuthoringState, CandidateView, DraftView, GapCluster, ReviewItemView, IngestView, SuggestionView,
 } from "@/services/authoring";
 
 export const Route = createFileRoute("/author")({
@@ -349,6 +349,7 @@ function QueuePanel({ state, person, onResult }: { state: AuthoringState | null;
       <p className="text-sm text-ink-muted">
         Acting as <span className="font-semibold text-ink">{person.label}</span>. Verbatim and legal units need Legal; agents can propose but never approve.
       </p>
+      <OwnerItems items={state?.reviews ?? []} person={person} onResult={onResult} />
       {pending.length === 0 && <p className="rounded-md bg-surface-alt p-4 text-sm text-ink-muted">Nothing waiting. Ingest a source or propose a gap answer to fill the queue.</p>}
       <ul className="space-y-3">
         {pending.map((d) => (
@@ -490,6 +491,32 @@ function RegressionNote({ r }: { r: DraftView["regression"] }) {
   );
 }
 
+function OwnerItems({ items, person, onResult }: { items: ReviewItemView[]; person: { name: string }; onResult: (r: ActionResult) => void }) {
+  const open = items.filter((i) => i.status !== "resolved");
+  if (!open.length) return null;
+  return (
+    <div className="space-y-2 rounded-lg border border-border p-4">
+      <h3 className="font-semibold">Owner items from searches</h3>
+      <p className="text-xs text-ink-muted">A stale or conflicting answer is work for the unit&rsquo;s owner. Repeats raise the count; nothing changes until a person acts.</p>
+      <ul className="space-y-2">
+        {open.map((i) => (
+          <li key={i.item_id} className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="font-mono text-xs text-ink-muted">{i.item_id}</span>
+            <span className="rounded border border-outcome-insufficient px-1.5 py-0.5 text-xs font-semibold text-outcome-insufficient">{i.kind === "stale" ? "Stale" : "Conflict"}</span>
+            <span className="font-mono text-xs">{i.unit_ids.join(", ")}</span>
+            <span>asked {i.asks}x · owner {i.owner}</span>
+            {i.claimed_by ? (
+              <span className="text-xs font-semibold text-brand-green-dark">Claimed by {i.claimed_by}</span>
+            ) : (
+              <Button size="sm" variant="outline" onClick={async () => onResult(await claimReviewFn({ data: { item_id: i.item_id, by: person.name } }))}>Claim</Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function GapsPanel({ state, onResult }: { state: AuthoringState | null; onResult: (r: ActionResult) => void }) {
   return (
     <div className="space-y-3">
@@ -518,6 +545,12 @@ function GapCard({ g, onResult }: { g: GapCluster; onResult: (r: ActionResult) =
         </span>
         <span className="text-xs text-ink-muted">{g.gap_type}</span>
       </div>
+      <p className="text-xs text-ink-muted">
+        {g.age_days !== null ? `Open ${g.age_days} days (first asked ${g.first_seen})` : "Age unknown"} · suggested owner {g.suggested_owner}
+        {g.claimed_by ? <span className="ml-2 font-semibold text-brand-green-dark">Claimed by {g.claimed_by}</span> : (
+          <Button size="sm" variant="outline" className="ml-2" onClick={async () => onResult(await claimGapFn({ data: { cluster_id: g.cluster_id, by: "Dana (Knowledge author)" } }))}>Claim</Button>
+        )}
+      </p>
       <ul className="list-disc pl-5 text-sm">
         {g.questions.map((q) => (
           <li key={q.id}>&ldquo;{q.text}&rdquo; <span className="text-xs text-ink-muted">{q.id}</span></li>

@@ -4,7 +4,7 @@
 import sourceDocs from "./data/source_docs.json";
 import gapReport from "./data/gap_report.json";
 import unitsSeed from "./data/units_seed.json";
-import { getStore, resetStore, sessionLog, AS_OF } from "./server.ts";
+import { getStore, resetStore, sessionLog, AS_OF, ownerQueue } from "./server.ts";
 import type {
   AccessRequest, AccessView, InsightsView, SuggestionView,
   ActionResult, AuthoringState, CandidateView, DecideRequest, DraftView, GapCluster, IngestView, SampleSource, UnitRow,
@@ -129,7 +129,7 @@ const gapDrafts = new Map<string, string>(); // cluster_id -> draft_id
 function gaps(): GapCluster[] {
   const report = gapReport as unknown as {
     clusters: {
-      cluster_id: string; demand: number; questions: { id: string; text: string }[]; gap_type: string;
+      cluster_id: string; demand: number; first_seen?: string | null; age_days?: number | null; suggested_owner?: string; questions: { id: string; text: string }[]; gap_type: string;
       nearest_existing_unit: { unit_id: string; title: string; owner: string } | null;
       draft_unit: { title: string | null; synonyms: string[] };
     }[];
@@ -149,6 +149,10 @@ function gaps(): GapCluster[] {
       owner: near?.owner ?? "Knowledge Ops",
       synonyms: c.draft_unit.synonyms ?? c.questions.map((q) => q.text),
       proposed_draft: gapDrafts.get(c.cluster_id) ?? null,
+      first_seen: c.first_seen ?? null,
+      age_days: c.age_days ?? null,
+      suggested_owner: c.suggested_owner ?? "Knowledge Ops (triage)",
+      claimed_by: ownerQueue.gapClaim(c.cluster_id)?.by ?? null,
     };
   });
 }
@@ -198,6 +202,7 @@ export function authoringState(): AuthoringState {
     queue: s.queue().map(draftView).reverse(),
     audit: s.log().reverse(),
     gaps: gaps(),
+    reviews: ownerQueue.list().map((i) => ({ ...i })),
     samples: SAMPLES,
     as_of: AS_OF,
   };
@@ -306,6 +311,18 @@ export function proposeGap(input: { cluster_id: string; title: string; body: str
   } catch (e) {
     return fail(e);
   }
+}
+
+export function claimGap(clusterId: string, by: string): ActionResult {
+  const c = gaps().find((g) => g.cluster_id === clusterId);
+  if (!c) return fail(new Error(`unknown cluster ${clusterId}`));
+  const claim = ownerQueue.claimGap(clusterId, by, AS_OF);
+  return ok(claim.by === by ? `${clusterId} is yours` : `${clusterId} is already claimed by ${claim.by}`);
+}
+
+export function claimReview(itemId: string, by: string): ActionResult {
+  const i = ownerQueue.claim(itemId, by);
+  return i ? ok(`${itemId} claimed by ${by}`) : fail(new Error(`cannot claim ${itemId}`));
 }
 
 export function resetDemo(): ActionResult {
