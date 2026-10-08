@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { OutcomeCard } from "@/components/ask/OutcomeCard";
 import { TraceDrawer } from "@/components/ask/TraceDrawer";
 import { OutcomePill } from "@/components/ask/outcomeMeta";
-import { useSession } from "@/lib/session";
+import { PERSONAS, useSession } from "@/lib/session";
 import { search, type Outcome, type SearchResponse } from "@/services/verity";
 
 export const Route = createFileRoute("/")({
@@ -40,13 +40,13 @@ function AskPage() {
   const [res, setRes] = useState<SearchResponse | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
-  const run = async (q: string) => {
+  const run = async (q: string, p = persona) => {
     if (!q.trim()) return;
     setLoading(true);
-    const r = await search({ query: q, role: persona.role, channel, input_mode: "typed", lob, state: state || null });
+    const r = await search({ query: q, role: p.role, channel: p.role === "member_chat" && channel === "advocate_view" ? "member_chat" : channel, input_mode: "typed", lob, state: state || null });
     setRes(r);
     setLoading(false);
-    setHistory((h) => [{ id: r.request_id, query: q, personaId: persona.id, personaName: persona.name, outcome: r.outcome }, ...h].slice(0, 8));
+    setHistory((h) => [{ id: r.request_id, query: q, personaId: p.id, personaName: p.name, outcome: r.outcome }, ...h].slice(0, 8));
   };
 
   const submit = (e: FormEvent) => { e.preventDefault(); run(query); };
@@ -134,7 +134,7 @@ function AskPage() {
                 <li key={h.id}>
                   <button
                     type="button"
-                    onClick={() => { setPersona(h.personaId); setQuery(h.query); run(h.query); }}
+                    onClick={() => { setPersona(h.personaId); setQuery(h.query); run(h.query, PERSONAS.find((x) => x.id === h.personaId) ?? persona); }}
                     className="w-full rounded-md border border-border p-3 text-left hover:bg-surface-alt"
                   >
                     <p className="truncate text-sm font-semibold">{h.query}</p>
