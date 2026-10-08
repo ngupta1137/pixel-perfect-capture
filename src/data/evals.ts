@@ -9,6 +9,14 @@ export const ACCURACY = [
   { name: "Golden", value: 96.4, color: "#4E8416" },
   { name: "Blind first run", value: 39.4, color: "#B26B00" },
   { name: "Blind after fixes", value: 51.5, color: "#5EA908" },
+  { name: "Hold-out (never tuned on)", value: 66.7, color: "#B26B00" },
+];
+
+// Retrieval and abstention, per set. Source: verity evals results*.json metrics. Synthetic data.
+export const RETRIEVAL: { set: string; cases: number; r1: string; r3: string; r5: string; mrr: string; absPrecision: string; absRecall: string }[] = [
+  { set: "Golden (27)", cases: 27, r1: "94.1%", r3: "100%", r5: "100%", mrr: "1.00", absPrecision: "100%", absRecall: "100%" },
+  { set: "Blind (30)", cases: 30, r1: "70.6%", r3: "82.4%", r5: "88.2%", mrr: "0.80", absPrecision: "60%", absRecall: "100%" },
+  { set: "Hold-out (15)", cases: 15, r1: "40%", r3: "60%", r5: "80%", mrr: "0.54", absPrecision: "76.9%", absRecall: "100%" },
 ];
 
 export const GATE = [
