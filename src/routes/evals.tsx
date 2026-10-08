@@ -37,7 +37,7 @@ function EvalsPage() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={ACCURACY}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" />
+                <XAxis dataKey="name" interval={0} tick={{ fontSize: 13 }} />
                 <YAxis domain={[0, 100]} />
                 <Tooltip />
                 <Bar dataKey="value" label={{ position: "top" }}>

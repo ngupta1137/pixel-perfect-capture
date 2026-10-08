@@ -7,9 +7,9 @@ export const STATS = [
 
 export const ACCURACY = [
   { name: "Golden", value: 96.4, color: "#4E8416" },
-  { name: "Blind first run", value: 39.4, color: "#B26B00" },
-  { name: "Blind after fixes", value: 51.5, color: "#5EA908" },
-  { name: "Hold-out (never tuned on)", value: 66.7, color: "#B26B00" },
+  { name: "Blind, first run", value: 39.4, color: "#B26B00" },
+  { name: "Blind, after fixes", value: 51.5, color: "#5EA908" },
+  { name: "Hold-out", value: 66.7, color: "#B26B00" },
 ];
 
 // Retrieval and abstention, per set. Source: verity evals results*.json metrics. Synthetic data.
