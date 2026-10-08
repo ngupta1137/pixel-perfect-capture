@@ -124,3 +124,13 @@ describe("owner queue and gap claims", () => {
     expect(authoringState().gaps[0]!.claimed_by).toBe("Dana");
   });
 });
+
+describe("channel compare", () => {
+  it("the same question on three channels cites the same unit; verbatim text is identical", () => {
+    const on = (channel: string) => serveEngine({ query: "rx pricing disclaimer", role: "pharmacy_advocate", channel, input_mode: channel === "voice" ? "voice" : "typed", lob: "MAPD", state: null } as never).parts[0]!;
+    const [a, v] = [on("advocate_view"), on("voice")];
+    expect(a.outcome).toBe("answer");
+    expect(v.citations.map((c) => c.unit_id)).toEqual(a.citations.map((c) => c.unit_id));
+    expect(v.text).toBe(a.text);
+  });
+});
