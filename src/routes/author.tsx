@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Lock, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { runDrift, type DriftResult } from "@/services/engine.functions";
 
 export const Route = createFileRoute("/author")({
   head: () => ({
@@ -34,13 +35,28 @@ const BADGE = {
   retired: { label: "Retired", cls: "border-border text-ink-muted bg-surface-alt" },
 };
 
+const APPROVED = "The prices I share today are estimates based on your current plan and may change.";
 const PREFILL = "The prices I share today are estimates based on your current plan and will not change.";
-const BASE_PRE = "The prices I share today are estimates based on your current plan and ";
-const BASE_POST = ". Your final cost will be confirmed when your prescription is processed.";
+const FORMAT_ONLY = "The prices I share today  are estimates based on your current plan and may change .";
 
 function AuthorPage() {
   const [text, setText] = useState(PREFILL);
-  const [result, setResult] = useState<"drift" | "format" | null>(null);
+  const [result, setResult] = useState<DriftResult | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function check(after: string) {
+    setText(after);
+    setBusy(true);
+    setError(null);
+    try {
+      // Real drift detector from the Verity engine, run server-side.
+      setResult(await runDrift({ data: { before: APPROVED, after, verbatim: true } }));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <section>
       <div className="mb-6 flex items-center justify-between">
@@ -63,28 +79,36 @@ function AuthorPage() {
         </ul>
         <div className="rounded-lg border border-border p-5 lg:col-span-3">
           <h2 className="font-semibold">Upload a revised source</h2>
+          <p className="mt-1 text-sm text-ink-muted">Compared against approved verbatim U-PH-003: &ldquo;{APPROVED}&rdquo;</p>
           <textarea className="mt-3 h-28 w-full rounded-md border border-border p-3" value={text} onChange={(e) => setText(e.target.value)} />
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button onClick={() => setResult("drift")}>Check against approved units</Button>
-            <Button variant="outline" onClick={() => setResult("format")}>Formatting-only change</Button>
+            <Button disabled={busy} onClick={() => check(text)}>Check against approved units</Button>
+            <Button variant="outline" disabled={busy} onClick={() => check(FORMAT_ONLY)}>Formatting-only change</Button>
           </div>
-          {result === "drift" && (
+          {error && <p className="mt-4 text-sm text-destructive">Drift check unavailable: {error}</p>}
+          {result && result.flag && (
             <div className="mt-5 space-y-3">
-              <p className="text-sm text-ink-muted">Diff against U-PH-003 · Pricing disclaimer (Rx) · v1</p>
-              <p className="rounded-md bg-surface-alt p-3 leading-relaxed">
-                {BASE_PRE}
-                <del className="bg-destructive/10 text-destructive">may change</del>{" "}
-                <ins className="bg-brand-green/15 text-brand-green-dark no-underline">will not change</ins>
-                {BASE_POST}
-              </p>
+              <p className="text-sm text-ink-muted">Word-level diff against U-PH-003 · Pricing disclaimer (Rx) · v1</p>
+              <ul className="flex flex-wrap gap-2">
+                {result.diff.map((d) => {
+                  const [from, to] = d.includes("->") ? d.split("->") : d.startsWith("+") ? ["", d.slice(1)] : [d.slice(1), ""];
+                  return (
+                    <li key={d} className="rounded-md bg-surface-alt px-3 py-1.5">
+                      {from && <del className="bg-destructive/10 text-destructive">{from}</del>}
+                      {from && to && " → "}
+                      {to && <ins className="bg-brand-green/15 text-brand-green-dark no-underline">{to}</ins>}
+                    </li>
+                  );
+                })}
+              </ul>
               <span className="inline-flex items-center gap-1 rounded bg-destructive px-2 py-1 text-sm font-semibold text-primary-foreground">
-                <AlertTriangle className="h-4 w-4" /> Drift flagged: contradiction
+                <AlertTriangle className="h-4 w-4" /> Drift flagged: {result.impact.replace(/_/g, " ")}
               </span>
-              <p className="font-semibold">Routed to: Legal (verbatim), high priority</p>
-              <p className="text-sm text-ink-muted">Any change to verbatim is flagged. A model may raise priority but can never clear a flag.</p>
+              <p className="font-semibold">Routed to: {result.route_to}</p>
+              <p className="text-sm text-ink-muted">Any change to verbatim is flagged, whatever its similarity ({Math.round(result.similarity * 100)}% here). A model may raise priority but can never clear a flag.</p>
             </div>
           )}
-          {result === "format" && (
+          {result && !result.flag && (
             <p className="mt-5 inline-flex items-center gap-2 font-semibold text-brand-green-dark">
               <CheckCircle2 className="h-5 w-5" /> No flag: identical after normalization
             </p>

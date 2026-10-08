@@ -9,7 +9,7 @@ import { MessageResponse } from "@/components/ai-elements/message";
 function CitationLine({ c }: { c: Citation }) {
   return (
     <p className="mt-3 text-sm text-ink-muted">
-      {c.title} · {c.owner} · v{c.version} · effective {c.effective_date} · {c.unit_id}
+      {c.title} · {c.owner} · v{c.version} · effective {c.effective_date} · <span className="whitespace-nowrap">{c.unit_id}</span>
     </p>
   );
 }
@@ -84,7 +84,7 @@ function Body({ part, compact }: { part: Part; compact: boolean }) {
               <div key={c.unit_id} className="rounded-md border border-border p-4">
                 <p className="font-semibold">{c.title}</p>
                 <p className="text-sm text-ink-muted">
-                  {c.owner} · v{c.version} · effective {c.effective_date} · {c.unit_id}
+                  {c.owner} · v{c.version} · effective {c.effective_date} · <span className="whitespace-nowrap">{c.unit_id}</span>
                 </p>
                 <p className="mt-3">{c.text}</p>
               </div>

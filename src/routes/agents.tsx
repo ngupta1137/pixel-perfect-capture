@@ -23,7 +23,7 @@ const TOOLS = [
 ];
 
 const LOG = [
-  { time: "09:14:02", iface: "MCP", principal: "agent:agent-assist-demo", role: "insurance_advocate", tool: "get_unit U-IN-002", outcome: "not_authorized" },
+  { time: "09:14:02", iface: "MCP", principal: "agent:agent-assist-demo", role: "pharmacy_advocate", tool: "get_unit U-IN-002", outcome: "not_authorized" },
   { time: "09:15:37", iface: "MCP", principal: "agent:agent-assist-demo", role: "pharmacy_advocate", tool: 'search_knowledge "rx pricing disclaimer"', outcome: "answer" },
   { time: "09:17:10", iface: "REST", principal: "svc:ivr-gateway", role: "pharmacy_advocate", tool: 'search "how many days supply"', outcome: "conflict" },
 ];
