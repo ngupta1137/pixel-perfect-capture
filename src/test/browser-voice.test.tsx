@@ -8,12 +8,23 @@ afterEach(() => vi.unstubAllGlobals());
 
 function mockSpeech() {
   const spoken: { text: string; onstart: (() => void) | null }[] = [];
-  vi.stubGlobal("SpeechSynthesisUtterance", class {
-    text: string;
-    onstart = null;
-    constructor(text: string) { this.text = text; }
+  vi.stubGlobal(
+    "SpeechSynthesisUtterance",
+    class {
+      text: string;
+      onstart = null;
+      constructor(text: string) {
+        this.text = text;
+      }
+    },
+  );
+  vi.stubGlobal("speechSynthesis", {
+    cancel: vi.fn(),
+    speak: vi.fn((utterance) => {
+      spoken.push(utterance);
+      utterance.onstart?.();
+    }),
   });
-  vi.stubGlobal("speechSynthesis", { cancel: vi.fn(), speak: vi.fn((utterance) => { spoken.push(utterance); utterance.onstart?.(); }) });
   return spoken;
 }
 
@@ -22,7 +33,11 @@ describe("Ask browser voice", () => {
     const spoken = mockSpeech();
     const { result } = renderHook(() => useBrowserVoice("priya:voice"));
     await waitFor(() => expect(result.current.speechSupported).toBe(true));
-    const part = mockSearch({ query: "Rx pricing disclaimer", role: "pharmacy_advocate", channel: "voice" }).parts[0];
+    const part = mockSearch({
+      query: "Rx pricing disclaimer",
+      role: "pharmacy_advocate",
+      channel: "voice",
+    }).parts[0];
     if (!part || !part.text) throw new Error("Missing pricing fixture");
     act(() => result.current.read([{ key: "pricing", part }]));
     expect(spoken).toHaveLength(1);
@@ -31,7 +46,8 @@ describe("Ask browser voice", () => {
   });
 
   it("reads safety escalation text rather than a shortened message", () => {
-    const part = mockSearch({ query: "I have chest pain", role: "member_chat", channel: "voice" }).parts[0];
+    const part = mockSearch({ query: "I have chest pain", role: "member_chat", channel: "voice" })
+      .parts[0];
     if (!part) throw new Error("Missing safety fixture");
     expect(part.outcome).toBe("safety_escalation");
     expect(getSpokenText(part)).toBe(part.text);
@@ -39,19 +55,36 @@ describe("Ask browser voice", () => {
 
   it("captures interim speech and submits the final transcript once recognition ends", async () => {
     let recognition: BrowserRecognition | undefined;
-    vi.stubGlobal("webkitSpeechRecognition", class {
-      lang = ""; interimResults = false; continuous = false;
-      onresult = null; onerror = null; onend = null;
-      start() { recognition = this; }
-      stop() {} abort() {}
-    });
+    vi.stubGlobal(
+      "webkitSpeechRecognition",
+      class {
+        lang = "";
+        interimResults = false;
+        continuous = false;
+        onresult = null;
+        onerror = null;
+        onend = null;
+        start() {
+          recognition = this;
+        }
+        stop() {}
+        abort() {}
+      },
+    );
     const { result } = renderHook(() => useBrowserVoice("priya:voice"));
-    const transcript = vi.fn(); const submit = vi.fn();
+    const transcript = vi.fn();
+    const submit = vi.fn();
     act(() => result.current.startListening(transcript, submit));
-    act(() => recognition?.onresult?.({ results: [{ isFinal: false, 0: { transcript: "Rx pricing" } }] }));
+    act(() =>
+      recognition?.onresult?.({ results: [{ isFinal: false, 0: { transcript: "Rx pricing" } }] }),
+    );
     expect(transcript).toHaveBeenLastCalledWith("Rx pricing");
     expect(submit).not.toHaveBeenCalled();
-    act(() => recognition?.onresult?.({ results: [{ isFinal: true, 0: { transcript: "Rx pricing disclaimer" } }] }));
+    act(() =>
+      recognition?.onresult?.({
+        results: [{ isFinal: true, 0: { transcript: "Rx pricing disclaimer" } }],
+      }),
+    );
     act(() => recognition?.onend?.());
     expect(submit).toHaveBeenCalledExactlyOnceWith("Rx pricing disclaimer");
     expect(result.current.listening).toBe(false);
@@ -60,12 +93,23 @@ describe("Ask browser voice", () => {
   it("cancels microphone and playback when the channel changes", () => {
     mockSpeech();
     const abort = vi.fn();
-    vi.stubGlobal("SpeechRecognition", class {
-      lang = ""; interimResults = false; continuous = false;
-      onresult = null; onerror = null; onend = null;
-      start() {} stop() {} abort = abort;
+    vi.stubGlobal(
+      "SpeechRecognition",
+      class {
+        lang = "";
+        interimResults = false;
+        continuous = false;
+        onresult = null;
+        onerror = null;
+        onend = null;
+        start() {}
+        stop() {}
+        abort = abort;
+      },
+    );
+    const { result, rerender } = renderHook(({ scope }) => useBrowserVoice(scope), {
+      initialProps: { scope: "priya:voice" },
     });
-    const { result, rerender } = renderHook(({ scope }) => useBrowserVoice(scope), { initialProps: { scope: "priya:voice" } });
     act(() => result.current.startListening(vi.fn(), vi.fn()));
     rerender({ scope: "eleanor:member_chat" });
     expect(abort).toHaveBeenCalledOnce();
@@ -74,8 +118,16 @@ describe("Ask browser voice", () => {
   });
 
   it("uses one approved verbatim pricing unit for Voice and Eleanor member chat", () => {
-    const voice = mockSearch({ query: "Rx pricing disclaimer", role: "pharmacy_advocate", channel: "voice" }).parts[0];
-    const member = mockSearch({ query: "Rx pricing disclaimer", role: "member_chat", channel: "member_chat" }).parts[0];
+    const voice = mockSearch({
+      query: "Rx pricing disclaimer",
+      role: "pharmacy_advocate",
+      channel: "voice",
+    }).parts[0];
+    const member = mockSearch({
+      query: "Rx pricing disclaimer",
+      role: "member_chat",
+      channel: "member_chat",
+    }).parts[0];
     expect(voice?.outcome).toBe("answer");
     expect(member?.outcome).toBe("answer");
     expect(member?.citations[0]?.verbatim).toBe(true);

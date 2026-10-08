@@ -9,7 +9,10 @@ export const Route = createFileRoute("/evals")({
       { property: "og:title", content: "Evals — Verity" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:description", content: "Verity Evals workspace for governed knowledge content." },
+      {
+        property: "og:description",
+        content: "Verity Evals workspace for governed knowledge content.",
+      },
     ],
   }),
   component: () => (
