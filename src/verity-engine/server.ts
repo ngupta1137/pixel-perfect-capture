@@ -5,31 +5,42 @@
 import unitsRaw from './data/units_seed.json';
 import rolesRaw from './data/roles.json';
 import lexiconRaw from './data/lexicon.json';
-import { Verity } from './pipeline.ts';
+import sourceDocs from './data/source_docs.json';
+import { KnowledgeStore } from './workflow.ts';
 import type { SearchRequest, SearchResponse } from '../services/verity.ts';
 
-const AS_OF = '2026-10-06'; // same as-of date as the golden set
+export const AS_OF = '2026-10-06'; // same as-of date as the golden set
 
-let engine: Verity | null = null;
-function getEngine(): Verity {
-  if (!engine) {
+// One in-memory knowledge store per server process: search and authoring share
+// it, so a unit approved on the Author page is served on the next Ask query.
+// Restarting the server resets the demo to the seed data.
+let store: KnowledgeStore | null = null;
+export function getStore(): KnowledgeStore {
+  if (!store) {
     const raw = unitsRaw as unknown as { units?: unknown[] } | unknown[];
     const units = (Array.isArray(raw) ? raw : raw.units ?? []) as never;
-    engine = new Verity({
-      units,
-      roles: (rolesRaw as unknown as { roles: never }).roles,
-      lexicon: (lexiconRaw as unknown as { entries: never }).entries,
-      asOf: AS_OF,
-    });
+    store = new KnowledgeStore(
+      {
+        units,
+        roles: (rolesRaw as unknown as { roles: never }).roles,
+        lexicon: (lexiconRaw as unknown as { entries: never }).entries,
+        asOf: AS_OF,
+      },
+      Object.values(sourceDocs as Record<string, string>),
+    );
   }
-  return engine;
+  return store;
+}
+
+export function resetStore(): void {
+  store = null;
 }
 
 const ROLES = new Set(['pharmacy_advocate', 'insurance_advocate', 'member_chat']);
 
 export function serveEngine(req: SearchRequest): SearchResponse {
   if (!ROLES.has(req.role)) throw new Error(`unknown role ${req.role}`);
-  const e = getEngine();
+  const e = getStore().engine();
   const r = e.serve({
     query: String(req.query ?? '').slice(0, 1000),
     role: req.role,
