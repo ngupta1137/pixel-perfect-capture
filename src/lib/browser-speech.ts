@@ -3,7 +3,7 @@ import type { Part } from "@/services/verity";
 export function getSpokenText(part: Part): string {
   // Do not read expired evidence, conflicting sources, or citation metadata.
   return part.outcome === "answer" || part.outcome === "safety_escalation"
-    ? part.text ?? part.message
+    ? (part.text ?? part.message)
     : part.message;
 }
 

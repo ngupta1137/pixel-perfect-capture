@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { getSpokenText, recognitionConstructor, type BrowserRecognition } from "@/lib/browser-speech";
+import {
+  getSpokenText,
+  recognitionConstructor,
+  type BrowserRecognition,
+} from "@/lib/browser-speech";
 import type { Part } from "@/services/verity";
 
 export function useBrowserVoice(scope: string) {
@@ -49,18 +53,26 @@ export function useBrowserVoice(scope: string) {
       if (!text) continue;
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "en-US";
-      utterance.onstart = () => { if (generation.current === current) setSpeakingKey(key); };
-      utterance.onend = () => { if (generation.current === current) setSpeakingKey(null); };
+      utterance.onstart = () => {
+        if (generation.current === current) setSpeakingKey(key);
+      };
+      utterance.onend = () => {
+        if (generation.current === current) setSpeakingKey(null);
+      };
       utterance.onerror = (event) => {
         if (generation.current !== current) return;
         stopReading();
-        if (event.error !== "canceled" && event.error !== "interrupted") setError("Read aloud could not start. Select Read aloud to try again.");
+        if (event.error !== "canceled" && event.error !== "interrupted")
+          setError("Read aloud could not start. Select Read aloud to try again.");
       };
       window.speechSynthesis.speak(utterance);
     }
   };
 
-  const startListening = (onTranscript: (text: string) => void, onSubmit: (text: string) => void) => {
+  const startListening = (
+    onTranscript: (text: string) => void,
+    onSubmit: (text: string) => void,
+  ) => {
     const Constructor = recognitionConstructor();
     if (!Constructor || recognition.current) return;
     stopReading();
@@ -76,17 +88,23 @@ export function useBrowserVoice(scope: string) {
     active.onresult = (event) => {
       const results = Array.from(event.results);
       const text = results.map((result) => result[0]?.transcript ?? "").join("");
-      finalText = results.filter((result) => result.isFinal).map((result) => result[0]?.transcript ?? "").join("");
+      finalText = results
+        .filter((result) => result.isFinal)
+        .map((result) => result[0]?.transcript ?? "")
+        .join("");
       setTranscript(text);
       onTranscript(text);
     };
     active.onerror = (event) => {
       failed = true;
       setListening(false);
-      setError(event.error === "not-allowed" || event.error === "service-not-allowed"
-        ? "Microphone access was blocked. Allow it in your browser, or type your question."
-        : event.error === "no-speech" ? "No speech was heard. Try again, or type your question."
-        : "Voice input could not start. Try again, or type your question.");
+      setError(
+        event.error === "not-allowed" || event.error === "service-not-allowed"
+          ? "Microphone access was blocked. Allow it in your browser, or type your question."
+          : event.error === "no-speech"
+            ? "No speech was heard. Try again, or type your question."
+            : "Voice input could not start. Try again, or type your question.",
+      );
     };
     active.onend = () => {
       recognition.current = null;
@@ -102,5 +120,16 @@ export function useBrowserVoice(scope: string) {
     }
   };
 
-  return { supported, speechSupported, listening, transcript, error, speakingKey, read, stopReading, startListening, stopListening: () => recognition.current?.stop() };
+  return {
+    supported,
+    speechSupported,
+    listening,
+    transcript,
+    error,
+    speakingKey,
+    read,
+    stopReading,
+    startListening,
+    stopListening: () => recognition.current?.stop(),
+  };
 }

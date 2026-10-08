@@ -43,7 +43,13 @@ function Body({ part, compact }: { part: Part; compact: boolean }) {
     case "answer":
       return (
         <>
-          {c0?.verbatim && part.text ? <VerbatimBox text={part.text} /> : compact ? <MessageResponse className="text-lg leading-relaxed">{part.text ?? ""}</MessageResponse> : <p className="text-xl leading-relaxed">{part.text}</p>}
+          {c0?.verbatim && part.text ? (
+            <VerbatimBox text={part.text} />
+          ) : compact ? (
+            <MessageResponse className="text-lg leading-relaxed">{part.text ?? ""}</MessageResponse>
+          ) : (
+            <p className="text-xl leading-relaxed">{part.text}</p>
+          )}
           {c0 && <CitationLine c={c0} />}
         </>
       );
@@ -58,20 +64,28 @@ function Body({ part, compact }: { part: Part; compact: boolean }) {
       return (
         <>
           <p className="text-lg">{part.message}</p>
-          <p className="mt-2 text-sm text-ink-muted">Verity does not answer from general knowledge.</p>
-          <span className="mt-3 inline-block rounded border border-border bg-surface-alt px-2 py-0.5 text-xs font-semibold text-ink-muted">Gap logged</span>
+          <p className="mt-2 text-sm text-ink-muted">
+            Verity does not answer from general knowledge.
+          </p>
+          <span className="mt-3 inline-block rounded border border-border bg-surface-alt px-2 py-0.5 text-xs font-semibold text-ink-muted">
+            Gap logged
+          </span>
         </>
       );
     case "conflict":
       return (
         <>
           <p className="text-lg">{part.message}</p>
-          <p className="mt-4 text-sm font-semibold">Verity will not pick. Both owners have been notified.</p>
+          <p className="mt-4 text-sm font-semibold">
+            Verity will not pick. Both owners have been notified.
+          </p>
           <div className="mt-3 grid gap-4 md:grid-cols-2">
             {part.citations.map((c) => (
               <div key={c.unit_id} className="rounded-md border border-border p-4">
                 <p className="font-semibold">{c.title}</p>
-                <p className="text-sm text-ink-muted">{c.owner} · v{c.version} · effective {c.effective_date} · {c.unit_id}</p>
+                <p className="text-sm text-ink-muted">
+                  {c.owner} · v{c.version} · effective {c.effective_date} · {c.unit_id}
+                </p>
                 <p className="mt-3">{c.text}</p>
               </div>
             ))}
@@ -81,8 +95,12 @@ function Body({ part, compact }: { part: Part; compact: boolean }) {
     case "stale":
       return (
         <>
-          <div className="mb-3 rounded border border-outcome-stale bg-outcome-stale/10 px-3 py-2 text-sm font-semibold text-outcome-stale">Past review date</div>
-          <p className="text-lg text-ink-muted line-through decoration-outcome-stale/40">{part.text}</p>
+          <div className="mb-3 rounded border border-outcome-stale bg-outcome-stale/10 px-3 py-2 text-sm font-semibold text-outcome-stale">
+            Past review date
+          </div>
+          <p className="text-lg text-ink-muted line-through decoration-outcome-stale/40">
+            {part.text}
+          </p>
           <p className="mt-2 text-sm">{part.message}</p>
           {c0 && <CitationLine c={c0} />}
         </>
@@ -92,7 +110,9 @@ function Body({ part, compact }: { part: Part; compact: boolean }) {
         <>
           <p className="text-2xl font-semibold">Owned by {part.owner_team}</p>
           <p className="mt-2">{part.message}</p>
-          <Button variant="outline" className="mt-4">Transfer to team</Button>
+          <Button variant="outline" className="mt-4">
+            Transfer to team
+          </Button>
         </>
       );
     case "safety_escalation":
@@ -100,31 +120,67 @@ function Body({ part, compact }: { part: Part; compact: boolean }) {
         <div className="flex flex-col gap-5 md:flex-row md:items-center">
           <Phone className="h-10 w-10 shrink-0 text-outcome-safety" aria-hidden="true" />
           <p className="flex-1 text-xl font-semibold leading-relaxed">{part.text}</p>
-          <Button size="lg" variant="destructive">Connect to a person now</Button>
+          <Button size="lg" variant="destructive">
+            Connect to a person now
+          </Button>
         </div>
       );
   }
 }
 
-export function OutcomeCard({ part, channel, compact = false, speaking = false, speechSupported = true, onRead, onStop }: {
-  part: Part; channel: string; compact?: boolean; speaking?: boolean; speechSupported?: boolean;
-  onRead?: () => void; onStop?: () => void;
+export function OutcomeCard({
+  part,
+  channel,
+  compact = false,
+  speaking = false,
+  speechSupported = true,
+  onRead,
+  onStop,
+}: {
+  part: Part;
+  channel: string;
+  compact?: boolean;
+  speaking?: boolean;
+  speechSupported?: boolean;
+  onRead?: () => void;
+  onStop?: () => void;
 }) {
   const safety = part.outcome === "safety_escalation";
   return (
-    <article className={`rounded-lg bg-surface ${compact ? "p-4 text-lg [&_p.text-xl]:text-lg [&_p.text-2xl]:text-lg" : "p-6"} ${safety ? "border-2 border-outcome-safety" : "border border-border"}`}>
+    <article
+      className={`rounded-lg bg-surface ${compact ? "p-4 text-lg [&_p.text-xl]:text-lg [&_p.text-2xl]:text-lg" : "p-6"} ${safety ? "border-2 border-outcome-safety" : "border border-border"}`}
+    >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <OutcomePill outcome={part.outcome} />
-        <span className="rounded-full border border-border bg-surface-alt px-2 py-1 text-xs text-ink-muted">Channel · {CHANNELS.find((c) => c.id === channel)?.label ?? channel}</span>
+        <span className="rounded-full border border-border bg-surface-alt px-2 py-1 text-xs text-ink-muted">
+          Channel · {CHANNELS.find((c) => c.id === channel)?.label ?? channel}
+        </span>
       </div>
       <Body part={part} compact={compact} />
-      {onRead && <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={speaking ? onStop : onRead} disabled={!speechSupported}>
-          {speaking ? <Square /> : <Volume2 />} {speaking ? "Stop reading" : "Read aloud"}
-        </Button>
-        {speaking && <span role="status" className="text-sm text-brand-green-dark">{part.citations.some((c) => c.verbatim) ? "Reading approved verbatim exactly" : "Reading aloud..."}</span>}
-        {!speechSupported && <span className="text-sm text-ink-muted">Read aloud is unavailable in this browser.</span>}
-      </div>}
+      {onRead && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={speaking ? onStop : onRead}
+            disabled={!speechSupported}
+          >
+            {speaking ? <Square /> : <Volume2 />} {speaking ? "Stop reading" : "Read aloud"}
+          </Button>
+          {speaking && (
+            <span role="status" className="text-sm text-brand-green-dark">
+              {part.citations.some((c) => c.verbatim)
+                ? "Reading approved verbatim exactly"
+                : "Reading aloud..."}
+            </span>
+          )}
+          {!speechSupported && (
+            <span className="text-sm text-ink-muted">
+              Read aloud is unavailable in this browser.
+            </span>
+          )}
+        </div>
+      )}
     </article>
   );
 }
