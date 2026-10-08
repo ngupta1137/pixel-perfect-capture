@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mockSearch } from "./mockData";
+import { mockSearch } from "@/services/mockData";
 
 const base = { role: "pharmacy_advocate", channel: "advocate_view" };
 
