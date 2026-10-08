@@ -1,6 +1,6 @@
 // Author page server logic: ingest -> queue -> approval gate -> live on Ask.
 import { beforeEach, describe, expect, it } from "vitest";
-import { authoringState, decide, ingestSource, proposeCandidates, proposeGap, resetDemo } from "../verity-engine/authoring";
+import { authoringState, changeAccess, decide, ingestSource, proposeCandidates, proposeGap, resetDemo } from "../verity-engine/authoring";
 import { serveEngine } from "../verity-engine/server";
 
 const sample = (id: string) => authoringState().samples.find((s) => s.id === id)!.text;
@@ -59,5 +59,33 @@ describe("authoring", () => {
     expect(ask("specialty drug copay").parts[0]!.outcome).toBe("insufficient_evidence");
     decide({ draft_id: p.state.queue[0]!.draft_id, action: "approve", approver: dana, body: null, reason: null });
     expect(ask("specialty drug copay").parts[0]!.outcome).toBe("answer");
+  });
+
+  it("merge and split suggestions are offered and are reviewer decisions", () => {
+    const text = authoringState().samples.find((x) => x.id === "rx-current")!.text.replace("Verify identity: full name + DOB", "Verify identity: full name, DOB");
+    resetDemo();
+    // A fresh store has a snapshot of the current script, so use a new document id to see suggestions.
+    const doc = text.replace("KB-PHARM-0142", "KB-PHARM-0500");
+    const r = ingestSource(doc);
+    const idv = r.candidates.find((c) => c.title === "Verify identity")!;
+    expect(idv.suggestions.some((sg) => sg.kind === "merge" && sg.unit_id === "U-PH-002")).toBe(true);
+    const q = proposeCandidates(doc, [idv.cid]);
+    const d = q.state.queue.find((x) => x.status === "pending")!;
+    const m = decide({ draft_id: d.draft_id, action: "merge", target_unit_id: "U-PH-002", approver: dana, body: null, reason: null });
+    expect(m.ok).toBe(true);
+    expect(m.state.queue.find((x) => x.draft_id === d.draft_id)!.status).toBe("merged");
+  });
+
+  it("access changes need a person and a reason, and apply to the next search", () => {
+    const ins = (q: string) => serveEngine({ query: q, role: "pharmacy_advocate", channel: "advocate_view", lob: "MAPD", state: null } as never).parts[0]!.outcome;
+    const q = "how do I change a member primary care provider";
+    expect(ins(q)).toBe("not_authorized");
+    expect(changeAccess({ role: "pharmacy_advocate", knowledge_base: "KB-INS", grant: true, admin: "Sam (Access admin)", reason: "" }).ok).toBe(false);
+    expect(changeAccess({ role: "pharmacy_advocate", knowledge_base: "KB-INS", grant: true, admin: "agent:bot", reason: "x" }).ok).toBe(false);
+    expect(changeAccess({ role: "pharmacy_advocate", knowledge_base: "KB-INS", grant: true, admin: "Sam (Access admin)", reason: "Cross-trained pilot" }).ok).toBe(true);
+    expect(ins(q)).toBe("answer");
+    const st = authoringState();
+    expect(st.insights.from_session).toBeGreaterThan(0);
+    expect(st.audit[0]!.action).toBe("access_granted");
   });
 });

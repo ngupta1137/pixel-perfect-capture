@@ -4,8 +4,9 @@
 import sourceDocs from "./data/source_docs.json";
 import gapReport from "./data/gap_report.json";
 import unitsSeed from "./data/units_seed.json";
-import { getStore, resetStore, AS_OF } from "./server.ts";
+import { getStore, resetStore, sessionLog, AS_OF } from "./server.ts";
 import type {
+  AccessRequest, AccessView, InsightsView, SuggestionView,
   ActionResult, AuthoringState, CandidateView, DecideRequest, DraftView, GapCluster, IngestView, SampleSource, UnitRow,
 } from "../services/authoring.ts";
 
@@ -46,6 +47,21 @@ const SAMPLES: SampleSource[] = [
       "- Members can get up to a 100-day supply of maintenance medications by mail",
       "",
       'Pricing disclaimer - Verbatim (Legal): "The prices I give you today are estimates based on your current plan and might change. Your final cost will be confirmed once your prescription is processed."',
+    ].join("\n"),
+  },
+  {
+    id: "tip-sheet",
+    label: "New-hire tip sheet (overlaps)",
+    hint: "A training handout that restates an existing unit and packs several facts into one line: shows merge and split suggestions.",
+    text: [
+      "PHARMACY NEW-HIRE TIP SHEET   (SYNTHETIC - FOR PROTOTYPE ONLY)",
+      "Doc ID: KB-PHARM-0210 | Owner: Pharmacy Training Team | Last edited: 09/20/2026 | Effective: 09/20/2026",
+      "",
+      "[BEFORE YOU DISCUSS ANY PRESCRIPTION]",
+      "Verify identity: full name + DOB + member ID OR address on file (see ID&V article 7731).",
+      "",
+      "[MAIL ORDER]",
+      "Explain mail order benefits: meds delivered to home, 90-day supply available for most maintenance medications, possible savings vs. retail. Do NOT quote $ unless the pricing tool shows member-specific cost.",
     ].join("\n"),
   },
 ];
@@ -92,6 +108,9 @@ function draftView(d: ReturnType<ReturnType<typeof getStore>["queue"]>[number]):
     decided_role: d.decided_role ?? null,
     comment: d.comment ?? null,
     published_version: d.published_version ?? null,
+    suggestions: (d.suggestions ?? []) as SuggestionView[],
+    merged_into: d.merged_into ?? null,
+    split_into: d.split_into ?? [],
   };
 }
 
@@ -124,9 +143,47 @@ function gaps(): GapCluster[] {
   });
 }
 
+function access(): AccessView {
+  const s = getStore();
+  return {
+    roles: Object.entries(s.access()).map(([role, r]) => ({ role, label: r.label, knowledge_bases: r.knowledge_bases })),
+    knowledge_bases: s.knowledgeBases(),
+  };
+}
+
+const UNANSWERED = new Set(["insufficient_evidence", "needs_clarification"]);
+
+function insights(): InsightsView {
+  const report = gapReport as unknown as { classified: { outcome: string }[] };
+  const logOutcomes = report.classified.map((c) => c.outcome);
+  const sessionOutcomes = sessionLog.map((x) => x.outcomes[0] ?? "insufficient_evidence");
+  const all = [...logOutcomes, ...sessionOutcomes];
+  const counts = new Map<string, number>();
+  for (const o of all) counts.set(o, (counts.get(o) ?? 0) + 1);
+  const g = gaps();
+  return {
+    total: all.length,
+    from_log: logOutcomes.length,
+    from_session: sessionOutcomes.length,
+    outcomes: [...counts.entries()].map(([outcome, count]) => ({ outcome, count })).sort((a, b) => b.count - a.count),
+    unanswered_rate: all.length ? all.filter((o) => UNANSWERED.has(o)).length / all.length : 0,
+    top_gaps: g
+      .slice()
+      .sort((a, b) => b.demand - a.demand)
+      .slice(0, 5)
+      .map((c) => ({ cluster_id: c.cluster_id, demand: c.demand, example: c.questions[0]?.text ?? "", drafted: c.proposed_draft !== null })),
+    recent: sessionLog
+      .slice(-8)
+      .reverse()
+      .map((x) => ({ at: x.at.slice(11, 19), role: x.role, channel: x.channel, query: x.query, outcome: x.outcomes.join(", ") })),
+  };
+}
+
 export function authoringState(): AuthoringState {
   const s = getStore();
   return {
+    access: access(),
+    insights: insights(),
     units: units(),
     queue: s.queue().map(draftView).reverse(),
     audit: s.log().reverse(),
@@ -165,6 +222,7 @@ export function ingestSource(text: string): IngestView {
         diff: c.match.drift?.diff ?? [],
         impact: c.match.drift?.impact ?? null,
         route_to: c.route_to,
+        suggestions: (c.suggestions ?? []) as SuggestionView[],
       }),
     ),
   };
@@ -190,6 +248,14 @@ export function decide(req: DecideRequest): ActionResult {
   try {
     const s = getStore();
     const who = { name: String(req.approver?.name ?? ""), role: req.approver?.role === "legal" ? ("legal" as const) : ("author" as const) };
+    if (req.action === "merge") {
+      const d = s.merge(req.draft_id, who, String(req.target_unit_id ?? ""));
+      return ok(`Linked the source to ${d.merged_into}. No new unit was created.`);
+    }
+    if (req.action === "split") {
+      const parts = s.split(req.draft_id, who);
+      return ok(`Split into ${parts.length} new draft${parts.length === 1 ? "" : "s"}; statements already covered were linked, not duplicated.`);
+    }
     if (req.action === "approve") {
       const edits = req.body !== null && req.body !== undefined ? { body: clip(req.body) } : undefined;
       const u = s.approve(req.draft_id, who, edits);
@@ -229,4 +295,13 @@ export function resetDemo(): ActionResult {
   resetStore();
   gapDrafts.clear();
   return ok("Demo reset to the seed data");
+}
+
+export function changeAccess(req: AccessRequest): ActionResult {
+  try {
+    getStore().setAccess(String(req.role), String(req.knowledge_base), !!req.grant, { name: String(req.admin ?? "") }, String(req.reason ?? ""));
+    return ok(`${req.grant ? "Granted" : "Revoked"} ${req.knowledge_base} for ${req.role}. It applies to the next search.`);
+  } catch (e) {
+    return fail(e);
+  }
 }
