@@ -41,3 +41,15 @@ describe("agent console", () => {
     expect(r.log.map((x) => x.iface)).toEqual(["MCP", "REST"]);
   });
 });
+
+describe("next step when Verity cannot answer", () => {
+  const ask = (q: string, role = "pharmacy_advocate") =>
+    serveEngine({ query: q, role, channel: role === "member_chat" ? "member_chat" : "advocate_view", lob: "MAPD", state: null } as never).parts[0]!;
+  it("gives a recovery path for refusals and none for answers", () => {
+    expect(ask("Rx pricing disclaimer").next_step).toBeNull();
+    expect(ask("how do i file a pharmacy grievance").next_step).toMatch(/Do not answer from memory/);
+    expect(ask("how many days supply can I get by mail").next_step).toMatch(/Do not state either version as current/);
+    expect(ask("how do I change a member primary care provider").next_step).toMatch(/Warm-transfer to Member Services/);
+    expect(ask("how do i file a pharmacy grievance", "member_chat").next_step).toMatch(/connect the member with an advocate/i);
+  });
+});

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Copy, Lock, Phone, Volume2, Square } from "lucide-react";
+import { ArrowRightCircle, Check, Copy, Lock, Phone, Volume2, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Citation, Part } from "@/services/verity";
 import { OutcomePill } from "./outcomeMeta";
@@ -33,6 +33,18 @@ function VerbatimBox({ text }: { text: string }) {
         </Button>
       </div>
       <p className="select-all px-4 py-4 text-xl leading-relaxed">{text}</p>
+    </div>
+  );
+}
+
+function NextStep({ text }: { text: string }) {
+  return (
+    <div className="mt-4 flex items-start gap-2 rounded-md border border-border bg-surface-alt px-3 py-2.5 text-sm">
+      <ArrowRightCircle className="mt-0.5 h-4 w-4 shrink-0 text-ink" aria-hidden="true" />
+      <p>
+        <span className="font-semibold">Next step: </span>
+        {text}
+      </p>
     </div>
   );
 }
@@ -157,6 +169,7 @@ export function OutcomeCard({
         </span>
       </div>
       <Body part={part} compact={compact} />
+      {part.next_step && <NextStep text={part.next_step} />}
       {onRead && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Button

@@ -26,6 +26,7 @@ export interface Part {
   text: string | null;
   owner_team: string | null;
   citations: Citation[];
+  next_step?: string | null; // what the person does now when Verity cannot answer
 }
 
 export interface SearchResponse {
