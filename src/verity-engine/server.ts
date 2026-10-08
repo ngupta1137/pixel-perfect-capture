@@ -35,6 +35,16 @@ export function getStore(): KnowledgeStore {
 export function resetStore(): void {
   store = null;
   sessionLog.length = 0;
+  callLog.length = 0;
+}
+
+// Every call through either interface in this server session, newest last.
+// Queries are logged after PHI redaction.
+export interface CallEntry { at: string; iface: 'REST' | 'MCP'; principal: string; role: string; tool: string; outcome: string }
+export const callLog: CallEntry[] = [];
+export function logCall(e: Omit<CallEntry, 'at'>): void {
+  callLog.push({ at: new Date().toISOString(), ...e });
+  if (callLog.length > 500) callLog.shift();
 }
 
 // Searches made in this server session, PHI already redacted by the engine.
@@ -44,7 +54,7 @@ export const sessionLog: SessionSearch[] = [];
 
 const ROLES = new Set(['pharmacy_advocate', 'insurance_advocate', 'member_chat']);
 
-export function serveEngine(req: SearchRequest): SearchResponse {
+export function serveEngine(req: SearchRequest, via: { iface: 'REST' | 'MCP'; principal: string } = { iface: 'REST', principal: 'ui:ask-page' }): SearchResponse {
   if (!ROLES.has(req.role)) throw new Error(`unknown role ${req.role}`);
   const e = getStore().engine();
   const r = e.serve({
@@ -56,6 +66,7 @@ export function serveEngine(req: SearchRequest): SearchResponse {
   });
   sessionLog.push({ at: new Date().toISOString(), role: req.role, channel: req.channel, query: r.record.query_redacted, outcomes: r.parts.map((p) => p.outcome) });
   if (sessionLog.length > 500) sessionLog.shift();
+  logCall({ iface: via.iface, principal: via.principal, role: req.role, tool: `${via.iface === 'MCP' ? 'search_knowledge' : 'search'} "${r.record.query_redacted.slice(0, 80)}"`, outcome: r.parts.map((p) => p.outcome).join(', ') });
   return {
     request_id: r.record.request_id,
     outcome: r.outcome,

@@ -293,6 +293,7 @@ export function proposeGap(input: { cluster_id: string; title: string; body: str
 
 export function resetDemo(): ActionResult {
   resetStore();
+  void import("./agents.ts").then((m) => m.resetAgentState());
   gapDrafts.clear();
   return ok("Demo reset to the seed data");
 }
