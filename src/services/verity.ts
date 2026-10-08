@@ -45,8 +45,23 @@ export interface SearchRequest {
   state?: string | null;
 }
 
-/** The only entry point the UI uses to get data. */
+/**
+ * The only entry point the UI uses to get data.
+ * Default: the real Verity engine, run server-side (src/verity-engine).
+ * VITE_VERITY_ENGINE=mock switches to the canned fixtures. If the engine call
+ * fails, the fixtures answer and the trace drawer's engine line says so.
+ */
 export async function search(req: SearchRequest): Promise<SearchResponse> {
-  await new Promise((r) => setTimeout(r, 400));
-  return mockSearch(req);
+  if (import.meta.env["VITE_VERITY_ENGINE"] === "mock") {
+    await new Promise((r) => setTimeout(r, 400));
+    return mockSearch(req);
+  }
+  try {
+    const { runSearch } = await import("./engine.functions");
+    return await runSearch({ data: req });
+  } catch (err) {
+    console.error("Verity engine unavailable, using fixtures", err);
+    const r = mockSearch(req);
+    return { ...r, engine: "fixtures (engine unavailable)" };
+  }
 }
