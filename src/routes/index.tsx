@@ -1,24 +1,43 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { PagePlaceholder } from "@/components/AppShell";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "Ask — Verity" },
+      { name: "description", content: "Verity: one approved truth, in every channel. Governed knowledge search for advocates." },
+      { property: "og:title", content: "Ask — Verity" },
+      { property: "og:description", content: "One approved truth, in every channel." },
+    ],
+  }),
+  component: AskPage,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
+function AskPage() {
+  const [lob, setLob] = useState("MAPD");
+  const [state, setState] = useState("");
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <PagePlaceholder title="Ask">
+      <p className="text-ink-muted">One approved truth, in every channel.</p>
+      <div className="mt-6 flex flex-wrap gap-4 text-sm">
+        <label className="flex items-center gap-2 text-ink-muted">
+          Line of business
+          <select className="field-select" value={lob} onChange={(e) => setLob(e.target.value)}>
+            <option value="MAPD">MAPD</option>
+            <option value="PDP">PDP</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-ink-muted">
+          State
+          <select className="field-select" value={state} onChange={(e) => setState(e.target.value)}>
+            <option value="">Unknown</option>
+            <option value="KY">KY</option>
+            <option value="FL">FL</option>
+            <option value="OH">OH</option>
+          </select>
+        </label>
+      </div>
+    </PagePlaceholder>
   );
 }
