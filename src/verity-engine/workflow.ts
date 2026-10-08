@@ -18,6 +18,7 @@
 import type { KnowledgeUnit } from './types.ts';
 import { Verity, type EngineData } from './pipeline.ts';
 import { wordDiff } from './drift.ts';
+import { checkPublication, type RegressionReport } from './regression.ts';
 import { extract, type CandidateUnit, type ExtractionResult, type Suggestion } from './extract.ts';
 
 export type DraftKind = 'new_unit' | 'revision' | 'gap_proposal';
@@ -50,7 +51,7 @@ export interface Draft {
 export interface AuditEntry {
   at: string;
   actor: string;
-  action: 'proposed' | 'approved' | 'rejected' | 'published' | 'merged' | 'split' | 'access_granted' | 'access_revoked';
+  action: 'proposed' | 'approved' | 'rejected' | 'published' | 'publish_blocked' | 'merged' | 'split' | 'access_granted' | 'access_revoked';
   draft_id: string;
   unit_id: string;
   detail: string;
@@ -64,6 +65,14 @@ export interface Approver {
 const PREFIX: Record<string, string> = { 'KB-PHARM': 'U-PH', 'KB-SHARED': 'U-SH', 'KB-INS': 'U-IN' };
 
 export class WorkflowError extends Error {}
+/** Approval refused because publishing would newly fail critical golden cases. */
+export class PublishBlocked extends WorkflowError {
+  report: RegressionReport;
+  constructor(report: RegressionReport) {
+    super(report.summary);
+    this.report = report;
+  }
+}
 
 export class KnowledgeStore {
   private data: EngineData;
@@ -84,7 +93,7 @@ export class KnowledgeStore {
     this.live = data.units.map((u) => ({ ...u }));
     this.engineCache = new Verity({ ...data, units: this.live });
     for (const text of sourceDocs) {
-      const r = extract(text, this.live);
+      const r = extract(text, this.live, undefined, undefined, this.data.lexicon);
       this.snapshots.set(r.doc_id, r.candidates);
     }
   }
@@ -92,7 +101,7 @@ export class KnowledgeStore {
   /** Ingest a source document: extract candidates and compare with the last snapshot and the approved units. Publishes nothing. */
   ingest(text: string): ExtractionResult {
     const docId = text.match(/Doc ID:\s*([^|\n]+)/i)?.[1]?.trim();
-    return extract(text, this.live, docId ? this.snapshots.get(docId) : undefined);
+    return extract(text, this.live, docId ? this.snapshots.get(docId) : undefined, undefined, this.data.lexicon);
   }
 
   /** Candidate behind a pending revision, so approving it moves the snapshot forward. */
@@ -179,6 +188,36 @@ export class KnowledgeStore {
     }));
   }
 
+  /** The unit as it would be published, and the live set afterwards. Nothing is changed. */
+  private plan(d: Draft, approvedBy: string, edits?: { body?: string; title?: string; applies_to?: Partial<KnowledgeUnit['applies_to']>; synonyms?: string[] }) {
+    const prev = d.replaces ? this.live.find((u) => u.unit_id === d.replaces) : undefined;
+    const published: KnowledgeUnit = {
+      ...d.unit,
+      body: edits?.body ?? d.unit.body,
+      title: edits?.title ?? d.unit.title,
+      applies_to: { ...d.unit.applies_to, ...(edits?.applies_to ?? {}) },
+      synonyms: edits?.synonyms ?? d.unit.synonyms,
+      status: 'approved',
+      version: prev ? prev.version + 1 : 1,
+      effective_date: this.now(),
+      approved_by: approvedBy,
+    };
+    const after = prev ? this.live.map((u) => (u.unit_id === prev.unit_id ? published : u)) : [...this.live, published];
+    return { prev, published, after };
+  }
+
+  private regression(_prev: KnowledgeUnit | undefined, _published: KnowledgeUnit, after: KnowledgeUnit[]): RegressionReport {
+    return checkPublication(this.data, this.live, after, this.data.golden ?? []);
+  }
+
+  /** What the golden set says about publishing this draft, for the review card. Changes nothing. */
+  previewRegression(draftId: string, edits?: { body?: string; title?: string; applies_to?: Partial<KnowledgeUnit['applies_to']>; synonyms?: string[] }): RegressionReport {
+    const d = this.drafts.find((x) => x.draft_id === draftId);
+    if (!d) throw new WorkflowError(`unknown draft ${draftId}`);
+    const { prev, published, after } = this.plan(d, 'preview', edits);
+    return this.regression(prev, published, after);
+  }
+
   /** Turn a gap-analyst cluster into a draft. The body is whatever a human or the analyst supplied. */
   proposeGapUnit(input: { title: string; body: string; knowledge_base: string; owner: string; synonyms: string[]; evidence: string[] }, proposedBy: string): Draft {
     const unit: KnowledgeUnit = {
@@ -238,7 +277,7 @@ export class KnowledgeStore {
     if (d.route_to === 'Legal' && who.role !== 'legal') throw new WorkflowError(`${d.draft_id} needs Legal approval (verbatim or legal content)`);
   }
 
-  approve(draftId: string, who: Approver, edits?: { body?: string; title?: string }): KnowledgeUnit {
+  approve(draftId: string, who: Approver, edits?: { body?: string; title?: string; applies_to?: Partial<KnowledgeUnit['applies_to']>; synonyms?: string[] }): KnowledgeUnit {
     const d = this.drafts.find((x) => x.draft_id === draftId);
     if (!d) throw new WorkflowError(`unknown draft ${draftId}`);
     this.checkApprover(d, who);
@@ -246,22 +285,15 @@ export class KnowledgeStore {
       throw new WorkflowError('Only Legal can change verbatim wording');
     if (edits?.body !== undefined && !edits.body.trim()) throw new WorkflowError('Body cannot be empty');
 
-    const prev = d.replaces ? this.live.find((u) => u.unit_id === d.replaces) : undefined;
-    const published: KnowledgeUnit = {
-      ...d.unit,
-      body: edits?.body ?? d.unit.body,
-      title: edits?.title ?? d.unit.title,
-      status: 'approved',
-      version: prev ? prev.version + 1 : 1,
-      effective_date: this.now(),
-      approved_by: who.name,
-    };
-    if (prev) {
-      this.history.push({ ...prev, status: 'superseded' });
-      this.live = this.live.map((u) => (u.unit_id === prev.unit_id ? published : u));
-    } else {
-      this.live = [...this.live, published];
+    const { prev, published, after } = this.plan(d, who.name, edits);
+    // Publication gate: the golden set runs on the store as it would be afterwards.
+    const report = this.regression(prev, published, after);
+    if (!report.allowed) {
+      this.record(who.name, 'publish_blocked', d, report.summary);
+      throw new PublishBlocked(report);
     }
+    if (prev) this.history.push({ ...prev, status: 'superseded' });
+    this.live = after;
     d.status = 'approved';
     d.decided_by = who.name;
     d.decided_role = who.role;

@@ -54,10 +54,14 @@ export interface CandidateUnit {
  * person accepts or ignores them in the review queue.
  * - merge: a new candidate that probably restates an existing unit
  * - split: one candidate that holds several separate facts
+ * - tags: applicability (line of business, states, plan year) and synonyms the
+ *   text itself supports. Only what the source states is proposed; the default
+ *   scope is never widened or narrowed by guesswork.
  */
 export type Suggestion =
   | { kind: 'merge'; unit_id: string; unit_title: string; overlap: number; reason: string }
-  | { kind: 'split'; parts: { text: string; unit_id: string | null; unit_title: string | null }[]; reason: string };
+  | { kind: 'split'; parts: { text: string; unit_id: string | null; unit_title: string | null }[]; reason: string }
+  | { kind: 'tags'; lob: string[] | null; states: string[] | null; plan_year: number | null; synonyms: string[]; evidence: string[]; reason: string };
 
 export interface SkippedLine {
   text: string;
@@ -224,7 +228,7 @@ function segment(text: string): { header: Record<string, string>; title: string;
  * Extract candidate units from one source document and compare each with the
  * approved units. Pure function: nothing is stored or published.
  */
-export function extract(text: string, approved: KnowledgeUnit[], previous?: CandidateUnit[], fallbackDocId = 'DOC-UPLOAD'): ExtractionResult {
+export function extract(text: string, approved: KnowledgeUnit[], previous?: CandidateUnit[], fallbackDocId = 'DOC-UPLOAD', lexicon: Record<string, string> = {}): ExtractionResult {
   const { header, title, raws, skipped, notes } = segment(text);
   const docId = header['doc id'] ?? fallbackDocId;
   const owner = (header['owner'] ?? 'Unassigned').replace(/ Knowledge Team$| Team$/, '');
@@ -290,7 +294,7 @@ export function extract(text: string, approved: KnowledgeUnit[], previous?: Cand
     };
   });
 
-  for (const c of candidates) c.suggestions = c.match.status === 'unchanged' ? [] : suggest(c, live);
+  for (const c of candidates) c.suggestions = c.match.status === 'unchanged' ? [] : suggest(c, live, lexicon);
   return { doc_id: docId, title, owner, effective_date: effective, candidates, skipped, lifecycle_notes: notes, extractor: EXTRACTOR_VERSION };
 }
 
@@ -316,7 +320,7 @@ function clauses(body: string): string[] {
   return out.filter(Boolean);
 }
 
-function suggest(c: CandidateUnit, live: KnowledgeUnit[]): Suggestion[] {
+function suggest(c: CandidateUnit, live: KnowledgeUnit[], lexicon: Record<string, string>): Suggestion[] {
   const out: Suggestion[] = [];
   if (c.verbatim) return out; // verbatim is never merged or split by suggestion: Legal decides wording as a whole
   if (c.match.status === 'new') {
@@ -332,6 +336,8 @@ function suggest(c: CandidateUnit, live: KnowledgeUnit[]): Suggestion[] {
     if (best && best.overlap >= MERGE_MIN_OVERLAP)
       out.push({ kind: 'merge', unit_id: best.u.unit_id, unit_title: best.u.title, overlap: best.overlap, reason: `Covers the same topic as ${best.u.unit_id} (${Math.round(best.overlap * 100)}% topic overlap). Link this source to it instead of creating a second unit.` });
   }
+  const tags = suggestTags(c, lexicon);
+  if (tags) out.push(tags);
   if (c.type === 'procedure') return out; // numbered steps stay together
   const parts = clauses(c.body).map((text) => {
         let hit: KnowledgeUnit | null = null;
@@ -350,4 +356,62 @@ function suggest(c: CandidateUnit, live: KnowledgeUnit[]): Suggestion[] {
     out.push({ kind: 'split', parts, reason: `Holds ${parts.length} separate statements${elsewhere ? ', and part of it is already its own unit' : ''}. One fact per unit keeps citations precise and lets each part change on its own.` });
   }
   return out;
+}
+
+const STATES: Record<string, string> = {
+  alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA', colorado: 'CO', connecticut: 'CT', delaware: 'DE', florida: 'FL', georgia: 'GA',
+  hawaii: 'HI', idaho: 'ID', illinois: 'IL', indiana: 'IN', iowa: 'IA', kansas: 'KS', kentucky: 'KY', louisiana: 'LA', maine: 'ME', maryland: 'MD',
+  massachusetts: 'MA', michigan: 'MI', minnesota: 'MN', mississippi: 'MS', missouri: 'MO', montana: 'MT', nebraska: 'NE', nevada: 'NV', 'new hampshire': 'NH',
+  'new jersey': 'NJ', 'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND', ohio: 'OH', oklahoma: 'OK', oregon: 'OR',
+  pennsylvania: 'PA', 'rhode island': 'RI', 'south carolina': 'SC', 'south dakota': 'SD', tennessee: 'TN', texas: 'TX', utah: 'UT', vermont: 'VT',
+  virginia: 'VA', washington: 'WA', 'west virginia': 'WV', wisconsin: 'WI', wyoming: 'WY',
+};
+
+/**
+ * Applicability and synonyms the text supports. Silent when the source says
+ * nothing: an unstated scope stays at the default and the author decides.
+ */
+export function suggestTags(c: CandidateUnit, lexicon: Record<string, string>): Suggestion | null {
+  const text = `${c.title}. ${c.body}`;
+  const evidence: string[] = [];
+
+  const lob: string[] = [];
+  if (/\bMAPD\b|Medicare Advantage/i.test(text)) { lob.push('MAPD'); evidence.push('mentions Medicare Advantage / MAPD'); }
+  if (/\bPDP\b|stand-?alone Prescription Drug Plan/i.test(text)) { lob.push('PDP'); evidence.push('mentions PDP'); }
+
+  const states: string[] = [];
+  const lower = text.toLowerCase();
+  for (const [name, abbr] of Object.entries(STATES)) if (new RegExp(`\\b${name}\\b`).test(lower)) states.push(abbr);
+  // Two-letter codes only inside a list that follows "in", "for" or "of" and sits next to a
+  // state ("in Florida and TX", "residents of TX, GA"); never bare words like "OR" or "IN".
+  const names = Object.keys(STATES).join('|');
+  const item = `(?:${names}|[A-Z]{2}\\b)`;
+  const list = new RegExp(`\\b(?:in|for|of)\\s+(${item}(?:\\s*(?:,|,?\\s*and|,?\\s*or)\\s*${item})*)`, 'gi');
+  for (const m of text.matchAll(list))
+    for (const code of m[1]!.match(/\b[A-Z]{2}\b/g) ?? []) if (Object.values(STATES).includes(code) && !states.includes(code)) states.push(code);
+  if (states.length) evidence.push(`names ${states.join(', ')}`);
+
+  const years = [...new Set([...text.matchAll(/\b(?:plan year|PY|CY)\s*(20\d\d)\b|\b(20\d\d)\s+plan year\b/gi)].map((m) => Number(m[1] ?? m[2])))];
+  if (years.length) evidence.push(`plan year ${years.join(', ')}`);
+
+  // Synonyms: lexicon shorthand whose expansion appears in the unit ("mail order" -> "mo", "male order").
+  const have = new Set(c.suggested_synonyms.map((x) => x.toLowerCase()));
+  const syn: string[] = [];
+  for (const [short, full] of Object.entries(lexicon)) {
+    if (short.length < 2 || have.has(short.toLowerCase())) continue;
+    if (new RegExp(`\\b${full.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text)) { syn.push(short); have.add(short.toLowerCase()); }
+  }
+  if (syn.length) evidence.push(`lexicon shorthand for terms used here: ${syn.join(', ')}`);
+
+  const planYear = years.length === 1 ? years[0]! : null;
+  if (!lob.length && !states.length && planYear === null && !syn.length) return null;
+  return {
+    kind: 'tags',
+    lob: lob.length ? lob : null,
+    states: states.length ? states : null,
+    plan_year: planYear,
+    synonyms: syn,
+    evidence,
+    reason: `The text states: ${evidence.join('; ')}. Accept to scope the unit that way, or leave the default (all lines of business, all states, current plan year).`,
+  };
 }

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import { CheckCircle2, Circle } from "lucide-react";
-import { ACCURACY, FAILURES, GATE, STATS } from "@/data/evals";
+import { ACCURACY, DOMAINS, FAILURES, GATE, STATS } from "@/data/evals";
 
 export const Route = createFileRoute("/evals")({
   head: () => ({
@@ -57,6 +57,27 @@ function EvalsPage() {
           </ul>
           <p className="mt-4 rounded bg-surface-alt px-3 py-2 font-bold text-brand-green-dark">Release: PASS</p>
         </div>
+      </div>
+      <div className="rounded-lg border border-border">
+        <h2 className="border-b border-border px-4 py-3 font-semibold">By domain (question parts correct)</h2>
+        <table className="w-full text-left text-sm">
+          <thead className="bg-surface-alt text-ink-muted">
+            <tr><th className="px-4 py-2">Domain</th><th className="px-4 py-2">Can search</th><th className="px-4 py-2">Golden set</th><th className="px-4 py-2">Blind set</th><th className="px-4 py-2">Blind critical</th><th className="px-4 py-2">Blind abstention</th></tr>
+          </thead>
+          <tbody>
+            {DOMAINS.map((d) => (
+              <tr key={d.name} className="border-t border-border">
+                <td className="px-4 py-2 font-semibold">{d.name}</td>
+                <td className="px-4 py-2 font-mono text-xs">{d.scope}</td>
+                <td className="px-4 py-2">{d.golden}</td>
+                <td className="px-4 py-2">{d.blind}</td>
+                <td className="px-4 py-2">{d.blindCritical}</td>
+                <td className="px-4 py-2">{d.blindAbstention}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="border-t border-border px-4 py-2 text-xs text-ink-muted">Synthetic data. Each domain has its own scope, golden cases and abstention rules; the platform is shared, the proof is per domain.</p>
       </div>
       <div className="rounded-lg border border-border">
         <h2 className="border-b border-border px-4 py-3 font-semibold">Failure log</h2>

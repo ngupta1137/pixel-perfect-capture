@@ -88,6 +88,15 @@ function units(): UnitRow[] {
     }));
 }
 
+function regressionView(draftId: string): DraftView["regression"] {
+  try {
+    const r = getStore().previewRegression(draftId);
+    return { allowed: r.allowed, checked: r.checked, summary: r.summary, blocking: r.blocking, warnings: r.warnings };
+  } catch {
+    return null;
+  }
+}
+
 function draftView(d: ReturnType<ReturnType<typeof getStore>["queue"]>[number]): DraftView {
   return {
     draft_id: d.draft_id,
@@ -109,6 +118,7 @@ function draftView(d: ReturnType<ReturnType<typeof getStore>["queue"]>[number]):
     comment: d.comment ?? null,
     published_version: d.published_version ?? null,
     suggestions: (d.suggestions ?? []) as SuggestionView[],
+    regression: d.status === "pending" ? regressionView(d.draft_id) : null,
     merged_into: d.merged_into ?? null,
     split_into: d.split_into ?? [],
   };
@@ -257,8 +267,15 @@ export function decide(req: DecideRequest): ActionResult {
       return ok(`Split into ${parts.length} new draft${parts.length === 1 ? "" : "s"}; statements already covered were linked, not duplicated.`);
     }
     if (req.action === "approve") {
-      const edits = req.body !== null && req.body !== undefined ? { body: clip(req.body) } : undefined;
-      const u = s.approve(req.draft_id, who, edits);
+      const draft = s.queue().find((x) => x.draft_id === req.draft_id);
+      const tags = req.accept_tags ? (draft?.suggestions ?? []).find((x) => x.kind === "tags") : undefined;
+      const edits: { body?: string; applies_to?: Record<string, unknown>; synonyms?: string[] } = {};
+      if (req.body !== null && req.body !== undefined) edits.body = clip(req.body);
+      if (tags && tags.kind === "tags") {
+        edits.applies_to = { ...(tags.lob ? { lob: tags.lob } : {}), ...(tags.states ? { states: tags.states } : {}), ...(tags.plan_year ? { plan_year: tags.plan_year } : {}) };
+        edits.synonyms = [...new Set([...(draft?.unit.synonyms ?? []), ...tags.synonyms])];
+      }
+      const u = s.approve(req.draft_id, who, Object.keys(edits).length ? edits : undefined);
       return ok(`Published ${u.unit_id} v${u.version}. It is live on the Ask page now.`);
     }
     s.reject(req.draft_id, who, String(req.reason ?? ""));

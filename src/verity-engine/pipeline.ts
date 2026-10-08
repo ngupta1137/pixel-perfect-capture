@@ -24,6 +24,7 @@ export interface EngineData {
   units: KnowledgeUnit[];
   roles: Record<string, Role>;
   lexicon: Lexicon;
+  golden?: unknown[]; // regression cases for the publication gate (verity src/engine/regression.ts); locally added field
   asOf: string; // YYYY-MM-DD, used for staleness
 }
 

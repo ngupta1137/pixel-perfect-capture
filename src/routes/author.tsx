@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
-  AlertTriangle, BarChart3, CheckCircle2, FileText, GitMerge, History, Inbox, KeyRound, Lock, PlusCircle, RotateCcw, Scissors, Search, ShieldCheck, XCircle,
+  AlertTriangle, BarChart3, CheckCircle2, FileText, GitMerge, History, Inbox, KeyRound, Lock, PlusCircle, RotateCcw, Scissors, Search, ShieldCheck, Tags, XCircle,
 } from "lucide-react";
 import { OUTCOME_META } from "@/components/ask/outcomeMeta";
 import type { Outcome } from "@/services/verity";
@@ -382,6 +382,7 @@ function DraftCard({ d, person, onResult }: { d: DraftView; person: { name: stri
   const [body, setBody] = useState(d.body);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [acceptTags, setAcceptTags] = useState(false);
   const kind = d.kind === "revision" ? `Revision of ${d.unit_id}` : d.kind === "gap_proposal" ? `New unit from a gap (${d.unit_id})` : `New unit (${d.unit_id})`;
 
   const merge = d.suggestions.find((x): x is Extract<SuggestionView, { kind: "merge" }> => x.kind === "merge");
@@ -398,6 +399,7 @@ function DraftCard({ d, person, onResult }: { d: DraftView; person: { name: stri
           approver: { name: person.name, role: person.role },
           body: action === "approve" && editing ? body : null,
           reason: action === "reject" ? reason : null,
+          accept_tags: action === "approve" && acceptTags,
         },
       }));
     } finally {
@@ -432,7 +434,8 @@ function DraftCard({ d, person, onResult }: { d: DraftView; person: { name: stri
       {editing && (
         <textarea aria-label="Edit before approving" className="h-24 w-full rounded-md border border-border p-2 text-sm" value={body} onChange={(e) => setBody(e.target.value)} />
       )}
-      <Suggestions items={d.suggestions} />
+      <Suggestions items={d.suggestions} acceptTags={acceptTags} onAcceptTags={setAcceptTags} />
+      <RegressionNote r={d.regression} />
       <p className="text-xs text-ink-muted">Proposed by {d.proposed_by} · owner {d.owner} · {d.knowledge_base}</p>
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" disabled={busy} onClick={() => decide("approve")}>
@@ -463,6 +466,27 @@ function DraftCard({ d, person, onResult }: { d: DraftView; person: { name: stri
         </Button>
       </div>
     </li>
+  );
+}
+
+function RegressionNote({ r }: { r: DraftView["regression"] }) {
+  if (!r) return null;
+  const rows = [...r.blocking.map((x) => ({ ...x, tag: "Blocks publishing" })), ...r.warnings.map((x) => ({ ...x, tag: "Changes an expected answer" }))];
+  return (
+    <div className={`rounded-md border p-3 text-sm ${r.allowed ? "border-border" : "border-outcome-unauthorized"}`} role="status">
+      <p className="flex items-center gap-2 font-semibold">
+        {r.allowed ? <CheckCircle2 className="h-4 w-4" aria-hidden /> : <XCircle className="h-4 w-4" aria-hidden />}
+        {r.allowed ? "Golden set: clear to publish" : "Golden set: publishing blocked"}
+      </p>
+      <p className="text-ink-muted">{r.summary}</p>
+      {rows.length > 0 && (
+        <ul className="mt-2 space-y-1 text-xs">
+          {rows.map((x) => (
+            <li key={x.case_id}><span className="font-mono">{x.case_id}</span> {x.tag}: "{x.query}" was {x.was}, would become {x.now}</li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -561,12 +585,23 @@ function AuditPanel({ state }: { state: AuthoringState | null }) {
   );
 }
 
-function Suggestions({ items }: { items: SuggestionView[] }) {
+function Suggestions({ items, acceptTags, onAcceptTags }: { items: SuggestionView[]; acceptTags?: boolean; onAcceptTags?: (v: boolean) => void }) {
   if (!items.length) return null;
   return (
     <div className="space-y-1.5 rounded-md border border-dashed border-outcome-clarify p-2.5 text-sm">
       {items.map((sg) =>
-        sg.kind === "merge" ? (
+        sg.kind === "tags" ? (
+          <div key="tags">
+            <p className="flex items-start gap-1.5">
+              <Tags className="mt-0.5 h-4 w-4 shrink-0 text-outcome-clarify" />
+              <span><span className="font-semibold text-outcome-clarify">Suggestion: scope.</span> {sg.reason}</span>
+            </p>
+            <label className="ml-6 mt-1 flex items-center gap-2 text-xs">
+              <input type="checkbox" checked={!!acceptTags} disabled={!onAcceptTags} onChange={(e) => onAcceptTags?.(e.target.checked)} />
+              Apply on approval{sg.lob ? ` · ${sg.lob.join(", ")}` : ""}{sg.states ? ` · ${sg.states.join(", ")}` : ""}{sg.plan_year ? ` · ${sg.plan_year}` : ""}{sg.synonyms.length ? ` · synonyms ${sg.synonyms.join(", ")}` : ""}
+            </label>
+          </div>
+        ) : sg.kind === "merge" ? (
           <p key="merge" className="flex items-start gap-1.5">
             <GitMerge className="mt-0.5 h-4 w-4 shrink-0 text-outcome-clarify" />
             <span><span className="font-semibold text-outcome-clarify">Suggestion: merge.</span> {sg.reason}</span>
