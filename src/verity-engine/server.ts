@@ -2,6 +2,7 @@
 // contract in src/services/verity.ts (same shape as POST /v1/search in the
 // verity repo). Imported only from server functions, so unit bodies, roles
 // and rules never ship to the browser.
+import { OwnerQueue } from "./ownerQueue.ts";
 import unitsRaw from './data/units_seed.json';
 import rolesRaw from './data/roles.json';
 import lexiconRaw from './data/lexicon.json';
@@ -36,6 +37,7 @@ export function getStore(): KnowledgeStore {
 
 export function resetStore(): void {
   store = null;
+  ownerQueue = new OwnerQueue();
   sessionLog.length = 0;
   callLog.length = 0;
 }
@@ -52,6 +54,7 @@ export function logCall(e: Omit<CallEntry, 'at'>): void {
 // Searches made in this server session, PHI already redacted by the engine.
 // Feeds the search insights view; reset with the demo.
 export interface SessionSearch { at: string; role: string; channel: string; query: string; outcomes: string[] }
+export let ownerQueue = new OwnerQueue();
 export const sessionLog: SessionSearch[] = [];
 
 const ROLES = new Set(['pharmacy_advocate', 'insurance_advocate', 'member_chat']);
@@ -90,6 +93,11 @@ export function serveEngine(req: SearchRequest, via: { iface: 'REST' | 'MCP'; pr
     input_mode: req.input_mode ?? 'typed',
     context: { lob: req.lob ?? null, state: req.state ?? null },
   });
+  for (const p of r.parts) {
+    if (p.outcome !== "stale" && p.outcome !== "conflict") continue;
+    const owner = p.owner_team ?? (p.unit_ids[0] ? e.unit(p.unit_ids[0])?.owner : null) ?? "Knowledge Ops";
+    ownerQueue.open(p.outcome, p.unit_ids, owner, r.record.query_redacted, AS_OF);
+  }
   sessionLog.push({ at: new Date().toISOString(), role: req.role, channel: req.channel, query: r.record.query_redacted, outcomes: r.parts.map((p) => p.outcome) });
   if (sessionLog.length > 500) sessionLog.shift();
   logCall({ iface: via.iface, principal: via.principal, role: req.role, tool: `${via.iface === 'MCP' ? 'search_knowledge' : 'search'} "${r.record.query_redacted.slice(0, 80)}"`, outcome: r.parts.map((p) => p.outcome).join(', ') });

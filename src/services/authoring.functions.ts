@@ -36,6 +36,20 @@ export const proposeGapFn = createServerFn({ method: "POST" })
     return proposeGap(data);
   });
 
+export const claimGapFn = createServerFn({ method: "POST" })
+  .validator((d: { cluster_id: string; by: string }) => d)
+  .handler(async ({ data }): Promise<ActionResult> => {
+    const { claimGap } = await import("../verity-engine/authoring.ts");
+    return claimGap(data.cluster_id, data.by);
+  });
+
+export const claimReviewFn = createServerFn({ method: "POST" })
+  .validator((d: { item_id: string; by: string }) => d)
+  .handler(async ({ data }): Promise<ActionResult> => {
+    const { claimReview } = await import("../verity-engine/authoring.ts");
+    return claimReview(data.item_id, data.by);
+  });
+
 export const resetDemoFn = createServerFn({ method: "POST" }).handler(async (): Promise<ActionResult> => {
   const { resetDemo } = await import("../verity-engine/authoring.ts");
   return resetDemo();

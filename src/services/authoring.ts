@@ -104,6 +104,23 @@ export interface GapCluster {
   owner: string;
   synonyms: string[];
   proposed_draft: string | null;
+  first_seen: string | null;
+  age_days: number | null;
+  suggested_owner: string;
+  claimed_by: string | null;
+}
+
+export interface ReviewItemView {
+  item_id: string;
+  kind: "stale" | "conflict";
+  unit_ids: string[];
+  owner: string;
+  status: "open" | "claimed" | "resolved";
+  opened: string;
+  asks: number;
+  example_query: string;
+  claimed_by: string | null;
+  note: string;
 }
 
 export interface SampleSource {
@@ -133,6 +150,7 @@ export interface AuthoringState {
   queue: DraftView[];
   audit: AuditView[];
   gaps: GapCluster[];
+  reviews: ReviewItemView[];
   samples: SampleSource[];
   as_of: string;
   access: AccessView;

@@ -20,6 +20,7 @@ import {
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { PERSONAS, useSession } from "@/lib/session";
 import { useBrowserVoice } from "@/hooks/use-browser-voice";
+import { ChannelCompare } from "@/components/ask/ChannelCompare";
 import { search, type Outcome, type SearchResponse } from "@/services/verity";
 
 export const Route = createFileRoute("/")({
@@ -71,6 +72,7 @@ export function AskPage() {
   const [lob, setLob] = useState("MAPD");
   const [state, setState] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lastQuery, setLastQuery] = useState("");
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
@@ -95,6 +97,7 @@ export function AskPage() {
     const requestChannel =
       p.role === "member_chat" && channel === "advocate_view" ? "member_chat" : channel;
     const id = crypto.randomUUID();
+    setLastQuery(q);
     pending.current = true;
     setLoading(true);
     setError("");
@@ -330,6 +333,9 @@ export function AskPage() {
           <div className="mt-10 space-y-4" aria-live="polite">
             {loading && <Shimmer>Checking...</Shimmer>}
             {!loading && answer && renderAnswer(answer)}
+            {!loading && answer?.res.outcome === "answer" && lastQuery && (
+              <ChannelCompare query={lastQuery} role={persona.role} lob={lob} state={state || null} requestId={answer.res.request_id} />
+            )}
           </div>
         )}
       </section>

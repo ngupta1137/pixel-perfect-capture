@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import { CheckCircle2, Circle } from "lucide-react";
-import { ACCURACY, DOMAINS, FAILURES, GATE, STATS } from "@/data/evals";
+import { ACCURACY, DOMAINS, FAILURES, GATE, RETRIEVAL, STATS } from "@/data/evals";
 
 export const Route = createFileRoute("/evals")({
   head: () => ({
@@ -21,6 +21,7 @@ function EvalsPage() {
   return (
     <section className="space-y-8">
       <h1 className="text-2xl font-semibold">Evals</h1>
+      <p className="rounded border border-border bg-surface-alt px-3 py-2 text-sm text-ink-muted">Synthetic data. These are illustrative results on a small, self-built question set, not performance claims for any real knowledge base. The hold-out set was never tuned on, so it is the honest number for unseen questions.</p>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {STATS.map((s) => (
           <div key={s.label} className="rounded-lg border border-border p-4">
@@ -36,7 +37,7 @@ function EvalsPage() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={ACCURACY}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" />
+                <XAxis dataKey="name" interval={0} tick={{ fontSize: 13 }} />
                 <YAxis domain={[0, 100]} />
                 <Tooltip />
                 <Bar dataKey="value" label={{ position: "top" }}>
@@ -57,6 +58,18 @@ function EvalsPage() {
           </ul>
           <p className="mt-4 rounded bg-surface-alt px-3 py-2 font-bold text-brand-green-dark">Release: PASS</p>
         </div>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <h2 className="border-b border-border px-4 py-3 font-semibold">Retrieval and abstention</h2>
+        <table className="w-full text-sm">
+          <thead><tr className="text-left text-ink-muted"><th className="px-4 py-2">Set</th><th>Recall@1</th><th>Recall@3</th><th>Recall@5</th><th>MRR</th><th>Abstention precision</th><th>Abstention recall</th></tr></thead>
+          <tbody>
+            {RETRIEVAL.map((r) => (
+              <tr key={r.set} className="border-t border-border"><td className="px-4 py-2">{r.set}</td><td>{r.r1}</td><td>{r.r3}</td><td>{r.r5}</td><td>{r.mrr}</td><td>{r.absPrecision}</td><td>{r.absRecall}</td></tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="border-t border-border px-4 py-2 text-xs text-ink-muted">Abstention means any outcome other than an answer. Precision: when Verity declined, it should have. Recall: when it should decline, it did. It never answers what it should refuse; the cost is declining some questions it could answer.</p>
       </div>
       <div className="rounded-lg border border-border">
         <h2 className="border-b border-border px-4 py-3 font-semibold">By domain (question parts correct)</h2>
