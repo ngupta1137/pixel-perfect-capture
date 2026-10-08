@@ -34,6 +34,8 @@ it("automatically submits recognized speech with input_mode voice and auto-reads
       onerror = null;
       onend = null;
       start() {
+        // The browser API hands the test its live recognition instance.
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
         recognition = this;
       }
       stop() {}

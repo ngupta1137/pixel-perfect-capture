@@ -65,6 +65,7 @@ describe("Ask browser voice", () => {
         onerror = null;
         onend = null;
         start() {
+          // eslint-disable-next-line @typescript-eslint/no-this-alias
           recognition = this;
         }
         stop() {}
