@@ -7,6 +7,8 @@ export const Route = createFileRoute("/author")({
       { title: "Author — Verity" },
       { name: "description", content: "Verity Author workspace for governed knowledge content." },
       { property: "og:title", content: "Author — Verity" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { property: "og:description", content: "Verity Author workspace for governed knowledge content." },
     ],
   }),
