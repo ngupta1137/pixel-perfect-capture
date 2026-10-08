@@ -1,7 +1,7 @@
 // Author page server logic: ingest -> queue -> approval gate -> live on Ask.
 import { beforeEach, describe, expect, it } from "vitest";
 import { authoringState, changeAccess, decide, ingestSource, proposeCandidates, proposeGap, resetDemo } from "../verity-engine/authoring";
-import { serveEngine } from "../verity-engine/server";
+import { getStore, serveEngine } from "../verity-engine/server";
 
 const sample = (id: string) => authoringState().samples.find((s) => s.id === id)!.text;
 const dana = { name: "Dana (Knowledge author)", role: "author" as const };
@@ -87,5 +87,18 @@ describe("authoring", () => {
     const st = authoringState();
     expect(st.insights.from_session).toBeGreaterThan(0);
     expect(st.audit[0]!.action).toBe("access_granted");
+  });
+  it("publication gate: a broad copay unit would newly fail a critical golden case, so approval is blocked and the card says why", () => {
+    const d = getStore().proposeGapUnit({
+      title: "Copay assistance program", body: "Members can get help with copays. Ask the pharmacy team for details.",
+      knowledge_base: "KB-PHARM", owner: "Pharmacy Ops", synonyms: ["copay assistance program", "copay help"], evidence: ["Q99"],
+    }, "agent:gap-analyst");
+    const card = authoringState().queue.find((x) => x.draft_id === d.draft_id)!;
+    expect(card.regression?.allowed).toBe(false);
+    expect(card.regression?.blocking.length).toBeGreaterThan(0);
+    const r = decide({ draft_id: d.draft_id, action: "approve", approver: dana, body: null, reason: null });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/^Blocked/);
+    expect(authoringState().queue.find((x) => x.draft_id === d.draft_id)!.status).toBe("pending");
   });
 });

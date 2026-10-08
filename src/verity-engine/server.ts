@@ -6,6 +6,7 @@ import unitsRaw from './data/units_seed.json';
 import rolesRaw from './data/roles.json';
 import lexiconRaw from './data/lexicon.json';
 import sourceDocs from './data/source_docs.json';
+import goldenRaw from './data/golden_set.json';
 import { KnowledgeStore } from './workflow.ts';
 import type { SearchRequest, SearchResponse } from '../services/verity.ts';
 
@@ -25,6 +26,7 @@ export function getStore(): KnowledgeStore {
         roles: (rolesRaw as unknown as { roles: never }).roles,
         lexicon: (lexiconRaw as unknown as { entries: never }).entries,
         asOf: AS_OF,
+        golden: (goldenRaw as unknown as { cases: never }).cases, // the publication gate runs these on every approval
       },
       Object.values(sourceDocs as Record<string, string>),
     );

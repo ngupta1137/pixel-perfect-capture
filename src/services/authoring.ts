@@ -37,7 +37,16 @@ export interface IngestView {
 
 export type SuggestionView =
   | { kind: "merge"; unit_id: string; unit_title: string; overlap: number; reason: string }
-  | { kind: "split"; parts: { text: string; unit_id: string | null; unit_title: string | null }[]; reason: string };
+  | { kind: "split"; parts: { text: string; unit_id: string | null; unit_title: string | null }[]; reason: string }
+  | { kind: "tags"; lob: string[] | null; states: string[] | null; plan_year: number | null; synonyms: string[]; evidence: string[]; reason: string };
+
+export interface RegressionView {
+  allowed: boolean;
+  checked: number;
+  summary: string;
+  blocking: { case_id: string; query: string; was: string; now: string }[];
+  warnings: { case_id: string; query: string; was: string; now: string }[];
+}
 
 export interface DraftView {
   draft_id: string;
@@ -59,6 +68,7 @@ export interface DraftView {
   comment: string | null;
   published_version: number | null;
   suggestions: SuggestionView[];
+  regression: RegressionView | null; // golden-set check for a pending draft: what publishing it would do
   merged_into: string | null;
   split_into: string[];
 }
@@ -136,6 +146,7 @@ export interface DecideRequest {
   approver: { name: string; role: ApproverRole };
   body: string | null;
   reason: string | null;
+  accept_tags?: boolean; // approve with the suggested scope and synonyms
 }
 
 export interface ActionResult {
