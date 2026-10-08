@@ -1,7 +1,7 @@
 // Server functions for the Author page. The engine runs on the server; the
 // browser only sends text and decisions, and gets views back.
 import { createServerFn } from "@tanstack/react-start";
-import type { ActionResult, AuthoringState, DecideRequest, IngestView } from "./authoring";
+import type { AccessRequest, ActionResult, AuthoringState, DecideRequest, IngestView } from "./authoring";
 
 export const getAuthoring = createServerFn({ method: "GET" }).handler(async (): Promise<AuthoringState> => {
   const { authoringState } = await import("../verity-engine/authoring.ts");
@@ -40,3 +40,10 @@ export const resetDemoFn = createServerFn({ method: "POST" }).handler(async (): 
   const { resetDemo } = await import("../verity-engine/authoring.ts");
   return resetDemo();
 });
+
+export const accessFn = createServerFn({ method: "POST" })
+  .validator((d: AccessRequest) => d)
+  .handler(async ({ data }): Promise<ActionResult> => {
+    const { changeAccess } = await import("../verity-engine/authoring.ts");
+    return changeAccess(data);
+  });

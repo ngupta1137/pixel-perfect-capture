@@ -21,6 +21,7 @@ export interface CandidateView {
   diff: string[];
   impact: string | null;
   route_to: string;
+  suggestions: SuggestionView[];
 }
 
 export interface IngestView {
@@ -34,10 +35,14 @@ export interface IngestView {
   notes: string[];
 }
 
+export type SuggestionView =
+  | { kind: "merge"; unit_id: string; unit_title: string; overlap: number; reason: string }
+  | { kind: "split"; parts: { text: string; unit_id: string | null; unit_title: string | null }[]; reason: string };
+
 export interface DraftView {
   draft_id: string;
   kind: "new_unit" | "revision" | "gap_proposal";
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "merged" | "split";
   unit_id: string;
   title: string;
   body: string;
@@ -53,6 +58,9 @@ export interface DraftView {
   decided_role: string | null;
   comment: string | null;
   published_version: number | null;
+  suggestions: SuggestionView[];
+  merged_into: string | null;
+  split_into: string[];
 }
 
 export interface AuditView {
@@ -95,6 +103,21 @@ export interface SampleSource {
   text: string;
 }
 
+export interface AccessView {
+  roles: { role: string; label: string; knowledge_bases: string[] }[];
+  knowledge_bases: string[];
+}
+
+export interface InsightsView {
+  total: number;
+  from_log: number;
+  from_session: number;
+  outcomes: { outcome: string; count: number }[];
+  unanswered_rate: number;
+  top_gaps: { cluster_id: string; demand: number; example: string; drafted: boolean }[];
+  recent: { at: string; role: string; channel: string; query: string; outcome: string }[];
+}
+
 export interface AuthoringState {
   units: UnitRow[];
   queue: DraftView[];
@@ -102,11 +125,14 @@ export interface AuthoringState {
   gaps: GapCluster[];
   samples: SampleSource[];
   as_of: string;
+  access: AccessView;
+  insights: InsightsView;
 }
 
 export interface DecideRequest {
   draft_id: string;
-  action: "approve" | "reject";
+  action: "approve" | "reject" | "merge" | "split";
+  target_unit_id?: string | null;
   approver: { name: string; role: ApproverRole };
   body: string | null;
   reason: string | null;
@@ -117,4 +143,12 @@ export interface ActionResult {
   error: string | null;
   message: string | null;
   state: AuthoringState;
+}
+
+export interface AccessRequest {
+  role: string;
+  knowledge_base: string;
+  grant: boolean;
+  admin: string;
+  reason: string;
 }

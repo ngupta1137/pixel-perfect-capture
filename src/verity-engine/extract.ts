@@ -46,7 +46,18 @@ export interface CandidateUnit {
   };
   route_to: string;
   extractor: string;
+  suggestions: Suggestion[];
 }
+
+/**
+ * Reviewer suggestions (the brief's "AI recommends" row). Advisory only: a
+ * person accepts or ignores them in the review queue.
+ * - merge: a new candidate that probably restates an existing unit
+ * - split: one candidate that holds several separate facts
+ */
+export type Suggestion =
+  | { kind: 'merge'; unit_id: string; unit_title: string; overlap: number; reason: string }
+  | { kind: 'split'; parts: { text: string; unit_id: string | null; unit_title: string | null }[]; reason: string };
 
 export interface SkippedLine {
   text: string;
@@ -226,7 +237,7 @@ export function extract(text: string, approved: KnowledgeUnit[], previous?: Cand
     const prev = previous?.find((p) => p.source_section === r.section && p.verbatim === r.verbatim);
     const prevUnit = prev?.match.unit_id ? live.find((u) => u.unit_id === prev.match.unit_id) : undefined;
     if (prev && normalizeForHash(prev.body) === normalizeForHash(r.body)) {
-      return { ...prev, cid: `${docId}#${i + 1}`, match: { ...prev.match, status: 'unchanged', drift: null }, route_to: 'none' };
+      return { ...prev, cid: `${docId}#${i + 1}`, match: { ...prev.match, status: 'unchanged', drift: null }, route_to: 'none', suggestions: [] };
     }
     if (prev && prevUnit) {
       const drift = checkChange(prev.body, r.body, prevUnit.verbatim);
@@ -234,6 +245,7 @@ export function extract(text: string, approved: KnowledgeUnit[], previous?: Cand
         ...prev, cid: `${docId}#${i + 1}`, body: r.body, title: prev.title,
         match: { status: 'changed', unit_id: prevUnit.unit_id, unit_title: prevUnit.title, similarity: drift.similarity, drift },
         route_to: drift.route_to,
+        suggestions: [],
       };
     }
     let best: { u: KnowledgeUnit; sim: number } | null = null;
@@ -274,8 +286,68 @@ export function extract(text: string, approved: KnowledgeUnit[], previous?: Cand
       },
       route_to: route,
       extractor: EXTRACTOR_VERSION,
+      suggestions: [],
     };
   });
 
+  for (const c of candidates) c.suggestions = c.match.status === 'unchanged' ? [] : suggest(c, live);
   return { doc_id: docId, title, owner, effective_date: effective, candidates, skipped, lifecycle_notes: notes, extractor: EXTRACTOR_VERSION };
+}
+
+// Merge: overlap below the "changed" threshold but clearly the same topic,
+// counted on body words plus the unit's curated synonyms.
+export const MERGE_MIN_OVERLAP = 0.4; // below this, topic overlap was mostly shared vocabulary (e.g. "maintenance medications by mail")
+
+function topicWords(u: KnowledgeUnit): Set<string> {
+  return new Set([...contentWords(u.body), ...contentWords(u.title), ...u.synonyms.flatMap((x) => contentWords(x))]);
+}
+
+function clauses(body: string): string[] {
+  // Sentences first, then comma or semicolon lists inside a sentence.
+  const out: string[] = [];
+  for (const sentence of body.split(/(?<=[.!?])\s+(?=[A-Z"])/)) {
+    // A comma list that ends in "or"/"and" is one statement with options, not several facts.
+    const enumeration = /,\s+(or|and)\s+[^,]+$/.test(sentence.replace(/[.\s]+$/, ''));
+    const sep = enumeration ? /\s*;\s+/ : /\s*[;,]\s+(?![^()]*\))/;
+    const bits = sentence.split(sep).map((b) => b.replace(/[.\s]+$/, '').trim()).filter((b) => b.split(/\s+/).length >= 3);
+    if (bits.length >= 2) out.push(...bits);
+    else out.push(sentence.replace(/[.\s]+$/, '').trim());
+  }
+  return out.filter(Boolean);
+}
+
+function suggest(c: CandidateUnit, live: KnowledgeUnit[]): Suggestion[] {
+  const out: Suggestion[] = [];
+  if (c.verbatim) return out; // verbatim is never merged or split by suggestion: Legal decides wording as a whole
+  if (c.match.status === 'new') {
+    const words = new Set(contentWords(c.body + ' ' + c.title));
+    let best: { u: KnowledgeUnit; overlap: number } | null = null;
+    for (const u of live) {
+      if (u.verbatim || u.knowledge_base !== c.knowledge_base) continue;
+      const t = topicWords(u);
+      const inter = [...words].filter((w) => t.has(w)).length;
+      const overlap = Math.round((inter / Math.max(1, Math.min(words.size, t.size))) * 100) / 100;
+      if (inter >= 2 && (!best || overlap > best.overlap)) best = { u, overlap };
+    }
+    if (best && best.overlap >= MERGE_MIN_OVERLAP)
+      out.push({ kind: 'merge', unit_id: best.u.unit_id, unit_title: best.u.title, overlap: best.overlap, reason: `Covers the same topic as ${best.u.unit_id} (${Math.round(best.overlap * 100)}% topic overlap). Link this source to it instead of creating a second unit.` });
+  }
+  if (c.type === 'procedure') return out; // numbered steps stay together
+  const parts = clauses(c.body).map((text) => {
+        let hit: KnowledgeUnit | null = null;
+        let top = 0;
+        for (const u of live) {
+          if (u.verbatim) continue;
+          const sim = jaccard(u.body, text);
+          if (sim > top) { top = sim; hit = u; }
+        }
+        return top >= 0.5 && hit ? { text, unit_id: hit.unit_id, unit_title: hit.title } : { text, unit_id: null, unit_title: null };
+  });
+  // Suggest a split only when it clearly helps: a part already belongs to a
+  // different unit, or the candidate packs four or more statements.
+  const elsewhere = parts.some((p) => p.unit_id && p.unit_id !== c.match.unit_id);
+  if (parts.length >= 3 && (elsewhere || parts.length >= 4)) {
+    out.push({ kind: 'split', parts, reason: `Holds ${parts.length} separate statements${elsewhere ? ', and part of it is already its own unit' : ''}. One fact per unit keeps citations precise and lets each part change on its own.` });
+  }
+  return out;
 }

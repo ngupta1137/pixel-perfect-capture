@@ -34,7 +34,13 @@ export function getStore(): KnowledgeStore {
 
 export function resetStore(): void {
   store = null;
+  sessionLog.length = 0;
 }
+
+// Searches made in this server session, PHI already redacted by the engine.
+// Feeds the search insights view; reset with the demo.
+export interface SessionSearch { at: string; role: string; channel: string; query: string; outcomes: string[] }
+export const sessionLog: SessionSearch[] = [];
 
 const ROLES = new Set(['pharmacy_advocate', 'insurance_advocate', 'member_chat']);
 
@@ -48,6 +54,8 @@ export function serveEngine(req: SearchRequest): SearchResponse {
     input_mode: req.input_mode ?? 'typed',
     context: { lob: req.lob ?? null, state: req.state ?? null },
   });
+  sessionLog.push({ at: new Date().toISOString(), role: req.role, channel: req.channel, query: r.record.query_redacted, outcomes: r.parts.map((p) => p.outcome) });
+  if (sessionLog.length > 500) sessionLog.shift();
   return {
     request_id: r.record.request_id,
     outcome: r.outcome,

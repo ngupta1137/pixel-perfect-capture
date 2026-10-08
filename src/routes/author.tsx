@@ -1,15 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
-  AlertTriangle, CheckCircle2, FileText, History, Inbox, Lock, PlusCircle, RotateCcw, Search, ShieldCheck, XCircle,
+  AlertTriangle, BarChart3, CheckCircle2, FileText, GitMerge, History, Inbox, KeyRound, Lock, PlusCircle, RotateCcw, Scissors, Search, ShieldCheck, XCircle,
 } from "lucide-react";
+import { OUTCOME_META } from "@/components/ask/outcomeMeta";
+import type { Outcome } from "@/services/verity";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  decideFn, getAuthoring, ingestSourceFn, proposeFn, proposeGapFn, resetDemoFn,
+  accessFn, decideFn, getAuthoring, ingestSourceFn, proposeFn, proposeGapFn, resetDemoFn,
 } from "@/services/authoring.functions";
 import type {
-  ActionResult, ApproverRole, AuthoringState, CandidateView, DraftView, GapCluster, IngestView,
+  ActionResult, ApproverRole, AuthoringState, CandidateView, DraftView, GapCluster, IngestView, SuggestionView,
 } from "@/services/authoring";
 
 export const Route = createFileRoute("/author")({
@@ -136,6 +138,8 @@ function AuthorPage() {
               <TabsTrigger value="ingest"><FileText className="mr-1 h-4 w-4" />Ingest a source</TabsTrigger>
               <TabsTrigger value="queue"><Inbox className="mr-1 h-4 w-4" />Review queue{pending ? ` (${pending})` : ""}</TabsTrigger>
               <TabsTrigger value="gaps"><Search className="mr-1 h-4 w-4" />Gaps{state ? ` (${state.gaps.length})` : ""}</TabsTrigger>
+              <TabsTrigger value="insights"><BarChart3 className="mr-1 h-4 w-4" />Search insights</TabsTrigger>
+              <TabsTrigger value="access"><KeyRound className="mr-1 h-4 w-4" />Access</TabsTrigger>
               <TabsTrigger value="audit"><History className="mr-1 h-4 w-4" />Audit log</TabsTrigger>
             </TabsList>
             <TabsContent value="ingest">
@@ -146,6 +150,12 @@ function AuthorPage() {
             </TabsContent>
             <TabsContent value="gaps">
               <GapsPanel state={state} onResult={(r) => { apply(r); if (r.ok) setTab("queue"); }} />
+            </TabsContent>
+            <TabsContent value="insights">
+              <InsightsPanel state={state} onDraft={() => setTab("gaps")} />
+            </TabsContent>
+            <TabsContent value="access">
+              <AccessPanel state={state} onResult={apply} />
             </TabsContent>
             <TabsContent value="audit">
               <AuditPanel state={state} />
@@ -323,6 +333,7 @@ function CandidateCard({ c, checked, onToggle }: { c: CandidateView; checked: bo
             </div>
           )}
           {c.status === "new" && <RouteChip to={c.route_to} />}
+          <Suggestions items={c.suggestions} />
         </div>
       </div>
     </li>
@@ -350,11 +361,10 @@ function QueuePanel({ state, person, onResult }: { state: AuthoringState | null;
           <ul className="space-y-2">
             {done.map((d) => (
               <li key={d.draft_id} className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2 text-sm">
-                {d.status === "approved" ? (
-                  <span className="inline-flex items-center gap-1 font-semibold text-brand-green-dark"><CheckCircle2 className="h-4 w-4" />Approved</span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 font-semibold text-destructive"><XCircle className="h-4 w-4" />Rejected</span>
-                )}
+                {d.status === "approved" && <span className="inline-flex items-center gap-1 font-semibold text-brand-green-dark"><CheckCircle2 className="h-4 w-4" />Approved</span>}
+                {d.status === "rejected" && <span className="inline-flex items-center gap-1 font-semibold text-destructive"><XCircle className="h-4 w-4" />Rejected</span>}
+                {d.status === "merged" && <span className="inline-flex items-center gap-1 font-semibold text-ink"><GitMerge className="h-4 w-4" />Merged into {d.merged_into}</span>}
+                {d.status === "split" && <span className="inline-flex items-center gap-1 font-semibold text-ink"><Scissors className="h-4 w-4" />Split into {d.split_into.join(", ") || "existing units"}</span>}
                 <span className="whitespace-nowrap font-mono text-xs">{d.unit_id}</span>
                 <span>{d.title}</span>
                 <span className="text-ink-muted">by {d.decided_by}{d.published_version ? ` · published v${d.published_version}` : ""}{d.comment ? ` · ${d.comment}` : ""}</span>
@@ -374,13 +384,17 @@ function DraftCard({ d, person, onResult }: { d: DraftView; person: { name: stri
   const [busy, setBusy] = useState(false);
   const kind = d.kind === "revision" ? `Revision of ${d.unit_id}` : d.kind === "gap_proposal" ? `New unit from a gap (${d.unit_id})` : `New unit (${d.unit_id})`;
 
-  async function decide(action: "approve" | "reject") {
+  const merge = d.suggestions.find((x): x is Extract<SuggestionView, { kind: "merge" }> => x.kind === "merge");
+  const split = d.suggestions.find((x): x is Extract<SuggestionView, { kind: "split" }> => x.kind === "split");
+
+  async function decide(action: "approve" | "reject" | "merge" | "split") {
     setBusy(true);
     try {
       onResult(await decideFn({
         data: {
           draft_id: d.draft_id,
           action,
+          target_unit_id: action === "merge" && merge ? merge.unit_id : null,
           approver: { name: person.name, role: person.role },
           body: action === "approve" && editing ? body : null,
           reason: action === "reject" ? reason : null,
@@ -418,6 +432,7 @@ function DraftCard({ d, person, onResult }: { d: DraftView; person: { name: stri
       {editing && (
         <textarea aria-label="Edit before approving" className="h-24 w-full rounded-md border border-border p-2 text-sm" value={body} onChange={(e) => setBody(e.target.value)} />
       )}
+      <Suggestions items={d.suggestions} />
       <p className="text-xs text-ink-muted">Proposed by {d.proposed_by} · owner {d.owner} · {d.knowledge_base}</p>
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" disabled={busy} onClick={() => decide("approve")}>
@@ -426,6 +441,16 @@ function DraftCard({ d, person, onResult }: { d: DraftView; person: { name: stri
         <Button size="sm" variant="outline" disabled={busy} onClick={() => setEditing(!editing)}>
           {editing ? "Cancel edit" : "Edit"}
         </Button>
+        {merge && (
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => decide("merge")}>
+            <GitMerge className="h-4 w-4" /> Merge into {merge.unit_id}
+          </Button>
+        )}
+        {split && (
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => decide("split")}>
+            <Scissors className="h-4 w-4" /> Split
+          </Button>
+        )}
         <input
           aria-label="Reason for rejecting"
           className="min-w-48 flex-1 rounded-md border border-border px-2 py-1.5 text-sm"
@@ -533,5 +558,175 @@ function AuditPanel({ state }: { state: AuthoringState | null }) {
         ))}
       </tbody>
     </table>
+  );
+}
+
+function Suggestions({ items }: { items: SuggestionView[] }) {
+  if (!items.length) return null;
+  return (
+    <div className="space-y-1.5 rounded-md border border-dashed border-outcome-clarify p-2.5 text-sm">
+      {items.map((sg) =>
+        sg.kind === "merge" ? (
+          <p key="merge" className="flex items-start gap-1.5">
+            <GitMerge className="mt-0.5 h-4 w-4 shrink-0 text-outcome-clarify" />
+            <span><span className="font-semibold text-outcome-clarify">Suggestion: merge.</span> {sg.reason}</span>
+          </p>
+        ) : (
+          <div key="split">
+            <p className="flex items-start gap-1.5">
+              <Scissors className="mt-0.5 h-4 w-4 shrink-0 text-outcome-clarify" />
+              <span><span className="font-semibold text-outcome-clarify">Suggestion: split.</span> {sg.reason}</span>
+            </p>
+            <ol className="ml-6 mt-1 list-decimal text-ink-muted">
+              {sg.parts.map((p) => (
+                <li key={p.text}>
+                  {p.text}
+                  {p.unit_id && <span className="ml-1 whitespace-nowrap text-xs font-semibold text-brand-green-dark">already {p.unit_id}</span>}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ),
+      )}
+      <p className="text-xs text-ink-muted">Suggestions are advice. A reviewer accepts them in the queue; nothing changes on its own.</p>
+    </div>
+  );
+}
+
+const BAR_VAR: Record<string, string> = {
+  answer: "--outcome-answer", needs_clarification: "--outcome-clarify", insufficient_evidence: "--outcome-insufficient",
+  conflict: "--outcome-conflict", stale: "--outcome-stale", not_authorized: "--outcome-unauthorized", safety_escalation: "--outcome-safety",
+};
+
+function InsightsPanel({ state, onDraft }: { state: AuthoringState | null; onDraft: () => void }) {
+  const ins = state?.insights;
+  if (!ins) return <p className="text-sm text-ink-muted">Loading…</p>;
+  const max = Math.max(1, ...ins.outcomes.map((o) => o.count));
+  return (
+    <div className="space-y-5">
+      <p className="text-sm text-ink-muted">
+        {ins.total} searches: {ins.from_log} from the search log, {ins.from_session} from this session. Queries are stored after PHI redaction.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-border p-4">
+          <p className="text-3xl font-semibold text-outcome-insufficient">{Math.round(ins.unanswered_rate * 100)}%</p>
+          <p className="text-sm text-ink-muted">unanswered (insufficient evidence or needs clarification)</p>
+        </div>
+        <div className="rounded-lg border border-border p-4">
+          <p className="text-3xl font-semibold">{ins.top_gaps.reduce((n, g) => n + g.demand, 0)}</p>
+          <p className="text-sm text-ink-muted">questions in {ins.top_gaps.length} gap clusters waiting for an approved answer</p>
+        </div>
+      </div>
+      <div>
+        <h3 className="mb-2 text-sm font-semibold">Outcomes</h3>
+        <ul className="space-y-1.5">
+          {ins.outcomes.map((o) => {
+            const m = OUTCOME_META[o.outcome as Outcome];
+            const Icon = m?.icon ?? Search;
+            return (
+              <li key={o.outcome} className="grid grid-cols-[11rem_1fr_2.5rem] items-center gap-2 text-sm">
+                <span className={`inline-flex items-center gap-1.5 font-semibold ${m?.text ?? ""}`}><Icon className="h-4 w-4" aria-hidden="true" />{m?.label ?? o.outcome}</span>
+                <span className="h-3 rounded-sm bg-surface-alt"><span className="block h-3 rounded-sm" style={{ width: `${(o.count / max) * 100}%`, backgroundColor: `var(${BAR_VAR[o.outcome] ?? "--ink-muted"})` }} /></span>
+                <span className="text-right tabular-nums">{o.count}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      <div>
+        <h3 className="mb-2 text-sm font-semibold">Blind spots by demand</h3>
+        <ul className="space-y-1.5">
+          {ins.top_gaps.map((g) => (
+            <li key={g.cluster_id} className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="font-mono text-xs text-ink-muted">{g.cluster_id}</span>
+              <span className="font-semibold tabular-nums">{g.demand}×</span>
+              <span>&ldquo;{g.example}&rdquo;</span>
+              {g.drafted ? (
+                <span className="text-xs font-semibold text-brand-green-dark">draft in queue</span>
+              ) : (
+                <Button size="sm" variant="outline" className="h-7" onClick={onDraft}>Draft an answer</Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+      {ins.recent.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-sm font-semibold">Latest searches this session</h3>
+          <table className="w-full text-left text-sm">
+            <thead className="text-xs text-ink-muted"><tr><th className="py-1 pr-3">Time</th><th className="pr-3">Role</th><th className="pr-3">Query (redacted)</th><th>Outcome</th></tr></thead>
+            <tbody>
+              {ins.recent.map((r, i) => (
+                <tr key={`${r.at}-${i}`} className="border-t border-border">
+                  <td className="py-1.5 pr-3 tabular-nums">{r.at}</td>
+                  <td className="pr-3">{r.role.replace(/_/g, " ")}</td>
+                  <td className="pr-3">{r.query}</td>
+                  <td>{r.outcome.replace(/_/g, " ")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AccessPanel({ state, onResult }: { state: AuthoringState | null; onResult: (r: ActionResult) => void }) {
+  const [admin, setAdmin] = useState("Sam (Access admin)");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const acc = state?.access;
+  if (!acc) return <p className="text-sm text-ink-muted">Loading…</p>;
+  async function toggle(role: string, kb: string, grant: boolean) {
+    setBusy(true);
+    try {
+      onResult(await accessFn({ data: { role, knowledge_base: kb, grant, admin, reason } }));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-ink-muted">
+        Which knowledge bases each role can search. Human only: a named person and a reason, recorded in the audit log. It applies on the next search, because entitlement is enforced inside the search itself.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <input aria-label="Changed by" className="rounded-md border border-border px-2 py-1.5 text-sm" value={admin} onChange={(e) => setAdmin(e.target.value)} />
+        <input aria-label="Reason for the change" className="min-w-56 flex-1 rounded-md border border-border px-2 py-1.5 text-sm" placeholder="Reason (required)" value={reason} onChange={(e) => setReason(e.target.value)} />
+      </div>
+      <table className="w-full text-left text-sm">
+        <thead className="text-xs text-ink-muted">
+          <tr>
+            <th className="py-1 pr-3">Role</th>
+            {acc.knowledge_bases.map((kb) => <th key={kb} className="pr-3 font-mono">{kb}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {acc.roles.map((r) => (
+            <tr key={r.role} className="border-t border-border">
+              <td className="py-2 pr-3 font-semibold">{r.label}</td>
+              {acc.knowledge_bases.map((kb) => {
+                const has = r.knowledge_bases.includes(kb);
+                return (
+                  <td key={kb} className="pr-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      aria-label={`${has ? "Revoke" : "Grant"} ${kb} for ${r.label}`}
+                      className={has ? "border-brand-green text-brand-green-dark" : "text-ink-muted"}
+                      onClick={() => toggle(r.role, kb, !has)}
+                    >
+                      {has ? <><CheckCircle2 className="h-4 w-4" /> Access</> : <><Lock className="h-4 w-4" /> No access</>}
+                    </Button>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

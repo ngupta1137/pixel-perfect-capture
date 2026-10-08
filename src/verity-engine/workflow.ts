@@ -18,10 +18,10 @@
 import type { KnowledgeUnit } from './types.ts';
 import { Verity, type EngineData } from './pipeline.ts';
 import { wordDiff } from './drift.ts';
-import { extract, type CandidateUnit, type ExtractionResult } from './extract.ts';
+import { extract, type CandidateUnit, type ExtractionResult, type Suggestion } from './extract.ts';
 
 export type DraftKind = 'new_unit' | 'revision' | 'gap_proposal';
-export type DraftStatus = 'pending' | 'approved' | 'rejected';
+export type DraftStatus = 'pending' | 'approved' | 'rejected' | 'merged' | 'split';
 export type ApproverRole = 'legal' | 'author';
 
 export interface Draft {
@@ -42,12 +42,15 @@ export interface Draft {
   decided_at?: string;
   comment?: string;
   published_version?: number;
+  suggestions: Suggestion[];
+  merged_into?: string;
+  split_into?: string[];
 }
 
 export interface AuditEntry {
   at: string;
   actor: string;
-  action: 'proposed' | 'approved' | 'rejected' | 'published';
+  action: 'proposed' | 'approved' | 'rejected' | 'published' | 'merged' | 'split' | 'access_granted' | 'access_revoked';
   draft_id: string;
   unit_id: string;
   detail: string;
@@ -75,6 +78,8 @@ export class KnowledgeStore {
   private snapshots = new Map<string, CandidateUnit[]>();
 
   constructor(data: EngineData, sourceDocs: string[] = []) {
+    // Own copy of roles so access changes never touch the caller's data.
+    data = { ...data, roles: Object.fromEntries(Object.entries(data.roles).map(([k, r]) => [k, { ...r, knowledge_bases: [...r.knowledge_bases] }])) };
     this.data = data;
     this.live = data.units.map((u) => ({ ...u }));
     this.engineCache = new Verity({ ...data, units: this.live });
@@ -170,6 +175,7 @@ export class KnowledgeStore {
       reason,
       evidence: [`${c.source_doc} ${c.source_section}`, `extractor ${c.extractor}`],
       proposedBy,
+      suggestions: c.suggestions ?? [],
     }));
   }
 
@@ -201,7 +207,7 @@ export class KnowledgeStore {
     return this.propose({ kind: 'gap_proposal', unit, replaces: null, previous_body: null, reason: `Unanswered questions with demand: ${input.evidence.join(', ')}`, evidence: input.evidence, proposedBy });
   }
 
-  private propose(p: { kind: DraftKind; unit: KnowledgeUnit; replaces: string | null; previous_body: string | null; reason: string; evidence: string[]; proposedBy: string }): Draft {
+  private propose(p: { kind: DraftKind; unit: KnowledgeUnit; replaces: string | null; previous_body: string | null; reason: string; evidence: string[]; proposedBy: string; suggestions?: Suggestion[] }): Draft {
     const dup = this.drafts.find((d) => d.status === 'pending' && d.unit.unit_id === p.unit.unit_id && d.unit.body === p.unit.body);
     if (dup) return dup;
     const legal = p.unit.verbatim || p.unit.authority_level === 'legal_approved';
@@ -218,6 +224,7 @@ export class KnowledgeStore {
       evidence: p.evidence,
       proposed_by: p.proposedBy,
       proposed_at: this.now(),
+      suggestions: p.suggestions ?? [],
     };
     this.drafts.push(d);
     this.record(p.proposedBy, 'proposed', d, `${d.kind}, routed to ${d.route_to}`);
@@ -263,13 +270,87 @@ export class KnowledgeStore {
     if (edits?.body !== undefined && edits.body !== d.unit.body) d.comment = 'edited at approval';
     this.record(who.name, 'approved', d, edits?.body !== undefined ? 'approved with edits' : 'approved as proposed');
     this.record(who.name, 'published', d, `${published.unit_id} v${published.version}`);
-    const src = this.pendingSources.get(d.draft_id);
-    if (src) {
-      const snap = (this.snapshots.get(src.source_doc) ?? []).filter((x) => x.source_section !== src.source_section);
-      this.snapshots.set(src.source_doc, [...snap, { ...src, match: { ...src.match, status: 'unchanged', unit_id: published.unit_id, unit_title: published.title, drift: null } }]);
-    }
+    this.moveSnapshot(d.draft_id, published.unit_id, published.title);
     this.engineCache = new Verity({ ...this.data, units: this.live });
     return published;
+  }
+
+  /** Accept a merge suggestion: link the source passage to an existing unit; nothing new is published. */
+  merge(draftId: string, who: Approver, targetUnitId: string): Draft {
+    const d = this.drafts.find((x) => x.draft_id === draftId);
+    if (!d) throw new WorkflowError(`unknown draft ${draftId}`);
+    this.checkApprover(d, who);
+    if (d.kind === 'revision') throw new WorkflowError('A revision already belongs to its unit; approve or reject it');
+    const target = this.live.find((u) => u.unit_id === targetUnitId && u.status === 'approved');
+    if (!target) throw new WorkflowError(`${targetUnitId} is not an approved unit`);
+    if (target.verbatim && who.role !== 'legal') throw new WorkflowError(`${targetUnitId} is verbatim: only Legal can link sources to it`);
+    d.status = 'merged';
+    d.merged_into = target.unit_id;
+    d.decided_by = who.name;
+    d.decided_role = who.role;
+    d.decided_at = this.now();
+    this.moveSnapshot(d.draft_id, target.unit_id, target.title);
+    this.record(who.name, 'merged', d, `source linked to ${target.unit_id}; no new unit`);
+    return d;
+  }
+
+  /** Accept a split suggestion: one draft per statement that no approved unit covers yet. */
+  split(draftId: string, who: Approver): Draft[] {
+    const d = this.drafts.find((x) => x.draft_id === draftId);
+    if (!d) throw new WorkflowError(`unknown draft ${draftId}`);
+    this.checkApprover(d, who);
+    const sug = d.suggestions.find((x) => x.kind === 'split');
+    if (!sug || sug.kind !== 'split') throw new WorkflowError(`${draftId} has no split suggestion`);
+    const created: Draft[] = [];
+    sug.parts.forEach((part, i) => {
+      if (part.unit_id) return; // already its own approved unit
+      const text = part.text.charAt(0).toUpperCase() + part.text.slice(1).replace(/\.?$/, '.');
+      const unit: KnowledgeUnit = { ...d.unit, unit_id: this.nextId(d.unit.knowledge_base), title: `${d.unit.title} (${i + 1} of ${sug.parts.length})`, body: text, version: 0, status: 'in_review', supersedes: null };
+      created.push(this.propose({ kind: 'new_unit', unit, replaces: null, previous_body: null, reason: `Split from ${d.draft_id}: one statement of ${sug.parts.length}.`, evidence: d.evidence, proposedBy: `${who.name}, split of ${d.draft_id}` }));
+    });
+    d.status = 'split';
+    d.split_into = created.map((x) => x.draft_id);
+    d.decided_by = who.name;
+    d.decided_role = who.role;
+    d.decided_at = this.now();
+    const linked = sug.parts.filter((p) => p.unit_id).map((p) => p.unit_id);
+    this.record(who.name, 'split', d, `${created.length} new draft(s)${linked.length ? `; already covered by ${linked.join(', ')}` : ''}`);
+    return created;
+  }
+
+  private moveSnapshot(draftId: string, unitId: string, unitTitle: string) {
+    const src = this.pendingSources.get(draftId);
+    if (!src) return;
+    const snap = (this.snapshots.get(src.source_doc) ?? []).filter((x) => x.source_section !== src.source_section);
+    this.snapshots.set(src.source_doc, [...snap, { ...src, match: { ...src.match, status: 'unchanged', unit_id: unitId, unit_title: unitTitle, drift: null } }]);
+  }
+
+  /** Knowledge bases each role may search (entitlement), as the engine applies it now. */
+  access(): Record<string, { label: string; knowledge_bases: string[] }> {
+    return Object.fromEntries(Object.entries(this.data.roles).map(([k, r]) => [k, { label: r.label, knowledge_bases: [...r.knowledge_bases] }]));
+  }
+
+  knowledgeBases(): string[] {
+    return [...new Set(this.live.map((u) => u.knowledge_base))].sort();
+  }
+
+  /**
+   * Grant or revoke a role's access to a knowledge base. Human only, named,
+   * with a reason, audited; takes effect on the next search because
+   * entitlement is applied inside the search.
+   */
+  setAccess(role: string, kb: string, grant: boolean, who: { name: string }, reason: string): void {
+    if (!who.name?.trim()) throw new WorkflowError('A named person must change access');
+    if (/^(agent|model|system)\b/i.test(who.name)) throw new WorkflowError('AI agents and models cannot change access');
+    if (!reason?.trim()) throw new WorkflowError('An access change needs a reason');
+    const r = this.data.roles[role];
+    if (!r) throw new WorkflowError(`unknown role ${role}`);
+    if (!this.knowledgeBases().includes(kb)) throw new WorkflowError(`unknown knowledge base ${kb}`);
+    const has = r.knowledge_bases.includes(kb);
+    if (grant === has) throw new WorkflowError(`${role} ${grant ? 'already has' : 'does not have'} ${kb}`);
+    r.knowledge_bases = grant ? [...r.knowledge_bases, kb] : r.knowledge_bases.filter((x) => x !== kb);
+    this.audit.push({ at: this.now(), actor: who.name, action: grant ? 'access_granted' : 'access_revoked', draft_id: '-', unit_id: kb, detail: `${role}: ${reason}` });
+    this.engineCache = new Verity({ ...this.data, units: this.live });
   }
 
   reject(draftId: string, who: Approver, reason: string): Draft {
