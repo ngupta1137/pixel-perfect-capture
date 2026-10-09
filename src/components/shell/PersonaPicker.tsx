@@ -21,7 +21,7 @@ export function PersonaPicker() {
       <label htmlFor="persona" className="text-sm text-ink-muted">Signed in as</label>
       <select
         id="persona"
-        className="field-select"
+        className="field-select max-w-[250px] sm:max-w-[300px]"
         value={person.id}
         onChange={(e) => {
           const next = findPerson(e.target.value);
@@ -40,7 +40,7 @@ export function PersonaPicker() {
           </optgroup>
         ))}
       </select>
-      <ScopeChips kbs={person.kbs} />
+      
     </div>
   );
 }
