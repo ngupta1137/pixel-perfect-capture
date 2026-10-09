@@ -283,6 +283,21 @@ export function seedDemoState(): DemoState {
       unit("U-PH-207", "Days supply by mail (2027)", "Pharmacy Ops", false, "approved", [
         { version: 1, effective_date: "2027-01-01", approver: "Owen (Knowledge owner)", text: "Maintenance supply by mail is 84 days." },
       ]),
+      unit("U-SH-001", "Opening statement", "Compliance", true, "approved", [
+        { version: 1, effective_date: "2026-01-15", approver: "Rita (Legal)", text: "Thank you for calling. This call may be recorded for quality and training purposes." },
+      ]),
+      unit("U-SH-010", "Enrollment impact (fragment A)", "Compliance", true, "approved", [
+        { version: 1, effective_date: "2026-01-15", approver: "Rita (Legal)", text: "Your request will affect your plan enrollment." },
+      ]),
+      unit("U-SH-011", "Enrollment impact (fragment B)", "Compliance", true, "approved", [
+        { version: 1, effective_date: "2026-01-15", approver: "Rita (Legal)", text: "Your request will not affect your plan enrollment." },
+      ]),
+      unit("U-PH-204", "Mail order supply and delivery (2027 copy)", "Pharmacy Ops", false, "approved", [
+        { version: 1, effective_date: "2027-01-01", approver: "Owen (Knowledge owner)", text: "Maintenance supply by mail is 84 days, delivered in 6 to 9 business days." },
+      ]),
+      unit("U-PH-012", "Saturday mail delivery", "Pharmacy Ops", false, "stale", [
+        { version: 1, effective_date: "2025-09-30", approver: "Owen (Knowledge owner)", text: "Mail order packages can be delivered on Saturdays at no extra cost." },
+      ]),
       unit("U-PH-020", "Luminexa formulary tier", "Pharmacy Ops", false, "approved", [
         { version: 1, effective_date: "2026-01-15", approver: "Owen (Knowledge owner)", text: "Luminexa is a Tier 3 preferred brand drug." },
       ]),
@@ -302,5 +317,100 @@ export function seedDemoState(): DemoState {
       { id: "R-2", kind: "stale", unit_ids: ["U-PH-008"], owner: "Pharmacy Ops", status: "open" },
     ],
     feedback: [],
+    chainDrafts: [],
+    reverified: [],
   };
 }
+
+// ---------------------------------------------------------------------------
+// Authoring chain fixtures: the sample source and what extraction finds in it.
+import type { GateResult } from "./demoStore";
+
+export const AEP_SAMPLE = {
+  id: "SYN-AEP-2027",
+  title: "AEP contact-center script 2027",
+  text: [
+    "Thank you for calling. This call may be recorded for quality and training purposes.",
+    "The prices I give you today are estimates based on your current plan and might change. Your final cost will be confirmed once your prescription is processed.",
+    "Fragment A: Your request will affect your plan enrollment.",
+    "Fragment B: Your request will not affect your plan enrollment.",
+    "For plan year 2027, maintenance supply by mail is 84 days. Delivery takes 6 to 9 business days after the prescription is received.",
+    "Mail order packages can be delivered on Saturdays at no extra cost.",
+    "[Coaching note: smile while you read the opening.]",
+    "[Editor note: check with Legal before the October print run.]",
+  ].join("\n\n"),
+};
+
+export type CandidateStatus = "unchanged" | "changed_flagged" | "changed" | "new" | "skipped";
+export interface Candidate {
+  cid: string;
+  title: string;
+  text: string;
+  status: CandidateStatus;
+  match?: { unit_id: string; version: number; text: string; exact?: boolean };
+  duplicates?: { unit_id: string; title: string; similarity: number }[];
+  route?: "legal" | "owner";
+  owner_team?: string;
+  verbatim?: boolean;
+  tags?: string[];
+  banner?: string;
+  note?: string;
+  suggestion?: string;
+  skip_reason?: string;
+  target_unit_id?: string;
+  effective_date?: string;
+  gate?: GateResult;
+}
+
+const P003 = "The prices I share today are estimates based on your current plan and may change. Your final cost will be confirmed when your prescription is processed.";
+const LEGACY = "The prices I give you today are estimates based on your current plan and might change. Your final cost will be confirmed once your prescription is processed.";
+const DAYS_2027 = "Maintenance supply by mail is 84 days. Delivery takes 6 to 9 business days after the prescription is received.";
+
+export const AEP_CANDIDATES: Candidate[] = [
+  { cid: "C1", title: "Opening statement", text: "Thank you for calling. This call may be recorded for quality and training purposes.", status: "unchanged",
+    match: { unit_id: "U-SH-001", version: 1, text: "Thank you for calling. This call may be recorded for quality and training purposes.", exact: true }, verbatim: true, note: "Verbatim: exact match." },
+  { cid: "C2", title: "Pricing disclaimer (legacy wording)", text: LEGACY, status: "changed_flagged", verbatim: true,
+    match: { unit_id: "U-PH-003", version: 1, text: P003 }, duplicates: [{ unit_id: "U-PH-003", title: "Pricing disclaimer (Rx)", similarity: 0.67 }],
+    route: "legal", owner_team: "Legal", target_unit_id: "U-PH-003", effective_date: "2027-01-01",
+    banner: "Any change to verbatim is flagged. A model may raise priority but never clears a flag.",
+    gate: { checked: 27, blocking: [{ case: "golden-pricing-disclaimer-01: \"pricing disclaimer\"", was: P003, now: LEGACY }], blocked_reason: "Blocked: contradicts approved U-PH-003" } },
+  { cid: "C3", title: "Enrollment impact, fragment A", text: "Your request will affect your plan enrollment.", status: "unchanged", verbatim: true,
+    match: { unit_id: "U-SH-010", version: 1, text: "Your request will affect your plan enrollment.", exact: true },
+    banner: "Conflict note: two verbatim units disagree. Escalate.", suggestion: "Split: keep fragments A and B as separate units until Legal decides which applies." },
+  { cid: "C4", title: "Enrollment impact, fragment B", text: "Your request will not affect your plan enrollment.", status: "unchanged", verbatim: true,
+    match: { unit_id: "U-SH-011", version: 1, text: "Your request will not affect your plan enrollment.", exact: true },
+    banner: "Conflict note: two verbatim units disagree. Escalate." },
+  { cid: "C5", title: "Days supply by mail (2027)", text: DAYS_2027, status: "changed",
+    match: { unit_id: "U-PH-207", version: 1, text: "Maintenance supply by mail is 84 days." },
+    duplicates: [{ unit_id: "U-PH-204", title: "Mail order supply and delivery (2027 copy)", similarity: 0.81 }],
+    route: "owner", owner_team: "Pharmacy Ops", tags: ["plan_year: 2027"], target_unit_id: "U-PH-207", effective_date: "2027-01-01",
+    suggestion: "Merge: U-PH-204 says the same thing; retire it once this version is approved.",
+    gate: { checked: 27, blocking: [] } },
+  { cid: "C6", title: "Saturday mail delivery", text: "Mail order packages can be delivered on Saturdays at no extra cost.", status: "changed",
+    match: { unit_id: "U-PH-012", version: 1, text: "Mail order packages can be delivered on Saturdays at no extra cost." },
+    route: "owner", owner_team: "Pharmacy Ops", target_unit_id: "U-PH-012", effective_date: "2027-01-01",
+    note: "Stale: review expired 2026-09-30", gate: { checked: 27, blocking: [] } },
+  { cid: "C7", title: "Coaching note", text: "[Coaching note: smile while you read the opening.]", status: "skipped", skip_reason: "Coaching note for advocates, not member-facing knowledge." },
+  { cid: "C8", title: "Editor note", text: "[Editor note: check with Legal before the October print run.]", status: "skipped", skip_reason: "Editor note about the document, not knowledge." },
+];
+
+/** Things that must be true before the 2027 Annual Election Period. */
+export const AEP_READINESS = [
+  { label: "Delivery time 2027 approved (U-PH-206)", unit_id: "U-PH-206", min_version: 1 },
+  { label: "Opening statement checked (U-SH-001)", unit_id: "U-SH-001", min_version: 1 },
+  { label: "Days supply 2027 with delivery (U-PH-207 v2)", unit_id: "U-PH-207", min_version: 2 },
+  { label: "Saturday delivery re-verified (U-PH-012)", unit_id: "U-PH-012", reverify: true },
+  { label: "Enrollment fragments conflict resolved (U-SH-010 / U-SH-011)", unit_id: "U-SH-011", reverify: true },
+] as const;
+
+/** Review queue seed demand (searches in the last 30 days, synthetic). */
+export const REVIEW_DEMAND: Record<string, { demand: number; due: string }> = {
+  "U-PH-008": { demand: 41, due: "2026-10-12" },
+  "U-PH-012": { demand: 18, due: "2026-10-14" },
+  "U-PH-007": { demand: 63, due: "2026-10-10" },
+  "U-SH-011": { demand: 29, due: "2026-10-13" },
+  "U-PH-207": { demand: 52, due: "2026-10-15" },
+};
+export const CHANGE_NOTICES = [
+  { id: "CN-2027-04", title: "CMS: 2027 mail-order maximum days supply update", unit_id: "U-PH-207", due: "2026-10-15", demand: 0 },
+];
