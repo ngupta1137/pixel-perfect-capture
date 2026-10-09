@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { Check, Copy, Flag, Lock, ThumbsDown, ThumbsUp, MapPin, CalendarDays, BriefcaseBusiness } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Flag,
+  Lock,
+  ThumbsDown,
+  ThumbsUp,
+  MapPin,
+  CalendarDays,
+  BriefcaseBusiness,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -40,8 +50,14 @@ export function ContextBar({
   return (
     <div className="mt-4 grid gap-2 text-xs sm:grid-cols-3">
       <label className="flex min-w-0 items-center gap-2 rounded-md border border-border px-2.5 text-ink-muted">
-        <BriefcaseBusiness className="h-4 w-4 shrink-0" /> <span className="shrink-0 text-[11px]">Line of business</span>
-        <select aria-label="Line of business" className="h-9 min-w-0 flex-1 bg-surface text-xs text-ink outline-none focus-visible:ring-2 focus-visible:ring-ring" value={lob} onChange={(e) => setLob(e.target.value)}>
+        <BriefcaseBusiness className="h-4 w-4 shrink-0" />{" "}
+        <span className="shrink-0 text-[11px]">Line of business</span>
+        <select
+          aria-label="Line of business"
+          className="h-9 min-w-0 flex-1 bg-surface text-xs text-ink outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          value={lob}
+          onChange={(e) => setLob(e.target.value)}
+        >
           <option value="MAPD">MAPD</option>
           <option value="PDP">PDP</option>
         </select>
@@ -60,8 +76,15 @@ export function ContextBar({
           <option value="OH">OH</option>
         </select>
       </label>
-      <div className="flex min-w-0 items-center justify-between gap-1 rounded-md border border-border px-2 text-ink-muted" role="group" aria-label="Plan year">
-        <span className="flex items-center gap-2 text-[11px]"><CalendarDays className="h-4 w-4 shrink-0" />Plan year</span>
+      <div
+        className="flex min-w-0 items-center justify-between gap-1 rounded-md border border-border px-2 text-ink-muted"
+        role="group"
+        aria-label="Plan year"
+      >
+        <span className="flex items-center gap-2 text-[11px]">
+          <CalendarDays className="h-4 w-4 shrink-0" />
+          Plan year
+        </span>
         <div className="inline-flex shrink-0 gap-0.5">
           {["2026", "2027"].map((y) => (
             <Button
@@ -123,7 +146,9 @@ export function DisclosureStep({
 export function RequestIdChip({ id }: { id: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <Button variant="ghost" size="sm"
+    <Button
+      variant="ghost"
+      size="sm"
       type="button"
       title="Copy request id"
       onClick={async () => {
@@ -133,7 +158,8 @@ export function RequestIdChip({ id }: { id: string }) {
       }}
       className="inline-flex h-auto max-w-full items-center gap-1 px-2 py-1 font-mono text-[10px] text-ink-muted hover:text-ink"
     >
-      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />} <span className="truncate">{id}</span>
+      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}{" "}
+      <span className="truncate">{id}</span>
     </Button>
   );
 }

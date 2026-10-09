@@ -151,13 +151,27 @@ body {
   line-height: 1.2;
   color: var(--foreground);
 }
-.ask-search { box-shadow: var(--search-shadow); }
-.ask-suggestion { transition: border-color 150ms, background-color 150ms; }
-.ask-suggestion:hover { border-color: color-mix(in oklab, var(--primary) 40%, var(--border)); }
-.answer-focus { box-shadow: var(--workspace-shadow); }
+.ask-search {
+  box-shadow: var(--search-shadow);
+}
+.ask-suggestion {
+  transition:
+    border-color 150ms,
+    background-color 150ms;
+}
+.ask-suggestion:hover {
+  border-color: color-mix(in oklab, var(--primary) 40%, var(--border));
+}
+.answer-focus {
+  box-shadow: var(--workspace-shadow);
+}
 @media (max-width: 639px) {
-  .workspace-content .ask-intro h1 { font-size: 28px; }
-  .ask-workspace::before { inset-inline: -16px; }
+  .workspace-content .ask-intro h1 {
+    font-size: 28px;
+  }
+  .ask-workspace::before {
+    inset-inline: -16px;
+  }
 }
 .workspace-content table {
   border-collapse: collapse;

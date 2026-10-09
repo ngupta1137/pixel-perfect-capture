@@ -2,7 +2,23 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { RequirePage } from "@/components/shell/Denied";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { guide, useGuide } from "@/lib/guide";
-import { ArrowRight, Mic, Square, Phone, Search, Send, ChevronRight, FileText, Clock, Paperclip, Truck, CalendarDays, ShieldCheck, Stethoscope, CreditCard } from "lucide-react";
+import {
+  ArrowRight,
+  Mic,
+  Square,
+  Phone,
+  Search,
+  Send,
+  ChevronRight,
+  FileText,
+  Clock,
+  Paperclip,
+  Truck,
+  CalendarDays,
+  ShieldCheck,
+  Stethoscope,
+  CreditCard,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OutcomeCard } from "@/components/ask/OutcomeCard";
 import { TraceDrawer } from "@/components/ask/TraceDrawer";
@@ -61,9 +77,17 @@ export const Route = createFileRoute("/")({
 const EXAMPLES = [
   { query: "Rx pricing disclaimer", label: "Rx pricing disclaimer", icon: Paperclip },
   { query: "how long does mail order delivery take", label: "Mail order delivery", icon: Truck },
-  { query: "how many days supply can I get by mail", label: "How many days supply can I get by mail?", icon: CalendarDays },
+  {
+    query: "how many days supply can I get by mail",
+    label: "How many days supply can I get by mail?",
+    icon: CalendarDays,
+  },
   { query: "ID card replacement", label: "How do I get a replacement ID card?", icon: CreditCard },
-  { query: "is there a copay assistance program", label: "Is there a copay assistance program?", icon: ShieldCheck },
+  {
+    query: "is there a copay assistance program",
+    label: "Is there a copay assistance program?",
+    icon: ShieldCheck,
+  },
   { query: "closing statement", label: "Call closing statement", icon: Stethoscope },
 ];
 interface Answer {
@@ -93,7 +117,9 @@ export function AskPage() {
   const [handoff, setHandoff] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const storedRequests = useDemoStore((s) => s.requests);
-  const sessionHistory = storedRequests.filter((r) => r.person === persona.name).slice(0, showHistory ? 12 : 5);
+  const sessionHistory = storedRequests
+    .filter((r) => r.person === persona.name)
+    .slice(0, showHistory ? 12 : 5);
   useDemoStore((s) => s.units);
   const browse = scopedLibrary(listUnits(), persona).slice(0, 5);
   const scope = `${persona.id}:${channel}`;
@@ -273,8 +299,8 @@ export function AskPage() {
             <p className="mb-3 text-sm text-ink-muted">Welcome back, {persona.name}</p>
             <h1 className="font-semibold">Ask with confidence</h1>
             <p className="mt-3 max-w-xl text-base leading-relaxed text-ink-muted">
-              Get accurate, approved answers from trusted knowledge. Verity only uses
-              verified content and shows you the source.
+              Get accurate, approved answers from trusted knowledge. Verity only uses verified
+              content and shows you the source.
             </p>
           </div>
         )}
@@ -382,32 +408,62 @@ export function AskPage() {
         ) : (
           <>
             <div className="ask-search sticky top-3 z-20 rounded-lg border border-border bg-surface p-3 sm:p-4">
-              <form onSubmit={submit} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+              <form
+                onSubmit={submit}
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+              >
                 <div className="relative min-w-0">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-primary" />
-                  <label htmlFor="ask" className="sr-only">Ask Verity</label>
-                  <input id="ask" value={query} onChange={(event) => setQuery(event.target.value)}
+                  <label htmlFor="ask" className="sr-only">
+                    Ask Verity
+                  </label>
+                  <input
+                    id="ask"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
                     placeholder="Ask about member benefits, pharmacy, claims or policies…"
-                    className="h-12 w-full min-w-0 rounded-md border border-border bg-surface pl-10 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                    className="h-12 w-full min-w-0 rounded-md border border-border bg-surface pl-10 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {channel === "voice" && (
-                    <Button type="button" size="icon"
+                    <Button
+                      type="button"
+                      size="icon"
                       aria-label={voice.listening ? "Stop listening" : "Start voice input"}
                       title={voice.listening ? "Stop listening" : "Start voice input"}
-                      aria-pressed={voice.listening} disabled={!voice.supported || loading}
-                      onClick={() => voice.listening ? voice.stopListening() : voice.startListening(setQuery, (text) => { void run(text, persona, "voice"); })}
-                      className={`h-12 w-12 shrink-0 rounded-full ${voice.listening ? "bg-destructive text-destructive-foreground motion-safe:animate-pulse" : ""}`}>
+                      aria-pressed={voice.listening}
+                      disabled={!voice.supported || loading}
+                      onClick={() =>
+                        voice.listening
+                          ? voice.stopListening()
+                          : voice.startListening(setQuery, (text) => {
+                              void run(text, persona, "voice");
+                            })
+                      }
+                      className={`h-12 w-12 shrink-0 rounded-full ${voice.listening ? "bg-destructive text-destructive-foreground motion-safe:animate-pulse" : ""}`}
+                    >
                       {voice.listening ? <Square /> : <Mic />}
                     </Button>
                   )}
-                  <Button type="submit" className="h-12 px-4 sm:px-5" disabled={loading || voice.listening || !query.trim()}>
+                  <Button
+                    type="submit"
+                    className="h-12 px-4 sm:px-5"
+                    disabled={loading || voice.listening || !query.trim()}
+                  >
                     <Send /> <span className="hidden sm:inline">Ask</span>
                   </Button>
                 </div>
               </form>
-              <ContextBar lob={lob} setLob={setLob} state={state} setState={setState}
-                planYear={planYear} setPlanYear={setPlanYear} highlight={clarify} />
+              <ContextBar
+                lob={lob}
+                setLob={setLob}
+                state={state}
+                setState={setState}
+                planYear={planYear}
+                setPlanYear={setPlanYear}
+                highlight={clarify}
+              />
             </div>
           </>
         )}
@@ -470,7 +526,15 @@ export function AskPage() {
                 }
               />
             )}
-            {loading && <div role="status" className="flex items-center gap-3 border-l-2 border-primary px-5 py-6"><ShieldCheck className="h-5 w-5 text-primary" /><Shimmer>Checking approved knowledge...</Shimmer></div>}
+            {loading && (
+              <div
+                role="status"
+                className="flex items-center gap-3 border-l-2 border-primary px-5 py-6"
+              >
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                <Shimmer>Checking approved knowledge...</Shimmer>
+              </div>
+            )}
             {!loading && answer && renderAnswer(answer)}
             {!loading && answer && can("get_unit") && (
               <AnswerDetails res={answer.res} onCite={setOpenCite} />
@@ -490,17 +554,34 @@ export function AskPage() {
             <UnitDrawer citation={openCite} onClose={() => setOpenCite(null)} />
           </div>
         )}
-        <section className="mt-8" aria-label={answer && !isChat ? "Related questions" : "Suggested questions"}>
-          <h2 className="mb-4 text-sm font-semibold">{answer && !isChat ? "Related questions" : "Suggested questions"}</h2>
+        <section
+          className="mt-8"
+          aria-label={answer && !isChat ? "Related questions" : "Suggested questions"}
+        >
+          <h2 className="mb-4 text-sm font-semibold">
+            {answer && !isChat ? "Related questions" : "Suggested questions"}
+          </h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            {EXAMPLES.filter((ex) => !answer || ex.query !== lastQuery).slice(0, answer || isChat ? 4 : 6).map((ex) => (
-              <Button key={ex.query} type="button" variant="outline"
-                onClick={() => { setQuery(ex.query); void run(ex.query); }}
-                className="ask-suggestion h-auto min-h-[68px] justify-start gap-3 whitespace-normal bg-surface px-3 py-3 text-left text-[13px] font-normal shadow-none">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/6 text-primary"><ex.icon className="h-[18px] w-[18px]" /></span>
-                <span className="min-w-0 flex-1 leading-relaxed">{ex.label}</span><ChevronRight className="h-4 w-4 text-ink-muted" />
-              </Button>
-            ))}
+            {EXAMPLES.filter((ex) => !answer || ex.query !== lastQuery)
+              .slice(0, answer || isChat ? 4 : 6)
+              .map((ex) => (
+                <Button
+                  key={ex.query}
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setQuery(ex.query);
+                    void run(ex.query);
+                  }}
+                  className="ask-suggestion h-auto min-h-[68px] justify-start gap-3 whitespace-normal bg-surface px-3 py-3 text-left text-[13px] font-normal shadow-none"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/6 text-primary">
+                    <ex.icon className="h-[18px] w-[18px]" />
+                  </span>
+                  <span className="min-w-0 flex-1 leading-relaxed">{ex.label}</span>
+                  <ChevronRight className="h-4 w-4 text-ink-muted" />
+                </Button>
+              ))}
           </div>
         </section>
       </section>
@@ -509,31 +590,75 @@ export function AskPage() {
           <section className="rounded-lg border border-border bg-surface p-4">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-sm font-semibold">Recent searches</h2>
-              {storedRequests.some((r) => r.person === persona.name) && <Button variant="link" size="sm" className="h-auto p-0 text-[11px]" onClick={() => setShowHistory(!showHistory)}>{showHistory ? "Show less" : "View all"}<ArrowRight className="h-3 w-3" /></Button>}
+              {storedRequests.some((r) => r.person === persona.name) && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-[11px]"
+                  onClick={() => setShowHistory(!showHistory)}
+                >
+                  {showHistory ? "Show less" : "View all"}
+                  <ArrowRight className="h-3 w-3" />
+                </Button>
+              )}
             </div>
             {sessionHistory.length === 0 ? (
-              <div className="flex items-start gap-3 py-6 text-ink-muted"><Clock className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="text-sm">No recent searches</p><p className="mt-1 text-xs leading-relaxed">Your searches will appear here.</p></div></div>
+              <div className="flex items-start gap-3 py-6 text-ink-muted">
+                <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="text-sm">No recent searches</p>
+                  <p className="mt-1 text-xs leading-relaxed">Your searches will appear here.</p>
+                </div>
+              </div>
             ) : (
               <ul className="mt-3 divide-y divide-border">
                 {sessionHistory.map((item) => (
-                  <li key={item.id}><Button variant="ghost" onClick={() => { setQuery(item.query); void run(item.query); }}
-                    className="h-auto min-h-16 w-full justify-start gap-3 whitespace-normal rounded-none px-0 py-3 text-left">
-                    <Clock className="h-4 w-4 text-ink-muted" /><span className="min-w-0 flex-1 text-xs font-normal leading-relaxed">{item.query}</span><ChevronRight className="h-3.5 w-3.5 text-ink-muted" />
-                  </Button></li>
+                  <li key={item.id}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setQuery(item.query);
+                        void run(item.query);
+                      }}
+                      className="h-auto min-h-16 w-full justify-start gap-3 whitespace-normal rounded-none px-0 py-3 text-left"
+                    >
+                      <Clock className="h-4 w-4 text-ink-muted" />
+                      <span className="min-w-0 flex-1 text-xs font-normal leading-relaxed">
+                        {item.query}
+                      </span>
+                      <ChevronRight className="h-3.5 w-3.5 text-ink-muted" />
+                    </Button>
+                  </li>
                 ))}
               </ul>
             )}
           </section>
           {can("get_unit") && (
             <section className="rounded-lg border border-border bg-surface p-4">
-              <div className="flex items-center justify-between gap-2"><h2 className="text-sm font-semibold">Browse knowledge</h2><Button variant="link" size="sm" asChild className="h-auto p-0 text-[11px]"><Link to="/library">View all<ArrowRight className="h-3 w-3" /></Link></Button></div>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold">Browse knowledge</h2>
+                <Button variant="link" size="sm" asChild className="h-auto p-0 text-[11px]">
+                  <Link to="/library">
+                    View all
+                    <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </Button>
+              </div>
               <div className="mt-3 divide-y divide-border">
                 {browse.map((u) => (
-                  <Link key={u.unit_id} to="/library" className="flex min-h-12 items-center gap-3 py-3 text-xs text-ink-muted hover:text-primary">
-                    <FileText className="h-4 w-4 shrink-0" /><span className="min-w-0 flex-1 leading-relaxed">{u.title}</span><ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                  <Link
+                    key={u.unit_id}
+                    to="/library"
+                    className="flex min-h-12 items-center gap-3 py-3 text-xs text-ink-muted hover:text-primary"
+                  >
+                    <FileText className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 flex-1 leading-relaxed">{u.title}</span>
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0" />
                   </Link>
                 ))}
-                {!browse.length && <p className="py-4 text-xs text-ink-muted">No knowledge in your scope.</p>}
+                {!browse.length && (
+                  <p className="py-4 text-xs text-ink-muted">No knowledge in your scope.</p>
+                )}
               </div>
             </section>
           )}

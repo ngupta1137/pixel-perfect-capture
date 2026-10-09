@@ -179,8 +179,27 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
             <div className="flex min-w-0 items-center gap-2">
               <PersonaPicker />
-              {pathname === "/" && can("search") && <label className="hidden items-center gap-2 rounded-md border border-border px-2 sm:flex"><Headphones className="h-4 w-4 text-ink-muted" /><select aria-label="Channel" id="channel" className="h-10 max-w-[120px] bg-surface text-xs" value={channel} onChange={(e) => setChannel(e.target.value)}>{allowedChannels.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}</select></label>}
-              <span className="hidden lg:inline-flex"><GuideButton /></span>
+              {pathname === "/" && can("search") && (
+                <label className="hidden items-center gap-2 rounded-md border border-border px-2 sm:flex">
+                  <Headphones className="h-4 w-4 text-ink-muted" />
+                  <select
+                    aria-label="Channel"
+                    id="channel"
+                    className="h-10 max-w-[120px] bg-surface text-xs"
+                    value={channel}
+                    onChange={(e) => setChannel(e.target.value)}
+                  >
+                    {allowedChannels.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <span className="hidden lg:inline-flex">
+                <GuideButton />
+              </span>
             </div>
           </div>
           <div className="flex gap-2 overflow-x-auto border-t border-border px-4 py-2 md:hidden">
@@ -197,7 +216,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         <ActingAsBar />
-        <main className={`workspace-content mx-auto w-full max-w-[1440px] flex-1 px-4 py-7 lg:px-8 ${pathname === "/" ? "bg-surface" : ""}`}>
+        <main
+          className={`workspace-content mx-auto w-full max-w-[1440px] flex-1 px-4 py-7 lg:px-8 ${pathname === "/" ? "bg-surface" : ""}`}
+        >
           {can("search") && (
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <span className="flex items-center gap-2 text-xs text-ink-muted">

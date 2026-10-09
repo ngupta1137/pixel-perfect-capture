@@ -24,3 +24,4 @@
 - Workspace navigation groups and icons are presentation metadata; permissions and home routing remain derived through rights.ts — why: redesign must not introduce a second authorization policy.
 - The knowledge library reads existing service units and applies policy capability and knowledge-base scope before display — why: source browsing must preserve existing entitlement boundaries.
 - Public entry routes identify prototype limitations and never simulate authentication — why: this frontend redesign does not change authentication contracts.
+- Ask presentation keeps search and context together, with suggestions below results and history/knowledge in a separate rail; outcome cards share the same governed service response — why: visual redesign must not duplicate answer logic or change approval decisions.

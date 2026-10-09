@@ -199,7 +199,8 @@ function Body({
             {part.citations.map((c) => (
               <div key={c.unit_id} className="rounded-md border border-border p-4">
                 {onCite ? (
-                  <Button variant="link"
+                  <Button
+                    variant="link"
                     type="button"
                     onClick={() => onCite(c)}
                     aria-label={`Open unit ${c.unit_id}: ${c.title}`}
@@ -305,7 +306,16 @@ export function OutcomeCard({
     <article
       className={`bg-surface ${compact ? "border-l-2 border-primary/20 pl-4 py-3 text-lg [&_p.text-xl]:text-lg [&_p.text-2xl]:text-lg" : `answer-focus overflow-hidden rounded-lg border border-border border-t-[3px] ${meta.border} p-5 sm:p-6`} ${safety ? "border-2 border-outcome-safety" : ""}`}
     >
-      {!compact && <div className="mb-5 flex items-center gap-3"><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${meta.bg} ${meta.text}`}><StatusIcon className="h-5 w-5" /></span><h2 className="text-base font-semibold">{headings[part.outcome]}</h2></div>}
+      {!compact && (
+        <div className="mb-5 flex items-center gap-3">
+          <span
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${meta.bg} ${meta.text}`}
+          >
+            <StatusIcon className="h-5 w-5" />
+          </span>
+          <h2 className="text-base font-semibold">{headings[part.outcome]}</h2>
+        </div>
+      )}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
         <span className="flex flex-wrap items-center gap-2">
           <OutcomePill outcome={part.outcome} />
