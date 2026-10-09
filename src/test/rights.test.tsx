@@ -1,9 +1,9 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { QueryClient } from "@tanstack/react-query";
-import { RouterProvider, createMemoryHistory, createRouter } from "@tanstack/react-router";
+import { Outlet, RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import { describe, expect, it } from "vitest";
-import { routeTree } from "@/routeTree.gen";
-import { NAV_ITEMS, PEOPLE, canAny, homeRoute, navFor } from "@/lib/rights";
+import { RequireView } from "@/components/shell/Denied";
+import { SessionProvider } from "@/lib/session";
+import { NAV_ITEMS, routeCaps, PEOPLE, canAny, homeRoute, navFor } from "@/lib/rights";
 import { MemberReply } from "@/components/ask/MemberReply";
 import { mockSearch, toViewPart } from "@/services/mockData";
 
@@ -40,16 +40,26 @@ describe("rights-driven shell", () => {
 
   it("opening a route directly without the capability shows the Denied page", async () => {
     window.localStorage.setItem("verity:person", "priya");
+    const rootRoute = createRootRoute({
+      component: () => (
+        <SessionProvider>
+          <Outlet />
+        </SessionProvider>
+      ),
+    });
+    const legal = createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/legal",
+      component: () => <RequireView caps={routeCaps("/legal")}>Legal content</RequireView>,
+    });
     const router = createRouter({
-      routeTree,
-      context: { queryClient: new QueryClient() },
+      routeTree: rootRoute.addChildren([legal]),
       history: createMemoryHistory({ initialEntries: ["/legal"] }),
     });
     render(<RouterProvider router={router} />);
-    await waitFor(() => expect(document.body.textContent).not.toBe(""), { timeout: 3000 });
-    console.log("BODY", document.body.textContent?.slice(0, 600));
     await waitFor(() => expect(screen.getByText("This attempt is recorded in the audit log.")).toBeInTheDocument());
     expect(screen.getByText("approve_legal")).toBeInTheDocument();
+    expect(screen.queryByText("Legal content")).toBeNull();
   });
 });
 
