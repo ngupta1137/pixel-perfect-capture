@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Info, Play, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { callToolFn, getCallLog } from "@/services/agents.functions";
+import { useDemoStore } from "@/services/demoStore";
 import type { AgentTool, CallLogRow, ToolCallResult } from "@/services/agents";
 
 export const Route = createFileRoute("/agents")({
@@ -57,6 +58,16 @@ function AgentsPage() {
   const [log, setLog] = useState<CallLogRow[]>([]);
   const [busy, setBusy] = useState(false);
 
+  const searches = useDemoStore((st) => st.requests);
+  const rows: CallLogRow[] = [
+    ...log,
+    ...searches.map((q) => ({ at: q.at, iface: "REST", principal: q.person, role: q.context.role, tool: "search_knowledge", outcome: String(q.outcome) }) as CallLogRow),
+  ].sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  const connections = CONNECTIONS.map((c, i) => {
+    const principal = `agent-assist-${i + 1}`;
+    const last = rows.find((r) => r.role === c.role && r.iface === "MCP");
+    return { ...c, principal, last: last?.at ?? "—" };
+  });
   const refresh = () => getCallLog().then(setLog).catch(() => {});
   useEffect(() => { void refresh(); }, []);
 
@@ -81,6 +92,25 @@ function AgentsPage() {
             <p className="mt-2 text-sm text-ink-muted">{t.desc}</p>
           </div>
         ))}
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <h2 className="border-b border-border px-4 py-3 font-semibold">Connections</h2>
+        <table className="w-full text-left text-sm">
+          <thead className="bg-surface-alt text-ink-muted">
+            <tr>{["Principal", "Bound role", "Persona", "Last call"].map((h) => <th key={h} className="px-4 py-2">{h}</th>)}</tr>
+          </thead>
+          <tbody>
+            {connections.map((c) => (
+              <tr key={c.role} className="border-t border-border">
+                <td className="px-4 py-2 font-mono">{c.principal}</td>
+                <td className="px-4 py-2">{c.role}</td>
+                <td className="px-4 py-2">ai_agent</td>
+                <td className="px-4 py-2 font-mono">{c.last}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <div className="rounded-lg border border-border p-4">
@@ -149,7 +179,7 @@ function AgentsPage() {
 
       <div className="overflow-x-auto rounded-lg border border-border">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <h2 className="font-semibold">Call log (this session, live)</h2>
+          <h2 className="font-semibold">Call log (agent calls and every search in the demo)</h2>
           <Button size="sm" variant="outline" onClick={() => void refresh()}><RefreshCw className="h-4 w-4" /> Refresh</Button>
         </div>
         <table className="w-full text-left text-sm">
@@ -157,7 +187,7 @@ function AgentsPage() {
             <tr>{["Time", "Interface", "Principal", "Role", "Tool", "Outcome"].map((h) => <th key={h} className="px-4 py-2">{h}</th>)}</tr>
           </thead>
           <tbody>
-            {log.map((r, i) => (
+            {rows.map((r, i) => (
               <tr key={`${r.at}-${i}`} className="border-t border-border">
                 <td className="px-4 py-2 font-mono">{r.at}</td>
                 <td className="px-4 py-2">{r.iface}</td>
@@ -167,7 +197,7 @@ function AgentsPage() {
                 <td className={`px-4 py-2 font-semibold ${OUTCOME_CLS[r.outcome.split(",")[0]!.trim()] ?? ""}`}>{r.outcome.replace(/_/g, " ")}</td>
               </tr>
             ))}
-            {log.length === 0 && (
+            {rows.length === 0 && (
               <tr><td colSpan={6} className="px-4 py-4 text-ink-muted">No calls yet. Ask something on the Ask page, or call a tool above.</td></tr>
             )}
           </tbody>
@@ -175,7 +205,7 @@ function AgentsPage() {
       </div>
       <p className="flex items-start gap-2 rounded-md bg-surface-alt p-4 text-sm">
         <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-        The agent's role comes from its connection, never from a tool argument. PHI is redacted before anything is logged. The same tools are served to real MCP clients such as Claude Desktop by the Verity MCP server.
+        The agent's role comes from its connection, never from a tool argument. Agents read and propose, never decide. PHI is redacted before anything is logged. The same tools are served to real MCP clients such as Claude Desktop by the Verity MCP server.
       </p>
     </section>
   );

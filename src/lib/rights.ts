@@ -62,7 +62,9 @@ export const PAGES = [
   { to: "/agents", label: "Agents", views: ["agents"] },
   { to: "/access", label: "Access", views: ["author_access"] },
   { to: "/audit", label: "Audit", views: ["audit_replay", "author_audit"] },
+  { to: "/health", label: "Health", views: ["analytics"] },
   { to: "/rights", label: "Rights", views: ["rights"], public: true },
+  { to: "/platform", label: "Platform", views: [], public: true },
 ] as const satisfies readonly { to: string; label: string; views: readonly ViewKey[]; public?: boolean }[];
 
 export type PagePath = (typeof PAGES)[number]["to"];

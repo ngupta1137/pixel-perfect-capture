@@ -19,8 +19,8 @@ describe("rights from personas.json", () => {
     expect(homeRoute(p("rita"))).toBe("/legal");
     expect(navFor(p("rita")).map((n) => n.to)).not.toContain("/");
   });
-  it("Lee only reaches Rights", () => {
-    expect(navFor(p("lee")).map((n) => n.to)).toEqual(["/rights"]);
+  it("Lee reaches Health, Rights and Platform", () => {
+    expect(navFor(p("lee")).map((n) => n.to)).toEqual(["/health", "/rights", "/platform"]);
   });
   it("Evals needs view_evals", () => {
     expect(pageCaps("/evals")).toEqual(["view_evals"]);

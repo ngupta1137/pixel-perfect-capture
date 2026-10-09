@@ -15,6 +15,7 @@ import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as AuthorRouteImport } from './routes/author'
 import { Route as EvalsRouteImport } from './routes/evals'
+import { Route as HealthRouteImport } from './routes/health'
 import { Route as LegalRouteImport } from './routes/legal'
 import { Route as PlatformRouteImport } from './routes/platform'
 import { Route as ReviewRouteImport } from './routes/review'
@@ -50,6 +51,11 @@ const AuthorRoute = AuthorRouteImport.update({
 const EvalsRoute = EvalsRouteImport.update({
   id: '/evals',
   path: '/evals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HealthRoute = HealthRouteImport.update({
+  id: '/health',
+  path: '/health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LegalRoute = LegalRouteImport.update({
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/audit': typeof AuditRoute
   '/author': typeof AuthorRoute
   '/evals': typeof EvalsRoute
+  '/health': typeof HealthRoute
   '/legal': typeof LegalRoute
   '/platform': typeof PlatformRoute
   '/review': typeof ReviewRoute
@@ -104,6 +111,7 @@ export interface FileRoutesByTo {
   '/audit': typeof AuditRoute
   '/author': typeof AuthorRoute
   '/evals': typeof EvalsRoute
+  '/health': typeof HealthRoute
   '/legal': typeof LegalRoute
   '/platform': typeof PlatformRoute
   '/review': typeof ReviewRoute
@@ -119,6 +127,7 @@ export interface FileRoutesById {
   '/audit': typeof AuditRoute
   '/author': typeof AuthorRoute
   '/evals': typeof EvalsRoute
+  '/health': typeof HealthRoute
   '/legal': typeof LegalRoute
   '/platform': typeof PlatformRoute
   '/review': typeof ReviewRoute
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/author'
     | '/evals'
+    | '/health'
     | '/legal'
     | '/platform'
     | '/review'
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/author'
     | '/evals'
+    | '/health'
     | '/legal'
     | '/platform'
     | '/review'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/author'
     | '/evals'
+    | '/health'
     | '/legal'
     | '/platform'
     | '/review'
@@ -178,6 +190,7 @@ export interface RootRouteChildren {
   AuditRoute: typeof AuditRoute
   AuthorRoute: typeof AuthorRoute
   EvalsRoute: typeof EvalsRoute
+  HealthRoute: typeof HealthRoute
   LegalRoute: typeof LegalRoute
   PlatformRoute: typeof PlatformRoute
   ReviewRoute: typeof ReviewRoute
@@ -228,6 +241,13 @@ declare module '@tanstack/react-router' {
       path: '/evals'
       fullPath: '/evals'
       preLoaderRoute: typeof EvalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/health': {
+      id: '/health'
+      path: '/health'
+      fullPath: '/health'
+      preLoaderRoute: typeof HealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/legal': {
@@ -282,6 +302,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuditRoute: AuditRoute,
   AuthorRoute: AuthorRoute,
   EvalsRoute: EvalsRoute,
+  HealthRoute: HealthRoute,
   LegalRoute: LegalRoute,
   PlatformRoute: PlatformRoute,
   ReviewRoute: ReviewRoute,
