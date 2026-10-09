@@ -48,6 +48,7 @@ export function PersonaPicker() {
           </optgroup>
         ))}
       </select>
+      <span className="hidden max-w-40 lg:inline"><ScopeChips kbs={person.kbs} /></span>
     </div>
   );
 }
