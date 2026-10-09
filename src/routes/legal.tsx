@@ -35,7 +35,7 @@ function LegalPage() {
   const decided = drafts.filter((d) => d.status === "approved" || d.status === "rejected");
   return (
     <section>
-      <h1 className="text-2xl font-semibold">Legal queue</h1>
+      <h1 className="text-2xl font-semibold">Approval workspace</h1><p className="mt-2 text-sm text-ink-muted">Compare proposed wording, check impact, and record a human decision.</p>
       <Tabs defaultValue="decide" className="mt-4">
         <TabsList>
           <TabsTrigger value="decide">To decide ({open.length})</TabsTrigger>
@@ -49,7 +49,8 @@ function LegalPage() {
         <TabsContent value="vault">
           <ul className="mt-4 space-y-3">
             {units.filter((u) => u.verbatim).map((u) => {
-              const v = u.versions[u.versions.length - 1]!;
+              const v = u.versions.at(-1);
+              if (!v) return null;
               return (
                 <li key={u.unit_id} className="rounded-lg border border-border bg-background p-4 text-sm">
                   <p className="flex items-center gap-1.5 font-semibold"><Lock className="h-3.5 w-3.5" aria-hidden /> {u.title} <span className="font-mono text-xs text-ink-muted">{u.unit_id} v{v.version}</span></p>
@@ -96,11 +97,11 @@ function DraftCard({ d }: { d: ChainDraft }) {
         <span className="text-xs text-ink-muted">Proposed by {d.proposed_by} · effective {d.effective_date}</span>
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <div className="rounded-md border border-border p-3 text-sm">
+        <div className="border-l-2 border-border bg-surface-alt p-4 text-sm">
           <p className="mb-1 text-xs font-bold uppercase text-ink-muted">Current approved</p>
           <p>{d.current_text ?? "None (new unit)"}</p>
         </div>
-        <div className="rounded-md border border-border p-3 text-sm">
+        <div className="border-l-2 border-border bg-surface-alt p-4 text-sm">
           <p className="mb-1 text-xs font-bold uppercase text-ink-muted">Proposed</p>
           {editing ? (
             <>

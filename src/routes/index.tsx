@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { RequirePage } from "@/components/shell/Denied";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { guide, useGuide } from "@/lib/guide";
-import { ArrowRight, Mic, Square, Search, BookOpen, History, ShieldCheck, Phone, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Mic, Square, BookOpen, History, ShieldCheck, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OutcomeCard } from "@/components/ask/OutcomeCard";
 import { TraceDrawer } from "@/components/ask/TraceDrawer";
@@ -20,7 +20,7 @@ import {
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { PEOPLE, useSession } from "@/lib/session";
+import { useSession } from "@/lib/session";
 import { useBrowserVoice } from "@/hooks/use-browser-voice";
 import { ChannelCompare } from "@/components/ask/ChannelCompare";
 import { ContextBar, DisclosureStep, FeedbackRow, RequestIdChip, UnitDrawer } from "@/components/ask/AdvocateExtras";
@@ -56,13 +56,6 @@ const EXAMPLES = [
   "is there a shipping fee for mail order",
   "I have chest pain, can you rush my heart pills",
 ];
-interface HistoryItem {
-  id: string;
-  query: string;
-  personaId: string;
-  personaName: string;
-  outcome: Outcome;
-}
 interface Answer {
   res: SearchResponse;
   channel: string;
@@ -75,7 +68,7 @@ interface ChatTurn {
 }
 
 export function AskPage() {
-  const { persona, channel, setPersona, can } = useSession();
+  const { persona, channel, can } = useSession();
   const [query, setQuery] = useState("");
   const [lob, setLob] = useState("MAPD");
   const [state, setState] = useState("");
@@ -84,7 +77,6 @@ export function AskPage() {
   const [loading, setLoading] = useState(false);
   const [lastQuery, setLastQuery] = useState("");
   const [answer, setAnswer] = useState<Answer | null>(null);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [error, setError] = useState("");
   const [textSize, setTextSize] = useState(0);
@@ -143,18 +135,6 @@ export function AskPage() {
         setTurns((items) =>
           items.map((turn) => (turn.id === id ? { ...turn, answer: next } : turn)),
         );
-      setHistory((items) =>
-        [
-          {
-            id: res.request_id,
-            query: q,
-            personaId: p.id,
-            personaName: p.name,
-            outcome: res.outcome,
-          },
-          ...items,
-        ].slice(0, 8),
-      );
       if (requestChannel === "voice")
         voice.read(res.parts.map((part) => ({ key: `${res.request_id}:${part.part}`, part })));
       return res;
@@ -200,13 +180,15 @@ export function AskPage() {
     void run(command.query, persona, "typed", ctx).then((res) => {
       if (!res) return;
       if (command.record) guide.record(command.record, res.request_id);
-      if (command.thenPlanYear) setTimeout(() => setPlanYear(command.thenPlanYear!), 1200);
+      const nextYear = command.thenPlanYear;
+      if (nextYear) setTimeout(() => setPlanYear(nextYear), 1200);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [command, persona.id]);
   const choose = (c: Choice) => {
     if (c.set.plan_year !== undefined) setPlanYear(c.set.plan_year);
     if (c.set.state !== undefined) setState(c.set.state);
+    if (isChat && lastQuery) void run(lastQuery, persona, "typed", { lob, state: c.set.state ?? state, planYear: c.set.plan_year ?? planYear });
   };
   const disclosure = isChat ? null : getReadBeforeBenefits(persona.role);
   const readDone = useDemoStore((s) =>
@@ -234,7 +216,7 @@ export function AskPage() {
             onRead={() => voice.read([{ key, part }])}
             onStop={voice.stopReading}
             onCite={compact ? undefined : setOpenCite}
-            onChoose={compact ? undefined : choose}
+            onChoose={choose}
             held={
               !compact && !!disclosure && !readDone && part.outcome === "answer" &&
               !part.citations.some((c) => c.verbatim)
@@ -365,7 +347,7 @@ export function AskPage() {
           </>
         )}
 
-        {channel === "voice" && (
+        {(channel === "voice" || isChat) && (
           <div role="status" className="mt-3 text-sm text-ink-muted">
             {!voice.supported && <p>Voice input needs Chrome</p>}
             {voice.listening && <p className="font-semibold text-outcome-safety">Listening...</p>}

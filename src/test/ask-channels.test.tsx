@@ -7,6 +7,8 @@ import { mockSearch } from "@/services/mockData";
 import { DemoStoreProvider } from "@/services/demoStore";
 import type { BrowserRecognition } from "@/lib/browser-speech";
 
+vi.mock("@tanstack/react-router", async (orig) => ({ ...(await orig<typeof import("@tanstack/react-router")>()), Link: ({ children }: { children: React.ReactNode }) => <span>{children}</span> }));
+
 vi.mock("@/services/verity", async (orig) => ({ ...(await orig<typeof import("@/services/verity")>()), searchAs: vi.fn(async (_person: string, request) => mockSearch(request)) }));
 afterEach(() => {
   vi.unstubAllGlobals();

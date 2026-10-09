@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { AlertTriangle, FileText, Info } from "lucide-react";
+import { AlertTriangle, FileText, Info, Upload, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,7 +41,7 @@ function WorkPage() {
   const [tab, setTab] = useState("sources");
   return (
     <section>
-      <h1 className="text-2xl font-semibold">My work</h1>
+      <h1 className="text-2xl font-semibold">Ingestion & drafts</h1><p className="mt-2 text-sm text-ink-muted">Turn source material into governed knowledge. Publication requires human approval.</p>
       <Tabs value={tab} onValueChange={setTab} className="mt-4">
         <TabsList>
           <TabsTrigger value="sources">Sources</TabsTrigger>
@@ -63,21 +63,26 @@ function Sources({ onProposed }: { onProposed: () => void }) {
   const [source, setSource] = useState<"sample" | "paste">("sample");
   const [pasted, setPasted] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [cands, setCands] = useState<Candidate[] | null>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const extract = async () => {
     setBusy(true);
-    const c = await extractCandidates(person.name, source === "sample" ? AEP_SAMPLE.text : pasted);
-    setCands(c);
-    setSel(new Set(c.filter(canPropose).map((x) => x.cid)));
-    setBusy(false);
+    setError("");
+    try {
+      const c = await extractCandidates(person.name, source === "sample" ? AEP_SAMPLE.text : pasted);
+      setCands(c);
+      setSel(new Set(c.filter(canPropose).map((x) => x.cid)));
+    } catch { setError("Extraction could not finish. Please try again."); } finally { setBusy(false); }
   };
   const toggle = (cid: string) => setSel((s) => { const n = new Set(s); if (n.has(cid)) n.delete(cid); else n.add(cid); return n; });
   return (
-    <div className="mt-4 space-y-4">
+    <div className="mt-6 space-y-5">
+      <ol className="flex flex-wrap gap-5 border-b border-border pb-4 text-sm">{["Source document", "Review candidates", "Submit for review"].map((step, i) => <li key={step} className={`flex items-center gap-2 ${!cands && i === 0 || cands && i === 1 ? "font-semibold text-primary" : "text-ink-muted"}`}><span className="flex h-6 w-6 items-center justify-center rounded-full border border-current text-xs">{i + 1}</span>{step}{i < 2 && <ArrowRight className="ml-2 h-3 w-3" />}</li>)}</ol>
       <div className="flex flex-wrap gap-2">
         <Button variant={source === "sample" ? "default" : "outline"} onClick={() => setSource("sample")}><FileText className="h-4 w-4" /> {AEP_SAMPLE.title} ({AEP_SAMPLE.id})</Button>
         <Button variant={source === "paste" ? "default" : "outline"} onClick={() => setSource("paste")}>Paste text</Button>
+        <Button variant="outline" asChild><label className="cursor-pointer"><Upload />Import text file<input type="file" accept=".txt,.md" className="sr-only" onChange={async e => { const file = e.target.files?.[0]; if (!file) return; setSource("paste"); setPasted(await file.text()); }} /></label></Button>
       </div>
       {source === "sample" ? (
         <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface-alt p-3 text-sm">{AEP_SAMPLE.text}</pre>
@@ -86,9 +91,11 @@ function Sources({ onProposed }: { onProposed: () => void }) {
       )}
       <Button onClick={extract} disabled={busy || (source === "paste" && !pasted.trim())}>{busy ? "Extracting…" : "Extract"}</Button>
 
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      <p className="text-xs text-ink-muted">Text and Markdown import supported. PDF and Word extraction are not connected.</p>
       {cands && (
         <>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-md border border-border bg-surface"><table className="w-full text-sm">
             <thead className="text-left text-ink-muted">
               <tr className="border-b border-border"><th className="w-8 py-2" /><th>Candidate</th><th>Status</th><th>Matches</th><th>Route</th></tr>
             </thead>
@@ -118,7 +125,7 @@ function Sources({ onProposed }: { onProposed: () => void }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           <div className="flex flex-wrap items-center gap-3">
             <Button disabled={sel.size === 0} onClick={() => { proposeCandidates(person.name, cands.filter((c) => sel.has(c.cid))); setCands(null); onProposed(); }}>
               Propose selected ({sel.size})
@@ -153,7 +160,7 @@ function Gaps() {
   const reqs = useDemoStore((s) => s.requests);
   const gaps = [...new Set(reqs.filter((r) => r.outcome === "insufficient_evidence").map((r) => r.query))];
   if (!gaps.length) return <p className="mt-4 text-sm text-ink-muted">No gaps logged in this demo session yet.</p>;
-  return <ul className="mt-4 list-disc pl-5 text-sm">{gaps.map((g) => <li key={g}>“{g}”</li>)}</ul>;
+  return <div className="mt-5 overflow-x-auto rounded-md border border-border bg-surface"><table><thead><tr><th>Unanswered question</th><th>Session demand</th><th>Status</th></tr></thead><tbody>{gaps.map(g => <tr key={g} className="border-t border-border"><td>{g}</td><td>{reqs.filter(r => r.query === g).length}</td><td><Chip tone="warn">Needs knowledge</Chip></td></tr>)}</tbody></table></div>;
 }
 
 function Insights() {
@@ -162,5 +169,5 @@ function Insights() {
   reqs.forEach((r) => counts.set(r.query.toLowerCase(), (counts.get(r.query.toLowerCase()) ?? 0) + 1));
   const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
   if (!top.length) return <p className="mt-4 text-sm text-ink-muted">No questions asked in this demo session yet.</p>;
-  return <ul className="mt-4 space-y-1 text-sm">{top.map(([q, n]) => <li key={q}>{n} × “{q}”</li>)}</ul>;
+  return <div className="mt-5 overflow-x-auto rounded-md border border-border bg-surface"><table><thead><tr><th>Question</th><th>Requests this session</th></tr></thead><tbody>{top.map(([q, n]) => <tr key={q} className="border-t border-border"><td>{q}</td><td>{n}</td></tr>)}</tbody></table></div>;
 }

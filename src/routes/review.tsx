@@ -36,7 +36,7 @@ function ReviewPage() {
   const pct = Math.round((ready.done / ready.total) * 100);
   return (
     <section className="space-y-6">
-      <h1 className="text-2xl font-semibold">Needs my review</h1>
+      <div><h1 className="text-2xl font-semibold">Review workspace</h1><p className="mt-2 text-sm text-ink-muted">Prioritize stale, conflicting, and flagged knowledge by demand.</p></div>
       <div className="rounded-lg border border-border bg-background p-4">
         <p className="font-semibold">AEP 2027 readiness: {ready.done} of {ready.total} ({pct}%)</p>
         <Progress value={pct} className="mt-2" aria-label="AEP readiness" />
@@ -49,7 +49,7 @@ function ReviewPage() {
           ))}
         </ul>
       </div>
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-md border border-border bg-surface"><table className="w-full text-sm">
         <thead className="text-left text-ink-muted">
           <tr className="border-b border-border"><th className="py-2">#</th><th>Kind</th><th>Item</th><th>Demand</th><th>Due</th><th>Verifier</th><th /></tr>
         </thead>
@@ -64,13 +64,13 @@ function ReviewPage() {
               <td>{it.verifier}</td>
               <td className="py-2 text-right">
                 {it.done ? <span className="text-xs">Re-verified</span> : it.unit_id ? (
-                  <Button size="sm" variant="outline" disabled={!can("reverify_unit")} onClick={() => reverifyUnit(person.name, it.unit_id!)}>Re-verify</Button>
+                  <Button size="sm" variant="outline" disabled={!can("reverify_unit")} onClick={() => { if (it.unit_id) reverifyUnit(person.name, it.unit_id); }}>Re-verify</Button>
                 ) : <span className="text-xs">Needs a new unit</span>}
               </td>
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </section>
   );
 }
