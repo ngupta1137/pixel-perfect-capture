@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Copy, Flag, Lock, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Check, Copy, Flag, Lock, ThumbsDown, ThumbsUp, MapPin, CalendarDays, BriefcaseBusiness } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -38,18 +38,19 @@ export function ContextBar({
   highlight: boolean;
 }) {
   return (
-    <div className="sticky top-0 z-20 -mx-2 mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-surface-alt px-2 py-3 text-sm">
-      <label className="flex items-center gap-2 text-ink-muted">
-        Line of business
-        <select className="field-select" value={lob} onChange={(e) => setLob(e.target.value)}>
+    <div className="mt-4 grid gap-2 text-xs sm:grid-cols-3">
+      <label className="flex min-w-0 items-center gap-2 rounded-md border border-border px-2.5 text-ink-muted">
+        <BriefcaseBusiness className="h-4 w-4 shrink-0" /> <span className="shrink-0 text-[11px]">Line of business</span>
+        <select aria-label="Line of business" className="h-9 min-w-0 flex-1 bg-surface text-xs text-ink outline-none focus-visible:ring-2 focus-visible:ring-ring" value={lob} onChange={(e) => setLob(e.target.value)}>
           <option value="MAPD">MAPD</option>
           <option value="PDP">PDP</option>
         </select>
       </label>
-      <label className="flex items-center gap-2 text-ink-muted">
-        State
+      <label className="flex min-w-0 items-center gap-2 rounded-md border border-border px-2.5 text-ink-muted">
+        <MapPin className="h-4 w-4 shrink-0" /> <span className="text-[11px]">State</span>
         <select
-          className={`field-select ${highlight ? "border-outcome-clarify ring-2 ring-outcome-clarify" : ""}`}
+          aria-label="State"
+          className={`h-9 min-w-0 flex-1 bg-surface text-xs text-ink outline-none focus-visible:ring-2 focus-visible:ring-ring ${highlight ? "ring-2 ring-outcome-clarify" : ""}`}
           value={state}
           onChange={(e) => setState(e.target.value)}
         >
@@ -59,9 +60,9 @@ export function ContextBar({
           <option value="OH">OH</option>
         </select>
       </label>
-      <div className="flex items-center gap-2 text-ink-muted" role="group" aria-label="Plan year">
-        Plan year
-        <div className="inline-flex overflow-hidden rounded-md border border-border">
+      <div className="flex min-w-0 items-center justify-between gap-1 rounded-md border border-border px-2 text-ink-muted" role="group" aria-label="Plan year">
+        <span className="flex items-center gap-2 text-[11px]"><CalendarDays className="h-4 w-4 shrink-0" />Plan year</span>
+        <div className="inline-flex shrink-0 gap-0.5">
           {["2026", "2027"].map((y) => (
             <Button
               variant="ghost"
@@ -70,7 +71,7 @@ export function ContextBar({
               type="button"
               aria-pressed={planYear === y}
               onClick={() => setPlanYear(planYear === y ? "" : y)}
-              className={`px-3 py-1 font-semibold ${planYear === y ? "bg-primary text-primary-foreground" : "bg-surface text-ink"}`}
+              className={`h-7 px-2 text-[11px] font-semibold ${planYear === y ? "bg-primary/8 text-primary" : "bg-surface text-ink-muted"}`}
             >
               {y}
             </Button>
@@ -78,10 +79,7 @@ export function ContextBar({
         </div>
         {!planYear && <span className="text-xs text-outcome-clarify">Unknown</span>}
       </div>
-      <span className="rounded-full border border-border bg-surface-alt px-2 py-0.5 text-xs font-semibold text-ink">
-        AEP opens Oct 15
-      </span>
-      <span className="text-xs text-ink-muted">Answers apply to this context</span>
+      <span className="sr-only">AEP opens Oct 15. Answers apply to this context</span>
     </div>
   );
 }
@@ -98,7 +96,7 @@ export function DisclosureStep({
   onDone: () => void;
 }) {
   return (
-    <section className="mb-4 border-l-[3px] border-brand-green-dark bg-surface px-5 py-4">
+    <section className="disclosure-step mb-4 rounded-md border-l-[3px] border-brand-green-dark bg-primary/4 px-5 py-4">
       <p className="text-sm font-bold text-brand-green-dark">
         Step 1 · Read before discussing benefits
       </p>
@@ -125,7 +123,7 @@ export function DisclosureStep({
 export function RequestIdChip({ id }: { id: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <button
+    <Button variant="ghost" size="sm"
       type="button"
       title="Copy request id"
       onClick={async () => {
@@ -133,10 +131,10 @@ export function RequestIdChip({ id }: { id: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-alt px-2 py-0.5 font-mono text-xs text-ink-muted hover:text-ink"
+      className="inline-flex h-auto max-w-full items-center gap-1 px-2 py-1 font-mono text-[10px] text-ink-muted hover:text-ink"
     >
-      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />} {id}
-    </button>
+      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />} <span className="truncate">{id}</span>
+    </Button>
   );
 }
 

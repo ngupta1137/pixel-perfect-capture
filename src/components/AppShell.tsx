@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   CircleHelp,
   ArrowUpRight,
+  Headphones,
 } from "lucide-react";
 import { GuideRail, useGuideKeys } from "@/components/shell/GuideRail";
 import { guide, useGuide } from "@/lib/guide";
@@ -122,11 +123,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className={`min-h-screen bg-surface-alt text-ink ${docked ? "md:pr-80" : ""}`}>
       <aside
-        className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-border bg-surface md:flex ${collapsed ? "w-[72px]" : "w-[224px]"}`}
+        className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-border bg-surface md:flex ${collapsed ? "w-[72px]" : "w-[188px]"}`}
       >
         <Link
           to="/"
-          className="flex h-[76px] shrink-0 items-center gap-2.5 border-b border-border px-6"
+          className="flex h-[64px] shrink-0 items-center gap-2.5 border-b border-border px-5"
         >
           <VerityLogo className="h-8 w-8 shrink-0" />
           {!collapsed && (
@@ -159,11 +160,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
       <div
-        className={`flex min-h-screen min-w-0 flex-col ${collapsed ? "md:ml-[72px]" : "md:ml-[224px]"}`}
+        className={`flex min-h-screen min-w-0 flex-col ${collapsed ? "md:ml-[72px]" : "md:ml-[188px]"}`}
       >
         <header className="border-b border-border bg-surface">
-          <div className="flex min-h-[76px] flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-8">
-            <div className="flex items-center gap-3">
+          <div className="grid min-h-[64px] grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-4 py-2 sm:flex sm:justify-between lg:px-8">
+            <div className="flex min-w-0 items-center gap-2">
               <Button
                 variant="ghost"
                 size="icon"
@@ -173,13 +174,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               >
                 {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
               </Button>
-              <span className="hidden text-xs text-ink-muted lg:inline">Workspace</span>
               <ChevronRight className="hidden h-3 w-3 text-ink-muted lg:block" />
               <span className="text-sm font-medium">{current?.label ?? "Verity"}</span>
             </div>
-            <div className="flex max-w-full flex-wrap items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <PersonaPicker />
-              <GuideButton />
+              {pathname === "/" && can("search") && <label className="hidden items-center gap-2 rounded-md border border-border px-2 sm:flex"><Headphones className="h-4 w-4 text-ink-muted" /><select aria-label="Channel" id="channel" className="h-10 max-w-[120px] bg-surface text-xs" value={channel} onChange={(e) => setChannel(e.target.value)}>{allowedChannels.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}</select></label>}
+              <span className="hidden lg:inline-flex"><GuideButton /></span>
             </div>
           </div>
           <div className="flex gap-2 overflow-x-auto border-t border-border px-4 py-2 md:hidden">
@@ -196,7 +197,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         <ActingAsBar />
-        <main className="workspace-content mx-auto w-full max-w-[1440px] flex-1 px-4 py-7 lg:px-8">
+        <main className={`workspace-content mx-auto w-full max-w-[1440px] flex-1 px-4 py-7 lg:px-8 ${pathname === "/" ? "bg-surface" : ""}`}>
           {can("search") && (
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <span className="flex items-center gap-2 text-xs text-ink-muted">

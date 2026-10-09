@@ -113,6 +113,8 @@
 :root {
   --workspace-shadow: 0 2px 8px oklch(0.24 0.015 155 / 0.04);
   --hero-wash: oklch(0.99 0.003 150 / 0.88);
+  --search-shadow: 0 5px 24px oklch(0.43 0.11 149 / 0.07);
+  --ask-wash: linear-gradient(120deg, var(--surface) 28%, oklch(0.975 0.035 148 / 0.55) 100%);
 }
 html {
   letter-spacing: 0;
@@ -130,6 +132,32 @@ body {
 }
 .workspace-content h2 {
   letter-spacing: 0;
+}
+.ask-workspace {
+  position: relative;
+  isolation: isolate;
+}
+.ask-workspace::before {
+  content: "";
+  position: absolute;
+  inset: -28px -32px auto;
+  height: 290px;
+  background: var(--ask-wash);
+  z-index: -1;
+  pointer-events: none;
+}
+.workspace-content .ask-intro h1 {
+  font-size: 36px;
+  line-height: 1.2;
+  color: var(--foreground);
+}
+.ask-search { box-shadow: var(--search-shadow); }
+.ask-suggestion { transition: border-color 150ms, background-color 150ms; }
+.ask-suggestion:hover { border-color: color-mix(in oklab, var(--primary) 40%, var(--border)); }
+.answer-focus { box-shadow: var(--workspace-shadow); }
+@media (max-width: 639px) {
+  .workspace-content .ask-intro h1 { font-size: 28px; }
+  .ask-workspace::before { inset-inline: -16px; }
 }
 .workspace-content table {
   border-collapse: collapse;

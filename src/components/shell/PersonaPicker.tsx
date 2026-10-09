@@ -22,13 +22,14 @@ export function PersonaPicker() {
   const { person, setPersona } = useSession();
   const navigate = useNavigate();
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <label htmlFor="persona" className="text-sm text-ink-muted">
+    <div className="flex min-w-0 items-center gap-2 rounded-md border border-border px-2 py-1">
+      <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{person.name.charAt(0)}</span>
+      <label htmlFor="persona" className="sr-only">
         Signed in as
       </label>
       <select
         id="persona"
-        className="field-select max-w-[250px] sm:max-w-[300px]"
+        className="h-8 w-[120px] min-w-0 bg-surface text-xs text-ink outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-[160px]"
         value={person.id}
         onChange={(e) => {
           const next = findPerson(e.target.value);
@@ -48,9 +49,6 @@ export function PersonaPicker() {
           </optgroup>
         ))}
       </select>
-      <span className="hidden max-w-40 lg:inline">
-        <ScopeChips kbs={person.kbs} />
-      </span>
     </div>
   );
 }

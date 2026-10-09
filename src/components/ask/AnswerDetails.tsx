@@ -20,8 +20,8 @@ export function AnswerDetails({ res, onCite }: { res: SearchResponse; onCite: (c
     .filter((c, i, all) => all.findIndex((x) => x.unit_id === c.unit_id) === i);
   if (!cites.length) return null;
   return (
-    <section aria-label="Answer details" className="rounded-md border border-border bg-surface">
-      <h2 className="border-b border-border px-5 py-3 text-sm font-semibold">Answer details</h2>
+    <details aria-label="Answer details" className="group border-y border-border bg-surface">
+      <summary className="flex cursor-pointer list-none items-center justify-between px-2 py-4 text-sm font-semibold">Source approval & freshness <PanelRightOpen className="h-4 w-4 text-ink-muted" /></summary>
       <ul className="divide-y divide-border">
         {cites.map((c) => {
           const v = getUnit(c.unit_id)?.versions.find((x) => x.version === c.version);
@@ -53,6 +53,6 @@ export function AnswerDetails({ res, onCite }: { res: SearchResponse; onCite: (c
           );
         })}
       </ul>
-    </section>
+    </details>
   );
 }
