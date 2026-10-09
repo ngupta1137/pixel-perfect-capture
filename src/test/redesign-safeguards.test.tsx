@@ -34,6 +34,7 @@ describe("redesign entitlement safeguards", () => {
     const citation = part.citations[0];
     function MemberResult() {
       const { setPersona } = useSession();
+      if (!part) return null;
       return (
         <>
           <button onClick={() => setPersona("eleanor")}>Select member</button>
