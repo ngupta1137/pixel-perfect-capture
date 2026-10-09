@@ -1,7 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { ArrowLeft, ShieldAlert, FileText, CheckCircle2, AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { ArrowLeft, FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RequirePage } from "@/components/shell/Denied";
 import { Chip, Lifecycle } from "@/components/authoring/Chain";
@@ -15,6 +14,9 @@ import {
 import { IngestSidebarGuide } from "@/components/ingest/IngestSidebarGuide";
 import { IngestSourceWizard } from "@/components/ingest/IngestSourceWizard";
 import { CandidateReviewView } from "@/components/ingest/CandidateReviewView";
+import { ReviewExtractWorkspace } from "@/components/ingest/ReviewExtractWorkspace";
+import { setBreadcrumbs } from "@/lib/breadcrumbs";
+import { MEMBER_SERVICES_GUIDE_UNITS, type ExtractedUnit } from "@/types/ingest";
 
 export const Route = createFileRoute("/work")({
   head: () => ({
@@ -44,11 +46,34 @@ function WorkPage() {
   const { person } = useSession();
   const [tab, setTab] = useState<"sources" | "drafts" | "gaps" | "insights">("sources");
 
-  // Ingestion extraction state
+  // Ingestion workflow steps: "upload" | "review_extract" | "review_units"
+  const [ingestStep, setIngestStep] = useState<"upload" | "review_extract" | "review_units">("upload");
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionError, setExtractionError] = useState("");
   const [extractedCandidates, setExtractedCandidates] = useState<Candidate[] | null>(null);
-  const [activeSourceTitle, setActiveSourceTitle] = useState("");
+  const [activeSourceTitle, setActiveSourceTitle] = useState("Member Services Guide v3.pdf");
+  const [extractedUnits, setExtractedUnits] = useState<ExtractedUnit[]>(MEMBER_SERVICES_GUIDE_UNITS);
+
+  // Set top breadcrumbs based on state
+  useEffect(() => {
+    if (tab === "sources") {
+      if (ingestStep === "review_extract") {
+        setBreadcrumbs(["Workspace", "Ingest", "Review & extract"]);
+      } else if (ingestStep === "review_units") {
+        setBreadcrumbs(["Workspace", "Ingest", "Review units"]);
+      } else {
+        setBreadcrumbs(["Workspace", "Ingest", "New source"]);
+      }
+    } else if (tab === "drafts") {
+      setBreadcrumbs(["Workspace", "Ingest", "My drafts"]);
+    } else if (tab === "gaps") {
+      setBreadcrumbs(["Workspace", "Ingest", "Gaps"]);
+    } else {
+      setBreadcrumbs(["Workspace", "Ingest", "Insights"]);
+    }
+
+    return () => setBreadcrumbs([]);
+  }, [tab, ingestStep]);
 
   const handleExtract = async (sourceTitle: string, sourceText: string) => {
     setIsExtracting(true);
@@ -56,7 +81,27 @@ function WorkPage() {
     try {
       const candidates = await extractCandidates(person.name, sourceText);
       setExtractedCandidates(candidates);
-      setActiveSourceTitle(sourceTitle || AEP_SAMPLE.title);
+      setActiveSourceTitle(sourceTitle || "Member Services Guide v3.pdf");
+      
+      // If extracting sample or custom text, convert to ExtractedUnit format
+      if (sourceTitle && sourceTitle.includes("Member Services")) {
+        setExtractedUnits(MEMBER_SERVICES_GUIDE_UNITS);
+      } else {
+        setExtractedUnits(
+          candidates.map((c, i) => ({
+            id: `UNIT-EXT-${i + 1}`,
+            cid: c.cid,
+            title: c.title,
+            type: c.status === "changed_flagged" ? "Policy" : "Procedure",
+            content: c.text,
+            key_points: c.note ? [c.note] : ["Extracted key statement from source document."],
+            source_reference: `${sourceTitle || "Source Document"} • Section 1.${i + 1}`,
+            suggested_effective_date: c.effective_date || "2024-01-01",
+            selected: i === 0,
+          }))
+        );
+      }
+      setIngestStep("review_extract");
     } catch {
       setExtractionError("Candidate extraction could not be completed. Please verify the source document.");
     } finally {
@@ -66,10 +111,12 @@ function WorkPage() {
 
   const handleResetToSource = () => {
     setExtractedCandidates(null);
+    setIngestStep("upload");
   };
 
   const handleProposed = () => {
     setExtractedCandidates(null);
+    setIngestStep("upload");
     setTab("drafts");
   };
 
@@ -88,9 +135,13 @@ function WorkPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-ink">Ingest source</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-ink">
+          {ingestStep === "review_extract" ? "Review & extract" : "Ingest source"}
+        </h1>
         <p className="mt-1 text-xs sm:text-sm text-ink-muted">
-          Upload or paste a source document to extract candidate knowledge units. Publication requires human approval.
+          {ingestStep === "review_extract"
+            ? "Verity has identified candidate knowledge units from your document. Review, edit and select units to submit for approval."
+            : "Upload or paste a source document to extract candidate knowledge units. Publication requires human approval."}
         </p>
       </div>
 
@@ -127,30 +178,41 @@ function WorkPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab 1: Sources / Ingest */}
+        {/* Tab 1: Sources / Ingest Workflow */}
         <TabsContent value="sources" className="mt-6">
-          <div className="flex flex-col lg:flex-row gap-8 items-start">
-            {/* Main Area */}
-            <div className="flex-1 w-full min-w-0">
-              {extractedCandidates ? (
-                <CandidateReviewView
-                  candidates={extractedCandidates}
-                  sourceTitle={activeSourceTitle}
-                  onBack={handleResetToSource}
-                  onProposed={handleProposed}
-                />
-              ) : (
+          {ingestStep === "review_extract" ? (
+            <ReviewExtractWorkspace
+              documentTitle={activeSourceTitle}
+              sourceType="Policy"
+              lob="MAPD"
+              uploadedOn="12 Jan 2024"
+              initialUnits={extractedUnits}
+              onBackToIngest={handleResetToSource}
+              onReplaceDocument={handleResetToSource}
+              onSubmitForReview={() => handleProposed()}
+            />
+          ) : ingestStep === "review_units" && extractedCandidates ? (
+            <CandidateReviewView
+              candidates={extractedCandidates}
+              sourceTitle={activeSourceTitle}
+              onBack={handleResetToSource}
+              onProposed={handleProposed}
+            />
+          ) : (
+            <div className="flex flex-col lg:flex-row gap-8 items-start">
+              {/* Main Area */}
+              <div className="flex-1 w-full min-w-0">
                 <IngestSourceWizard
                   onExtract={handleExtract}
                   isExtracting={isExtracting}
                   error={extractionError}
                 />
-              )}
-            </div>
+              </div>
 
-            {/* Right Guide Rail */}
-            <IngestSidebarGuide />
-          </div>
+              {/* Right Guide Rail */}
+              <IngestSidebarGuide />
+            </div>
+          )}
         </TabsContent>
 
         {/* Tab 2: My Drafts */}
