@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as AuthorRouteImport } from './routes/author'
 import { Route as EvalsRouteImport } from './routes/evals'
+import { Route as RightsRouteImport } from './routes/rights'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +35,25 @@ const EvalsRoute = EvalsRouteImport.update({
   path: '/evals',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RightsRoute = RightsRouteImport.update({
+  id: '/rights',
+  path: '/rights',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
   '/author': typeof AuthorRoute
   '/evals': typeof EvalsRoute
+  '/rights': typeof RightsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/agents': typeof AgentsRoute
   '/author': typeof AuthorRoute
   '/evals': typeof EvalsRoute
+  '/rights': typeof RightsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,14 @@ export interface FileRoutesById {
   '/agents': typeof AgentsRoute
   '/author': typeof AuthorRoute
   '/evals': typeof EvalsRoute
+  '/rights': typeof RightsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/agents' | '/author' | '/evals'
+  fullPaths: '/' | '/agents' | '/author' | '/evals' | '/rights'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/agents' | '/author' | '/evals'
-  id: '__root__' | '/' | '/agents' | '/author' | '/evals'
+  to: '/' | '/agents' | '/author' | '/evals' | '/rights'
+  id: '__root__' | '/' | '/agents' | '/author' | '/evals' | '/rights'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +76,7 @@ export interface RootRouteChildren {
   AgentsRoute: typeof AgentsRoute
   AuthorRoute: typeof AuthorRoute
   EvalsRoute: typeof EvalsRoute
+  RightsRoute: typeof RightsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +109,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EvalsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/rights': {
+      id: '/rights'
+      path: '/rights'
+      fullPath: '/rights'
+      preLoaderRoute: typeof RightsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +124,7 @@ const rootRouteChildren: RootRouteChildren = {
   AgentsRoute: AgentsRoute,
   AuthorRoute: AuthorRoute,
   EvalsRoute: EvalsRoute,
+  RightsRoute: RightsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

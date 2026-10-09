@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePage } from "@/components/shell/Denied";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import { CheckCircle2, Circle } from "lucide-react";
 import { ACCURACY, DOMAINS, FAILURES, GATE, RETRIEVAL, STATS } from "@/data/evals";
@@ -14,7 +15,7 @@ export const Route = createFileRoute("/evals")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: EvalsPage,
+  component: GuardedEvalsPage,
 });
 
 function EvalsPage() {
@@ -114,5 +115,13 @@ function EvalsPage() {
         </table>
       </div>
     </section>
+  );
+}
+
+function GuardedEvalsPage() {
+  return (
+    <RequirePage to="/evals">
+      <EvalsPage />
+    </RequirePage>
   );
 }

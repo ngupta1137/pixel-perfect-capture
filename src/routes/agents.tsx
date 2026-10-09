@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePage } from "@/components/shell/Denied";
 import { useEffect, useState } from "react";
 import { Info, Play, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/agents")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: AgentsPage,
+  component: GuardedAgentsPage,
 });
 
 const TOOLS = [
@@ -177,5 +178,13 @@ function AgentsPage() {
         The agent's role comes from its connection, never from a tool argument. PHI is redacted before anything is logged. The same tools are served to real MCP clients such as Claude Desktop by the Verity MCP server.
       </p>
     </section>
+  );
+}
+
+function GuardedAgentsPage() {
+  return (
+    <RequirePage to="/agents">
+      <AgentsPage />
+    </RequirePage>
   );
 }

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { RequirePage } from "@/components/shell/Denied";
 import { useEffect, useState } from "react";
 import {
   AlertTriangle, BarChart3, CheckCircle2, FileText, GitMerge, History, Inbox, KeyRound, Lock, PlusCircle, RotateCcw, Scissors, Search, ShieldCheck, Tags, XCircle,
@@ -25,7 +26,7 @@ export const Route = createFileRoute("/author")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: AuthorPage,
+  component: GuardedAuthorPage,
 });
 
 const PEOPLE: { name: string; role: ApproverRole; label: string }[] = [
@@ -796,5 +797,13 @@ function AccessPanel({ state, onResult }: { state: AuthoringState | null; onResu
         </tbody>
       </table>
     </div>
+  );
+}
+
+function GuardedAuthorPage() {
+  return (
+    <RequirePage to="/author">
+      <AuthorPage />
+    </RequirePage>
   );
 }
