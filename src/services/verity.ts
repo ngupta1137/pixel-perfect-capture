@@ -109,6 +109,8 @@ export async function searchAs(person: string, req: SearchRequest): Promise<Sear
   };
   updateDemoState((s) => ({ ...s, requests: [record, ...s.requests] }));
   audit({ actor: person, action: "search", target: res.request_id, detail: `${req.query} → ${res.outcome}` });
+  if (res.outcome === "not_authorized")
+    audit({ actor: person, action: "denied", target: res.request_id, detail: "Retrieval outside entitlement", capability: "search", reason: `Role ${req.role} is not entitled to the knowledge base that owns this answer` });
   return res;
 }
 
@@ -403,4 +405,61 @@ export function aepReadiness(s: DemoState) {
     return { label: r.label, done };
   });
   return { items, done: items.filter((i) => i.done).length, total: items.length };
+}
+
+// ---------------------------------------------------------------------------
+// Governance: denied attempts, replay, as-of, access grants.
+const lastDenied = new Map<string, number>();
+/** Record a denied attempt (deduplicated for a second so re-renders do not double-log). */
+export function recordDenied(person: string, target: string, capability: string, reason: string) {
+  const key = `${person}|${target}`;
+  const t = Date.now();
+  if (t - (lastDenied.get(key) ?? 0) < 1000) return;
+  lastDenied.set(key, t);
+  audit({ actor: person, action: "denied", target, detail: `Open ${target}`, capability, reason });
+}
+
+/** Mask anything that looks like PHI in a stored query: digits, dates, emails, ids. */
+export const redactQuery = (q: string) =>
+  q.replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]").replace(/\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/g, "[date]").replace(/\b[A-Z]{1,3}\d{5,}\b|\b\d{5,}\b/g, "[id]");
+
+/** Which step of the policy pipeline decided the outcome. */
+export function policyPath(r: DemoRequest): string {
+  const step = (n: number) => r.trace.find((t) => t.startsWith(`${n}.`)) ?? `Step ${n}`;
+  switch (r.outcome) {
+    case "safety_escalation": return step(3);
+    case "not_authorized": return step(7);
+    case "needs_clarification": return step(8);
+    case "conflict":
+    case "stale": return step(9);
+    case "insufficient_evidence": return step(6);
+    default: return `${step(10)} → ${step(11)}`;
+  }
+}
+
+/** Version live on a date, with its effective window. */
+export function asOfWindow(unitId: string, date: string) {
+  const u = getUnit(unitId);
+  if (!u) return null;
+  const sorted = [...u.versions].sort((a, b) => a.effective_date.localeCompare(b.effective_date));
+  let i = -1;
+  sorted.forEach((v, k) => { if (v.effective_date <= date) i = k; });
+  if (i < 0) return { unit: u, version: null, until: sorted[0]?.effective_date ?? null };
+  return { unit: u, version: sorted[i]!, until: sorted[i + 1]?.effective_date ?? null };
+}
+
+/** Grant or revoke a role's read access to a knowledge base. Reason required. */
+export function changeKbAccess(person: { name: string; capabilities: readonly string[] }, role: string, kb: string, grant: boolean, reason: string) {
+  if (!person.capabilities.includes("manage_access")) {
+    recordDenied(person.name, `access ${role}/${kb}`, "manage_access", "Only an access administrator changes access");
+    return { ok: false, message: "Only an access administrator changes access" };
+  }
+  if (!reason.trim()) return { ok: false, message: "A reason is required" };
+  updateDemoState((s) => {
+    const cur = s.access[role] ?? [];
+    const next = grant ? [...new Set([...cur, kb])] : cur.filter((k) => k !== kb);
+    return { ...s, access: { ...s.access, [role]: next } };
+  });
+  audit({ actor: person.name, action: grant ? "grant_access" : "revoke_access", target: `${role} → ${kb}`, detail: reason, reason });
+  return { ok: true, message: `${grant ? "Granted" : "Revoked"} ${kb} for ${role}` };
 }
