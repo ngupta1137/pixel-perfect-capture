@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequirePage } from "@/components/shell/Denied";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowRight, Mic, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,10 +19,10 @@ import {
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { PERSONAS, useSession } from "@/lib/session";
+import { PEOPLE, useSession } from "@/lib/session";
 import { useBrowserVoice } from "@/hooks/use-browser-voice";
 import { ChannelCompare } from "@/components/ask/ChannelCompare";
-import { search, type Outcome, type SearchResponse } from "@/services/verity";
+import { searchAs, type Outcome, type SearchResponse } from "@/services/verity";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -37,7 +38,7 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: AskPage,
+  component: GuardedAskPage,
 });
 
 const EXAMPLES = [
@@ -67,7 +68,7 @@ interface ChatTurn {
 }
 
 export function AskPage() {
-  const { persona, channel, setPersona } = useSession();
+  const { persona, channel, setPersona, can } = useSession();
   const [query, setQuery] = useState("");
   const [lob, setLob] = useState("MAPD");
   const [state, setState] = useState("");
@@ -82,7 +83,7 @@ export function AskPage() {
   const scopeRef = useRef(scope);
   scopeRef.current = scope;
   const pending = useRef(false);
-  const isChat = persona.id === "eleanor" && channel === "member_chat";
+  const isChat = persona.memberAudience && channel === "member_chat";
   useEffect(() => {
     setAnswer(null);
     setLoading(false);
@@ -95,7 +96,7 @@ export function AskPage() {
     voice.stopReading();
     const requestScope = scopeRef.current;
     const requestChannel =
-      p.role === "member_chat" && channel === "advocate_view" ? "member_chat" : channel;
+      p.memberAudience && channel === "advocate_view" ? "member_chat" : channel;
     const id = crypto.randomUUID();
     setLastQuery(q);
     pending.current = true;
@@ -106,7 +107,7 @@ export function AskPage() {
       setQuery("");
     }
     try {
-      const res = await search({
+      const res = await searchAs(p.name, {
         query: q,
         role: p.role,
         channel: requestChannel,
@@ -171,7 +172,7 @@ export function AskPage() {
           />
         );
       })}
-      <TraceDrawer res={item.res} compact={compact} />
+      {can("view_trace") && <TraceDrawer res={item.res} compact={compact} />}
     </>
   );
 
@@ -184,7 +185,7 @@ export function AskPage() {
           <>
             <div className="mb-4 flex items-baseline justify-between border-b border-border pb-3">
               <h1 className="text-2xl font-semibold">Verity</h1>
-              <span className="text-sm text-ink-muted">Member chat · Eleanor</span>
+              <span className="text-sm text-ink-muted">Member chat · {persona.name}</span>
             </div>
             <Conversation className="h-[28rem] max-h-[55vh] min-h-48">
               <ConversationContent className="gap-5 px-0 py-3">
@@ -333,7 +334,7 @@ export function AskPage() {
           <div className="mt-10 space-y-4" aria-live="polite">
             {loading && <Shimmer>Checking...</Shimmer>}
             {!loading && answer && renderAnswer(answer)}
-            {!loading && answer?.res.outcome === "answer" && lastQuery && (
+            {!loading && can("view_channel_compare") && answer?.res.outcome === "answer" && lastQuery && (
               <ChannelCompare query={lastQuery} role={persona.role} lob={lob} state={state || null} requestId={answer.res.request_id} />
             )}
           </div>
@@ -356,7 +357,7 @@ export function AskPage() {
                       setQuery(item.query);
                       void run(
                         item.query,
-                        PERSONAS.find((p) => p.id === item.personaId) ?? persona,
+                        PEOPLE.find((p) => p.id === item.personaId) ?? persona,
                       );
                     }}
                     className="h-auto w-full flex-col items-stretch gap-1 p-3 text-left"
@@ -374,5 +375,13 @@ export function AskPage() {
         </aside>
       )}
     </div>
+  );
+}
+
+function GuardedAskPage() {
+  return (
+    <RequirePage to="/">
+      <AskPage />
+    </RequirePage>
   );
 }

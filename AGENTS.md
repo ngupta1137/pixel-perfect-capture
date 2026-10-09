@@ -12,3 +12,5 @@
 - Keep browser recognition and speech synthesis in a lifecycle-managed hook; cancel microphone and playback on persona/channel changes and unmount.
 - Select speech from approved answer/safety text without transformations; other outcomes speak only their decision message, never stale or conflicting evidence.
 - Compose member chat from AI Elements and reuse compact outcome cards; fixtures remain the single answer source across channels.
+- People, navigation, home routes, route guards and Author tabs derive only from src/data/personas.json via src/lib/rights.ts; never branch on a person's name or persona key — why: one policy file drives engine, API and UI.
+- Shared demo state lives in src/services/demoStore.ts (module-level, not per person); screens change it only through service functions in src/services/verity.ts, seeded by mockData.seedDemoState — why: switching person must never reset data, and the real engine can replace the seam later.

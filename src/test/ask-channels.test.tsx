@@ -2,11 +2,11 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, expect, it, vi } from "vitest";
 import { AskPage } from "@/routes/index";
 import { SessionProvider, useSession } from "@/lib/session";
-import { search } from "@/services/verity";
+import { searchAs } from "@/services/verity";
 import { mockSearch } from "@/services/mockData";
 import type { BrowserRecognition } from "@/lib/browser-speech";
 
-vi.mock("@/services/verity", () => ({ search: vi.fn(async (request) => mockSearch(request)) }));
+vi.mock("@/services/verity", () => ({ searchAs: vi.fn(async (_person: string, request) => mockSearch(request)) }));
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
@@ -64,7 +64,8 @@ it("automatically submits recognized speech with input_mode voice and auto-reads
   );
   act(() => recognition?.onend?.());
   await waitFor(() =>
-    expect(search).toHaveBeenCalledWith(
+    expect(searchAs).toHaveBeenCalledWith(
+      "Priya",
       expect.objectContaining({
         query: "Rx pricing disclaimer",
         input_mode: "voice",
