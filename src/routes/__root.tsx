@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppShell } from "@/components/AppShell";
 import { SessionProvider } from "@/lib/session";
+import { DemoStoreProvider } from "@/services/demoStore";
 
 function NotFoundComponent() {
   return (
@@ -121,11 +122,13 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <DemoStoreProvider>
       <SessionProvider>
         <AppShell>
           <Outlet />
         </AppShell>
       </SessionProvider>
+      </DemoStoreProvider>
     </QueryClientProvider>
   );
 }
