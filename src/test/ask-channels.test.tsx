@@ -4,6 +4,7 @@ import { AskPage } from "@/routes/index";
 import { SessionProvider, useSession } from "@/lib/session";
 import { searchAs } from "@/services/verity";
 import { mockSearch } from "@/services/mockData";
+import { DemoStoreProvider } from "@/services/demoStore";
 import type { BrowserRecognition } from "@/lib/browser-speech";
 
 vi.mock("@/services/verity", async (orig) => ({ ...(await orig<typeof import("@/services/verity")>()), searchAs: vi.fn(async (_person: string, request) => mockSearch(request)) }));
@@ -51,9 +52,9 @@ it("automatically submits recognized speech with input_mode voice and auto-reads
   const speak = vi.fn();
   vi.stubGlobal("speechSynthesis", { cancel: vi.fn(), speak });
   render(
-    <SessionProvider>
+    <DemoStoreProvider><SessionProvider>
       <VoicePage />
-    </SessionProvider>,
+    </SessionProvider></DemoStoreProvider>,
   );
   fireEvent.click(screen.getByText("Voice test"));
   fireEvent.click(screen.getByRole("button", { name: "Start voice input" }));
