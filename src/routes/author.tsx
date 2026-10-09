@@ -600,6 +600,7 @@ function GapCard({ g, onResult }: { g: GapCluster; onResult: (r: ActionResult) =
 }
 
 function AuditPanel({ state }: { state: AuthoringState | null }) {
+  const { can } = useSession();
   const rows = state?.audit ?? [];
   if (!rows.length) return <p className="rounded-md bg-surface-alt p-4 text-sm text-ink-muted">No authoring activity yet in this session.</p>;
   return (
@@ -614,7 +615,7 @@ function AuditPanel({ state }: { state: AuthoringState | null }) {
             <td className="pr-3">{a.actor}</td>
             <td className="pr-3 font-semibold">{a.action}</td>
             <td className="pr-3 whitespace-nowrap font-mono text-xs">{a.unit_id}</td>
-            <td>{a.detail}</td>
+            <td>{can("get_unit") ? a.detail : "—"}</td>
           </tr>
         ))}
       </tbody>
