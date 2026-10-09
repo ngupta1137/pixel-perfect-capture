@@ -1,14 +1,8 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
+import { DEFAULT_PERSON, PEOPLE, can as canDo, findPerson, type Capability, type Person } from "./rights";
 
-export interface Persona { id: string; name: string; label: string; role: string }
+export type { Person };
 export interface Channel { id: string; label: string }
-
-const DEFAULT_PERSONA: Persona = { id: "priya", name: "Priya", label: "Pharmacy advocate", role: "pharmacy_advocate" };
-export const PERSONAS: Persona[] = [
-  { id: "priya", name: "Priya", label: "Pharmacy advocate", role: "pharmacy_advocate" },
-  { id: "marcus", name: "Marcus", label: "Insurance advocate", role: "insurance_advocate" },
-  { id: "eleanor", name: "Eleanor", label: "Member chat", role: "member_chat" },
-];
 
 export const CHANNELS: Channel[] = [
   { id: "advocate_view", label: "Advocate view" },
@@ -17,34 +11,43 @@ export const CHANNELS: Channel[] = [
 ];
 
 export const MEMBER_CHANNELS = ["member_chat", "voice"];
+export { PEOPLE };
+
+const channelsFor = (p: Person) => (p.memberAudience ? CHANNELS.filter((c) => MEMBER_CHANNELS.includes(c.id)) : CHANNELS);
 
 interface SessionState {
-  persona: Persona;
+  /** The signed-in person. Kept as `persona` too for older callers. */
+  person: Person;
+  persona: Person;
   channel: string;
   setPersona: (id: string) => void;
   setChannel: (id: string) => void;
   allowedChannels: Channel[];
+  can: (c: Capability) => boolean;
 }
 
 const SessionContext = createContext<SessionState | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [persona, setP] = useState<Persona>(DEFAULT_PERSONA);
-  const [channel, setC] = useState("advocate_view");
-  const isMember = persona.role === "member_chat";
-  const allowedChannels = isMember ? CHANNELS.filter((c) => MEMBER_CHANNELS.includes(c.id)) : CHANNELS;
+  const [person, setP] = useState<Person>(DEFAULT_PERSON);
+  const [channel, setC] = useState(DEFAULT_PERSON.memberAudience ? "member_chat" : "advocate_view");
+  const allowedChannels = channelsFor(person);
 
+  // Switching person never touches the shared demo store.
   const setPersona = (id: string) => {
-    const p = PERSONAS.find((x) => x.id === id) ?? DEFAULT_PERSONA;
+    const p = findPerson(id) ?? DEFAULT_PERSON;
     setP(p);
-    if (p.role === "member_chat" && !MEMBER_CHANNELS.includes(channel)) setC("member_chat");
+    if (p.memberAudience) setC("member_chat");
+    else if (!channelsFor(p).some((c) => c.id === channel)) setC("advocate_view");
   };
   const setChannel = (id: string) => {
     if (allowedChannels.some((c) => c.id === id)) setC(id);
   };
 
   return (
-    <SessionContext.Provider value={{ persona, channel, setPersona, setChannel, allowedChannels }}>
+    <SessionContext.Provider
+      value={{ person, persona: person, channel, setPersona, setChannel, allowedChannels, can: (c) => canDo(person, c) }}
+    >
       {children}
     </SessionContext.Provider>
   );
