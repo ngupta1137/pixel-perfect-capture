@@ -6,7 +6,7 @@ import { RequirePage } from "@/components/shell/Denied";
 import { useDemoStore } from "@/services/demoStore";
 
 export const Route = createFileRoute("/audit")({
-  validateSearch: (s: Record<string, unknown>): { id?: string } => (typeof s.id === "string" ? { id: s.id } : {}),
+  validateSearch: (s: Record<string, unknown>): { id?: string } => (typeof s["id"] === "string" ? { id: s["id"] } : {}),
   head: () => ({
     meta: [
       { title: "Audit replay — Verity" },
