@@ -1,34 +1,33 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { AlertTriangle, FileText, Info, Upload, ArrowRight } from "lucide-react";
+import { ArrowLeft, ShieldAlert, FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RequirePage } from "@/components/shell/Denied";
-import { Chip, Lifecycle, WordDiff } from "@/components/authoring/Chain";
+import { Chip, Lifecycle } from "@/components/authoring/Chain";
 import { useSession } from "@/lib/session";
 import { useDemoStore } from "@/services/demoStore";
 import {
   AEP_SAMPLE,
-  canPropose,
   extractCandidates,
-  proposeCandidates,
   type Candidate,
 } from "@/services/verity";
+import { IngestSidebarGuide } from "@/components/ingest/IngestSidebarGuide";
+import { IngestSourceWizard } from "@/components/ingest/IngestSourceWizard";
+import { CandidateReviewView } from "@/components/ingest/CandidateReviewView";
 
 export const Route = createFileRoute("/work")({
   head: () => ({
     meta: [
-      { title: "My work — Verity" },
+      { title: "Ingestion & drafts — Verity" },
       {
         name: "description",
-        content: "Extract knowledge from sources, propose drafts and follow them to approval.",
+        content: "Upload or paste a source document to extract candidate knowledge units and propose governed drafts.",
       },
-      { property: "og:title", content: "My work — Verity" },
+      { property: "og:title", content: "Ingestion & drafts — Verity" },
       {
         property: "og:description",
-        content: "Extract knowledge from sources, propose drafts and follow them to approval.",
+        content: "Upload or paste a source document to extract candidate knowledge units and propose governed drafts.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -41,286 +40,190 @@ export const Route = createFileRoute("/work")({
   ),
 });
 
-const STATUS: Record<
-  Candidate["status"],
-  { label: string; tone: "ok" | "warn" | "bad" | "info" | "muted" }
-> = {
-  unchanged: { label: "Unchanged", tone: "ok" },
-  changed_flagged: { label: "Changed: flagged", tone: "bad" },
-  changed: { label: "Changed", tone: "warn" },
-  new: { label: "New unit", tone: "info" },
-  skipped: { label: "Skipped", tone: "muted" },
-};
-
 function WorkPage() {
-  const [tab, setTab] = useState("sources");
+  const { person } = useSession();
+  const [tab, setTab] = useState<"sources" | "drafts" | "gaps" | "insights">("sources");
+
+  // Ingestion extraction state
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionError, setExtractionError] = useState("");
+  const [extractedCandidates, setExtractedCandidates] = useState<Candidate[] | null>(null);
+  const [activeSourceTitle, setActiveSourceTitle] = useState("");
+
+  const handleExtract = async (sourceTitle: string, sourceText: string) => {
+    setIsExtracting(true);
+    setExtractionError("");
+    try {
+      const candidates = await extractCandidates(person.name, sourceText);
+      setExtractedCandidates(candidates);
+      setActiveSourceTitle(sourceTitle || AEP_SAMPLE.title);
+    } catch {
+      setExtractionError("Candidate extraction could not be completed. Please verify the source document.");
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const handleResetToSource = () => {
+    setExtractedCandidates(null);
+  };
+
+  const handleProposed = () => {
+    setExtractedCandidates(null);
+    setTab("drafts");
+  };
+
   return (
-    <section>
-      <h1 className="text-2xl font-semibold">Ingestion & drafts</h1>
-      <p className="mt-2 text-sm text-ink-muted">
-        Turn source material into governed knowledge. Publication requires human approval.
-      </p>
-      <Tabs value={tab} onValueChange={setTab} className="mt-4">
-        <TabsList>
-          <TabsTrigger value="sources">Sources</TabsTrigger>
-          <TabsTrigger value="drafts">My drafts</TabsTrigger>
-          <TabsTrigger value="gaps">Gaps</TabsTrigger>
-          <TabsTrigger value="insights">Insights</TabsTrigger>
+    <div className="space-y-6">
+      {/* Back button link */}
+      <div>
+        <button
+          type="button"
+          onClick={handleResetToSource}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-muted hover:text-ink transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to ingest
+        </button>
+      </div>
+
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-ink">Ingest source</h1>
+        <p className="mt-1 text-xs sm:text-sm text-ink-muted">
+          Upload or paste a source document to extract candidate knowledge units. Publication requires human approval.
+        </p>
+      </div>
+
+      {/* Tabs */}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
+        <TabsList className="bg-[#F3F4F6] p-1 border border-border">
+          <TabsTrigger
+            value="sources"
+            onClick={() => setTab("sources")}
+            className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs"
+          >
+            Sources
+          </TabsTrigger>
+          <TabsTrigger
+            value="drafts"
+            onClick={() => setTab("drafts")}
+            className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs"
+          >
+            My drafts
+          </TabsTrigger>
+          <TabsTrigger
+            value="gaps"
+            onClick={() => setTab("gaps")}
+            className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs"
+          >
+            Gaps
+          </TabsTrigger>
+          <TabsTrigger
+            value="insights"
+            onClick={() => setTab("insights")}
+            className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs"
+          >
+            Insights
+          </TabsTrigger>
         </TabsList>
-        <TabsContent value="sources">
-          <Sources onProposed={() => setTab("drafts")} />
+
+        {/* Tab 1: Sources / Ingest */}
+        <TabsContent value="sources" className="mt-6">
+          <div className="flex flex-col lg:flex-row gap-8 items-start">
+            {/* Main Area */}
+            <div className="flex-1 w-full min-w-0">
+              {extractedCandidates ? (
+                <CandidateReviewView
+                  candidates={extractedCandidates}
+                  sourceTitle={activeSourceTitle}
+                  onBack={handleResetToSource}
+                  onProposed={handleProposed}
+                />
+              ) : (
+                <IngestSourceWizard
+                  onExtract={handleExtract}
+                  isExtracting={isExtracting}
+                  error={extractionError}
+                />
+              )}
+            </div>
+
+            {/* Right Guide Rail */}
+            <IngestSidebarGuide />
+          </div>
         </TabsContent>
-        <TabsContent value="drafts">
+
+        {/* Tab 2: My Drafts */}
+        <TabsContent value="drafts" className="mt-6">
           <MyDrafts />
         </TabsContent>
-        <TabsContent value="gaps">
+
+        {/* Tab 3: Gaps */}
+        <TabsContent value="gaps" className="mt-6">
           <Gaps />
         </TabsContent>
-        <TabsContent value="insights">
+
+        {/* Tab 4: Insights */}
+        <TabsContent value="insights" className="mt-6">
           <Insights />
         </TabsContent>
       </Tabs>
-    </section>
-  );
-}
-
-function Sources({ onProposed }: { onProposed: () => void }) {
-  const { person } = useSession();
-  const [source, setSource] = useState<"sample" | "paste">("sample");
-  const [pasted, setPasted] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [cands, setCands] = useState<Candidate[] | null>(null);
-  const [sel, setSel] = useState<Set<string>>(new Set());
-  const extract = async () => {
-    setBusy(true);
-    setError("");
-    try {
-      const c = await extractCandidates(
-        person.name,
-        source === "sample" ? AEP_SAMPLE.text : pasted,
-      );
-      setCands(c);
-      setSel(new Set(c.filter(canPropose).map((x) => x.cid)));
-    } catch {
-      setError("Extraction could not finish. Please try again.");
-    } finally {
-      setBusy(false);
-    }
-  };
-  const toggle = (cid: string) =>
-    setSel((s) => {
-      const n = new Set(s);
-      if (n.has(cid)) n.delete(cid);
-      else n.add(cid);
-      return n;
-    });
-  return (
-    <div className="mt-6 space-y-5">
-      <ol className="flex flex-wrap gap-5 border-b border-border pb-4 text-sm">
-        {["Source document", "Review candidates", "Submit for review"].map((step, i) => (
-          <li
-            key={step}
-            className={`flex items-center gap-2 ${(!cands && i === 0) || (cands && i === 1) ? "font-semibold text-primary" : "text-ink-muted"}`}
-          >
-            <span className="flex h-6 w-6 items-center justify-center rounded-full border border-current text-xs">
-              {i + 1}
-            </span>
-            {step}
-            {i < 2 && <ArrowRight className="ml-2 h-3 w-3" />}
-          </li>
-        ))}
-      </ol>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant={source === "sample" ? "default" : "outline"}
-          onClick={() => setSource("sample")}
-        >
-          <FileText className="h-4 w-4" /> {AEP_SAMPLE.title} ({AEP_SAMPLE.id})
-        </Button>
-        <Button
-          variant={source === "paste" ? "default" : "outline"}
-          onClick={() => setSource("paste")}
-        >
-          Paste text
-        </Button>
-        <Button variant="outline" asChild>
-          <label className="cursor-pointer">
-            <Upload />
-            Import text file
-            <input
-              type="file"
-              accept=".txt,.md"
-              className="sr-only"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                setSource("paste");
-                setPasted(await file.text());
-              }}
-            />
-          </label>
-        </Button>
-      </div>
-      {source === "sample" ? (
-        <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface-alt p-3 text-sm">
-          {AEP_SAMPLE.text}
-        </pre>
-      ) : (
-        <Textarea
-          aria-label="Source text"
-          rows={6}
-          value={pasted}
-          onChange={(e) => setPasted(e.target.value)}
-          placeholder="Paste paragraphs separated by blank lines"
-        />
-      )}
-      <Button onClick={extract} disabled={busy || (source === "paste" && !pasted.trim())}>
-        {busy ? "Extracting…" : "Extract"}
-      </Button>
-
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-      <p className="text-xs text-ink-muted">
-        Text and Markdown import supported. PDF and Word extraction are not connected.
-      </p>
-      {cands && (
-        <>
-          <div className="overflow-x-auto rounded-md border border-border bg-surface">
-            <table className="w-full text-sm">
-              <thead className="text-left text-ink-muted">
-                <tr className="border-b border-border">
-                  <th className="w-8 py-2" />
-                  <th>Candidate</th>
-                  <th>Status</th>
-                  <th>Matches</th>
-                  <th>Route</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cands.map((c) => (
-                  <tr key={c.cid} className="border-b border-border align-top">
-                    <td className="py-3">
-                      {canPropose(c) && (
-                        <Checkbox
-                          checked={sel.has(c.cid)}
-                          onCheckedChange={() => toggle(c.cid)}
-                          aria-label={`Select ${c.title}`}
-                        />
-                      )}
-                    </td>
-                    <td className="space-y-2 py-3 pr-3">
-                      <p className="font-semibold">{c.title}</p>
-                      {c.match && !c.match.exact ? (
-                        <WordDiff from={c.match.text} to={c.text} />
-                      ) : (
-                        <p className={c.status === "skipped" ? "text-ink-muted line-through" : ""}>
-                          {c.text}
-                        </p>
-                      )}
-                      {c.banner && (
-                        <p className="flex items-start gap-1.5 rounded-md border border-destructive bg-destructive/5 p-2 text-xs font-semibold text-destructive">
-                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{" "}
-                          {c.banner}
-                        </p>
-                      )}
-                      {c.note && <p className="text-xs text-ink-muted">{c.note}</p>}
-                      {c.suggestion && (
-                        <p className="flex items-start gap-1.5 text-xs">
-                          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />{" "}
-                          {c.suggestion}
-                        </p>
-                      )}
-                      {c.skip_reason && (
-                        <p className="text-xs text-ink-muted">Skipped: {c.skip_reason}</p>
-                      )}
-                      {c.tags?.map((t) => (
-                        <Chip key={t} tone="info">
-                          Suggested tag: {t}
-                        </Chip>
-                      ))}
-                    </td>
-                    <td className="py-3">
-                      <Chip tone={STATUS[c.status].tone}>{STATUS[c.status].label}</Chip>
-                    </td>
-                    <td className="py-3 text-xs">
-                      {c.match && (
-                        <p>
-                          {c.match.unit_id} v{c.match.version}
-                          {c.match.exact ? " · exact" : ""}
-                        </p>
-                      )}
-                      {c.duplicates?.map((d) => (
-                        <p key={d.unit_id} className="text-ink-muted">
-                          Possible duplicate: {d.unit_id} ({d.similarity.toFixed(2)})
-                        </p>
-                      ))}
-                    </td>
-                    <td className="py-3 text-xs">
-                      {c.route && (
-                        <Chip tone={c.route === "legal" ? "bad" : "warn"}>
-                          {c.route === "legal"
-                            ? "Route: Needs Legal"
-                            : `Route: Needs owner (${c.owner_team})`}
-                        </Chip>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              disabled={sel.size === 0}
-              onClick={() => {
-                proposeCandidates(
-                  person.name,
-                  cands.filter((c) => sel.has(c.cid)),
-                );
-                setCands(null);
-                onProposed();
-              }}
-            >
-              Propose selected ({sel.size})
-            </Button>
-            <p className="text-sm text-ink-muted">
-              Proposing creates drafts. A second person approves.
-            </p>
-          </div>
-        </>
-      )}
     </div>
   );
 }
 
 function MyDrafts() {
   const { person } = useSession();
-  const all = useDemoStore((s) => s.chainDrafts);
-  const drafts = all.filter((d) => d.proposed_by === person.name);
-  if (!drafts.length)
+  const allDrafts = useDemoStore((s) => s.chainDrafts);
+  const drafts = allDrafts.filter((d) => d.proposed_by === person.name);
+
+  if (!drafts.length) {
     return (
-      <p className="mt-4 text-sm text-ink-muted">
-        No drafts yet. Extract a source and propose changes.
-      </p>
+      <div className="rounded-xl border border-dashed border-border bg-surface p-12 text-center">
+        <FileText className="mx-auto h-10 w-10 text-ink-muted/50 mb-3" />
+        <h2 className="text-sm font-semibold text-ink">No drafts created yet</h2>
+        <p className="mt-1 text-xs text-ink-muted max-w-sm mx-auto">
+          Extract a source document in the Sources tab and propose candidates to start the governance lifecycle.
+        </p>
+      </div>
     );
+  }
+
   return (
-    <ul className="mt-4 space-y-3">
-      {drafts.map((d) => (
-        <li key={d.id} className="rounded-lg border border-border bg-background p-4">
-          <p className="font-semibold">
-            {d.title} <span className="font-mono text-xs text-ink-muted">{d.unit_id}</span>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-ink">My active draft proposals ({drafts.length})</h2>
+          <p className="text-xs text-ink-muted">
+            Track draft governance states, approvals, and publication status.
           </p>
-          <p className="mt-1 text-sm">{d.proposed_text}</p>
-          <div className="mt-3">
-            <Lifecycle d={d} />
-          </div>
-        </li>
-      ))}
-    </ul>
+        </div>
+      </div>
+
+      <ul className="space-y-3">
+        {drafts.map((d) => (
+          <li key={d.id} className="rounded-xl border border-border bg-surface p-4 shadow-2xs space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-sm text-ink">{d.title}</h3>
+                  <span className="font-mono text-[11px] text-ink-muted bg-[#F3F4F6] px-1.5 py-0.5 rounded">
+                    {d.unit_id}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-ink/80 leading-relaxed rounded bg-[#F9FAFB] p-2.5 border border-border/60">
+                  {d.proposed_text}
+                </p>
+              </div>
+            </div>
+
+            <div className="border-t border-border pt-3">
+              <Lifecycle d={d} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -329,30 +232,50 @@ function Gaps() {
   const gaps = [
     ...new Set(reqs.filter((r) => r.outcome === "insufficient_evidence").map((r) => r.query)),
   ];
-  if (!gaps.length)
-    return <p className="mt-4 text-sm text-ink-muted">No gaps logged in this demo session yet.</p>;
+
+  if (!gaps.length) {
+    return (
+      <div className="rounded-xl border border-border bg-surface p-8 text-center text-xs text-ink-muted">
+        <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-600 mb-2" />
+        <p className="font-semibold text-ink">No unresolved knowledge gaps</p>
+        <p className="mt-1">All member queries in this session resolved to governing knowledge units.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="mt-5 overflow-x-auto rounded-md border border-border bg-surface">
-      <table>
-        <thead>
-          <tr>
-            <th>Unanswered question</th>
-            <th>Session demand</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {gaps.map((g) => (
-            <tr key={g} className="border-t border-border">
-              <td>{g}</td>
-              <td>{reqs.filter((r) => r.query === g).length}</td>
-              <td>
-                <Chip tone="warn">Needs knowledge</Chip>
-              </td>
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-sm font-semibold text-ink">Identified Knowledge Gaps</h2>
+        <p className="text-xs text-ink-muted">
+          Queries where insufficient evidence was found in the governed knowledge library.
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-2xs">
+        <table className="w-full text-left text-xs">
+          <thead className="border-b border-border bg-[#F9FAFB] text-ink-muted">
+            <tr>
+              <th className="px-4 py-3 font-medium">Unanswered question</th>
+              <th className="px-4 py-3 font-medium w-32">Session demand</th>
+              <th className="px-4 py-3 font-medium w-36">Status</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {gaps.map((g) => (
+              <tr key={g} className="hover:bg-[#F9FAFB]/50">
+                <td className="px-4 py-3 font-medium text-ink">{g}</td>
+                <td className="px-4 py-3 text-ink-muted">
+                  {reqs.filter((r) => r.query === g).length} requests
+                </td>
+                <td className="px-4 py-3">
+                  <Chip tone="warn">Needs knowledge</Chip>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -364,28 +287,44 @@ function Insights() {
     counts.set(r.query.toLowerCase(), (counts.get(r.query.toLowerCase()) ?? 0) + 1),
   );
   const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
-  if (!top.length)
+
+  if (!top.length) {
     return (
-      <p className="mt-4 text-sm text-ink-muted">No questions asked in this demo session yet.</p>
+      <div className="rounded-xl border border-border bg-surface p-8 text-center text-xs text-ink-muted">
+        <AlertCircle className="mx-auto h-8 w-8 text-ink-muted mb-2" />
+        <p className="font-semibold text-ink">No question analytics yet</p>
+        <p className="mt-1">Perform search queries in Ask & Search to view real-time demand patterns.</p>
+      </div>
     );
+  }
+
   return (
-    <div className="mt-5 overflow-x-auto rounded-md border border-border bg-surface">
-      <table>
-        <thead>
-          <tr>
-            <th>Question</th>
-            <th>Requests this session</th>
-          </tr>
-        </thead>
-        <tbody>
-          {top.map(([q, n]) => (
-            <tr key={q} className="border-t border-border">
-              <td>{q}</td>
-              <td>{n}</td>
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-sm font-semibold text-ink">Search & Ingestion Demand Trends</h2>
+        <p className="text-xs text-ink-muted">
+          Most frequently asked member questions across channels.
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-2xs">
+        <table className="w-full text-left text-xs">
+          <thead className="border-b border-border bg-[#F9FAFB] text-ink-muted">
+            <tr>
+              <th className="px-4 py-3 font-medium">Question</th>
+              <th className="px-4 py-3 font-medium w-40 text-right">Requests this session</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {top.map(([q, n]) => (
+              <tr key={q} className="hover:bg-[#F9FAFB]/50">
+                <td className="px-4 py-3 font-medium text-ink">{q}</td>
+                <td className="px-4 py-3 text-ink-muted text-right font-mono">{n}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

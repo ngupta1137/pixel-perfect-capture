@@ -28,9 +28,17 @@ interface SessionState {
 
 const SessionContext = createContext<SessionState | null>(null);
 
-export function SessionProvider({ children }: { children: ReactNode }) {
-  const [person, setP] = useState<Person>(DEFAULT_PERSON);
-  const [channel, setC] = useState(DEFAULT_PERSON.memberAudience ? "member_chat" : "voice");
+export function SessionProvider({
+  children,
+  initialPerson,
+}: {
+  children: ReactNode;
+  initialPerson?: Person;
+}) {
+  const [person, setP] = useState<Person>(initialPerson ?? DEFAULT_PERSON);
+  const [channel, setC] = useState(
+    (initialPerson ?? DEFAULT_PERSON).memberAudience ? "member_chat" : "voice",
+  );
   const allowedChannels = channelsFor(person);
 
   // Switching person never touches the shared demo store.

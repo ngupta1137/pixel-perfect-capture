@@ -53,7 +53,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   // Derive current page label for breadcrumb
   const currentItem = SIDEBAR_ITEMS.find((n) => n.to === pathname);
   const pageTitle = pathname === "/" ? "Ask" : (currentItem?.label ?? "Verity");
-  const breadcrumbs = pathname === "/" && customCrumbs.length > 0 ? customCrumbs : [pageTitle];
+  const breadcrumbs =
+    customCrumbs.length > 0
+      ? customCrumbs
+      : pathname === "/work"
+      ? ["Workspace", "Ingest", "New source"]
+      : [pageTitle];
 
 
   const nav = (
