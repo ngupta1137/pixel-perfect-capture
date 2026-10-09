@@ -9,7 +9,7 @@ export function ActingAsBar() {
     <div className="border-b border-border bg-surface">
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-2 px-4 py-2.5 text-xs lg:px-8">
         <span>
-          Acting as <strong>{person.name}</strong>, {person.label}. You can:
+          You are <strong>{person.name}</strong>, {person.label}. You can:
         </span>
         {shown.map((c) => (
           <span key={c} className="rounded border border-border bg-surface px-2 py-0.5 font-mono text-[10px]">{c}</span>

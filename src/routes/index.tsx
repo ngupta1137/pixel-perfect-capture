@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { RequirePage } from "@/components/shell/Denied";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { guide, useGuide } from "@/lib/guide";
-import { ArrowRight, Mic, Square } from "lucide-react";
+import { ArrowRight, Mic, Square, Search, BookOpen, History, ShieldCheck, Phone, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OutcomeCard } from "@/components/ask/OutcomeCard";
 import { TraceDrawer } from "@/components/ask/TraceDrawer";
@@ -25,7 +25,8 @@ import { useBrowserVoice } from "@/hooks/use-browser-voice";
 import { ChannelCompare } from "@/components/ask/ChannelCompare";
 import { ContextBar, DisclosureStep, FeedbackRow, RequestIdChip, UnitDrawer } from "@/components/ask/AdvocateExtras";
 import { useDemoStore } from "@/services/demoStore";
-import { getReadBeforeBenefits, recordRead, type Choice, type Citation } from "@/services/verity";
+import { scopedLibrary } from "@/lib/library";
+import { getReadBeforeBenefits, recordRead, listUnits, type Choice, type Citation } from "@/services/verity";
 import { searchAs, type Outcome, type SearchResponse } from "@/services/verity";
 
 export const Route = createFileRoute("/")({
@@ -86,6 +87,12 @@ export function AskPage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [error, setError] = useState("");
+  const [textSize, setTextSize] = useState(0);
+  const [handoff, setHandoff] = useState(false);
+  const storedRequests = useDemoStore(s => s.requests);
+  const sessionHistory = storedRequests.filter(r => r.person === persona.name).slice(0, 8);
+  useDemoStore(s => s.units);
+  const browse = scopedLibrary(listUnits(), persona).slice(0, 4);
   const scope = `${persona.id}:${channel}`;
   const voice = useBrowserVoice(scope);
   const scopeRef = useRef(scope);
@@ -252,15 +259,17 @@ export function AskPage() {
 
   return (
     <div
-      className={isChat ? "mx-auto max-w-3xl" : "grid gap-10 lg:grid-cols-[minmax(0,1fr)_16rem]"}
+      className={isChat ? `mx-auto max-w-3xl ${textSize === 2 ? "[&_p]:text-[22px]" : textSize === 1 ? "[&_p]:text-xl" : ""}` : "grid gap-7 xl:grid-cols-[minmax(0,1fr)_250px]"}
     >
       <section className="min-w-0">
+        {!isChat && <div className="mb-6"><p className="mb-2 text-xs text-ink-muted">KNOWLEDGE WORKSPACE</p><h1 className="font-semibold">Ask with confidence</h1><p className="mt-2 text-sm text-ink-muted">Find the approved answer for the conversation in front of you.</p></div>}
         {isChat && (
           <>
             <div className="mb-4 flex items-baseline justify-between border-b border-border pb-3">
               <h1 className="text-2xl font-semibold">Verity</h1>
               <span className="text-sm text-ink-muted">Member chat · {persona.name}</span>
             </div>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div className="flex gap-1" aria-label="Text size">{["A", "A+", "A++"].map((label, i) => <Button key={label} size="sm" variant={textSize === i ? "secondary" : "ghost"} aria-pressed={textSize === i} onClick={() => setTextSize(i)}>{label}</Button>)}</div><Button variant="outline" size="sm" onClick={() => setHandoff(!handoff)}><Phone />Talk to a person</Button></div>{handoff && <p role="status" className="mb-4 border-l-2 border-primary bg-surface p-4 text-sm">Live transfer is not connected in this prototype. Contact Member Services using the number on your member ID card.</p>}
             <Conversation className="h-[28rem] max-h-[55vh] min-h-48">
               <ConversationContent className="gap-5 px-0 py-3">
                 {turns
@@ -299,7 +308,8 @@ export function AskPage() {
               placeholder="Ask Verity..."
               className="min-h-20 text-lg md:text-lg"
             />
-            <PromptInputFooter className="justify-end">
+            <PromptInputFooter className="justify-between">
+              <Button variant="ghost" size="icon" type="button" aria-label={voice.listening ? "Stop listening" : "Start voice input"} title="Voice input" disabled={!voice.supported || loading} onClick={() => voice.listening ? voice.stopListening() : voice.startListening(setQuery, text => { void run(text, persona, "voice"); })}>{voice.listening ? <Square /> : <Mic />}</Button>
               <PromptInputSubmit
                 status={loading ? "submitted" : "ready"}
                 disabled={loading || !query.trim()}
@@ -320,7 +330,7 @@ export function AskPage() {
               id="ask"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Ask Verity..."
+              placeholder="Ask a question about approved knowledge…"
               className="h-14 min-w-0 flex-1 rounded-lg border border-border bg-surface px-4 text-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
             {channel === "voice" && (
@@ -368,6 +378,7 @@ export function AskPage() {
           </p>
         )}
 
+        {isChat && <p className="mt-4 text-center text-xs text-ink-muted">Answers come from plan-approved information</p>}
         {isChat && <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
           <label className="flex items-center gap-2 text-ink-muted">
             Line of business
@@ -394,21 +405,21 @@ export function AskPage() {
             </select>
           </label>
         </div>}
-        <div className="mt-4 flex flex-wrap gap-2">
-          {EXAMPLES.map((ex) => (
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          {(answer || isChat ? EXAMPLES.slice(0, 4) : EXAMPLES.slice(0, 6)).map((ex) => (
             <Button
               key={ex}
               type="button"
               variant="outline"
               onClick={() => setQuery(ex)}
-              className="h-auto whitespace-normal rounded-full bg-surface-alt px-3 py-1 text-left text-sm font-normal"
+              className="h-auto min-h-12 justify-between whitespace-normal border-border bg-surface px-4 py-3 text-left text-[13px] font-normal"
             >
-              {ex}
+              {ex}<ArrowRight className="h-3.5 w-3.5 text-ink-muted" />
             </Button>
           ))}
         </div>
         {!isChat && (
-          <div className="mt-10 space-y-4" aria-live="polite">
+          <div className="mt-6 space-y-4" aria-live="polite">
             {disclosure && (
               <DisclosureStep
                 title={disclosure.title}
@@ -427,37 +438,11 @@ export function AskPage() {
         )}
       </section>
       {!isChat && !safety && (
-        <aside>
-          <h2 className="text-sm font-semibold text-ink-muted">Session history</h2>
-          {history.length === 0 ? (
-            <p className="mt-3 text-sm text-ink-muted">No questions yet.</p>
-          ) : (
-            <ul className="mt-3 space-y-2">
-              {history.map((item) => (
-                <li key={item.id}>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setPersona(item.personaId);
-                      setQuery(item.query);
-                      void run(
-                        item.query,
-                        PEOPLE.find((p) => p.id === item.personaId) ?? persona,
-                      );
-                    }}
-                    className="h-auto w-full flex-col items-stretch gap-1 p-3 text-left"
-                  >
-                    <p className="truncate text-sm font-semibold">{item.query}</p>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-ink-muted">{item.personaName}</span>
-                      <OutcomePill outcome={item.outcome} size="sm" />
-                    </div>
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
+        <aside className="space-y-7 xl:border-l xl:border-border xl:pl-6">
+          <div><h2 className="flex items-center gap-2 text-sm font-semibold"><History className="h-4 w-4 text-ink-muted" />Recent searches</h2>
+          {sessionHistory.length === 0 ? <div className="mt-4 border-l-2 border-border py-2 pl-4"><p className="text-sm text-ink-muted">No searches yet</p><p className="mt-1 text-xs text-ink-muted">Your session starts here.</p></div> : <ul className="mt-3 divide-y divide-border">{sessionHistory.map(item => <li key={item.id}><Button variant="ghost" onClick={() => { setQuery(item.query); void run(item.query); }} className="h-auto w-full flex-col items-stretch gap-2 whitespace-normal px-0 py-3 text-left"><span className="text-[13px] font-medium">{item.query}</span><OutcomePill outcome={item.outcome} size="sm" /></Button></li>)}</ul>}</div>
+          {can("get_unit") && <div><div className="flex items-center justify-between"><h2 className="flex items-center gap-2 text-sm font-semibold"><BookOpen className="h-4 w-4 text-ink-muted" />Browse knowledge</h2><Link to="/library" className="text-xs text-primary">View all</Link></div><div className="mt-3 divide-y divide-border">{browse.map(u => <Link key={u.unit_id} to="/library" className="flex items-start gap-2 py-3 text-[13px] text-ink-muted hover:text-primary"><BookOpen className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span>{u.title}</span></Link>)}</div></div>}
+          <div className="border-t border-border pt-5"><ShieldCheck className="h-5 w-5 text-primary" /><h2 className="mt-3 text-sm font-semibold">Grounded in approved knowledge</h2><p className="mt-2 text-xs leading-6 text-ink-muted">Authority, access, freshness, and safety are checked for each answer.</p></div>
         </aside>
       )}
     </div>

@@ -17,10 +17,14 @@ import { Route as AuthorRouteImport } from './routes/author'
 import { Route as EvalsRouteImport } from './routes/evals'
 import { Route as HealthRouteImport } from './routes/health'
 import { Route as LegalRouteImport } from './routes/legal'
+import { Route as LibraryRouteImport } from './routes/library'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PlatformRouteImport } from './routes/platform'
 import { Route as ReviewRouteImport } from './routes/review'
 import { Route as RightsRouteImport } from './routes/rights'
+import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as StoryRouteImport } from './routes/story'
+import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as WorkRouteImport } from './routes/work'
 
 const IndexRoute = IndexRouteImport.update({
@@ -63,6 +67,16 @@ const LegalRoute = LegalRouteImport.update({
   path: '/legal',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LibraryRoute = LibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlatformRoute = PlatformRouteImport.update({
   id: '/platform',
   path: '/platform',
@@ -78,9 +92,19 @@ const RightsRoute = RightsRouteImport.update({
   path: '/rights',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignInRoute = SignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StoryRoute = StoryRouteImport.update({
   id: '/story',
   path: '/story',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WorkRoute = WorkRouteImport.update({
@@ -98,10 +122,14 @@ export interface FileRoutesByFullPath {
   '/evals': typeof EvalsRoute
   '/health': typeof HealthRoute
   '/legal': typeof LegalRoute
+  '/library': typeof LibraryRoute
+  '/onboarding': typeof OnboardingRoute
   '/platform': typeof PlatformRoute
   '/review': typeof ReviewRoute
   '/rights': typeof RightsRoute
+  '/sign-in': typeof SignInRoute
   '/story': typeof StoryRoute
+  '/welcome': typeof WelcomeRoute
   '/work': typeof WorkRoute
 }
 export interface FileRoutesByTo {
@@ -113,10 +141,14 @@ export interface FileRoutesByTo {
   '/evals': typeof EvalsRoute
   '/health': typeof HealthRoute
   '/legal': typeof LegalRoute
+  '/library': typeof LibraryRoute
+  '/onboarding': typeof OnboardingRoute
   '/platform': typeof PlatformRoute
   '/review': typeof ReviewRoute
   '/rights': typeof RightsRoute
+  '/sign-in': typeof SignInRoute
   '/story': typeof StoryRoute
+  '/welcome': typeof WelcomeRoute
   '/work': typeof WorkRoute
 }
 export interface FileRoutesById {
@@ -129,10 +161,14 @@ export interface FileRoutesById {
   '/evals': typeof EvalsRoute
   '/health': typeof HealthRoute
   '/legal': typeof LegalRoute
+  '/library': typeof LibraryRoute
+  '/onboarding': typeof OnboardingRoute
   '/platform': typeof PlatformRoute
   '/review': typeof ReviewRoute
   '/rights': typeof RightsRoute
+  '/sign-in': typeof SignInRoute
   '/story': typeof StoryRoute
+  '/welcome': typeof WelcomeRoute
   '/work': typeof WorkRoute
 }
 export interface FileRouteTypes {
@@ -146,10 +182,14 @@ export interface FileRouteTypes {
     | '/evals'
     | '/health'
     | '/legal'
+    | '/library'
+    | '/onboarding'
     | '/platform'
     | '/review'
     | '/rights'
+    | '/sign-in'
     | '/story'
+    | '/welcome'
     | '/work'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -161,10 +201,14 @@ export interface FileRouteTypes {
     | '/evals'
     | '/health'
     | '/legal'
+    | '/library'
+    | '/onboarding'
     | '/platform'
     | '/review'
     | '/rights'
+    | '/sign-in'
     | '/story'
+    | '/welcome'
     | '/work'
   id:
     | '__root__'
@@ -176,10 +220,14 @@ export interface FileRouteTypes {
     | '/evals'
     | '/health'
     | '/legal'
+    | '/library'
+    | '/onboarding'
     | '/platform'
     | '/review'
     | '/rights'
+    | '/sign-in'
     | '/story'
+    | '/welcome'
     | '/work'
   fileRoutesById: FileRoutesById
 }
@@ -192,10 +240,14 @@ export interface RootRouteChildren {
   EvalsRoute: typeof EvalsRoute
   HealthRoute: typeof HealthRoute
   LegalRoute: typeof LegalRoute
+  LibraryRoute: typeof LibraryRoute
+  OnboardingRoute: typeof OnboardingRoute
   PlatformRoute: typeof PlatformRoute
   ReviewRoute: typeof ReviewRoute
   RightsRoute: typeof RightsRoute
+  SignInRoute: typeof SignInRoute
   StoryRoute: typeof StoryRoute
+  WelcomeRoute: typeof WelcomeRoute
   WorkRoute: typeof WorkRoute
 }
 
@@ -257,6 +309,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LegalRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/library': {
+      id: '/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof LibraryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/platform': {
       id: '/platform'
       path: '/platform'
@@ -278,11 +344,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RightsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/story': {
       id: '/story'
       path: '/story'
       fullPath: '/story'
       preLoaderRoute: typeof StoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/work': {
@@ -304,10 +384,14 @@ const rootRouteChildren: RootRouteChildren = {
   EvalsRoute: EvalsRoute,
   HealthRoute: HealthRoute,
   LegalRoute: LegalRoute,
+  LibraryRoute: LibraryRoute,
+  OnboardingRoute: OnboardingRoute,
   PlatformRoute: PlatformRoute,
   ReviewRoute: ReviewRoute,
   RightsRoute: RightsRoute,
+  SignInRoute: SignInRoute,
   StoryRoute: StoryRoute,
+  WelcomeRoute: WelcomeRoute,
   WorkRoute: WorkRoute,
 }
 export const routeTree = rootRouteImport

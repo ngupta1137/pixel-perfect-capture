@@ -12,7 +12,7 @@ export function ContextBar({ lob, setLob, state, setState, planYear, setPlanYear
   planYear: string; setPlanYear: (v: string) => void; highlight: boolean;
 }) {
   return (
-    <div className="sticky top-0 z-20 -mx-2 mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-background px-2 py-3 text-sm">
+    <div className="sticky top-0 z-20 -mx-2 mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-surface-alt px-2 py-3 text-sm">
       <label className="flex items-center gap-2 text-ink-muted">
         Line of business
         <select className="field-select" value={lob} onChange={(e) => setLob(e.target.value)}>
@@ -33,11 +33,11 @@ export function ContextBar({ lob, setLob, state, setState, planYear, setPlanYear
         Plan year
         <div className="inline-flex overflow-hidden rounded-md border border-border">
           {["2026", "2027"].map((y) => (
-            <button key={y} type="button" aria-pressed={planYear === y}
+            <Button variant="ghost" size="sm" key={y} type="button" aria-pressed={planYear === y}
               onClick={() => setPlanYear(planYear === y ? "" : y)}
               className={`px-3 py-1 font-semibold ${planYear === y ? "bg-primary text-primary-foreground" : "bg-surface text-ink"}`}>
               {y}
-            </button>
+            </Button>
           ))}
         </div>
         {!planYear && <span className="text-xs text-outcome-clarify">Unknown</span>}
@@ -50,12 +50,12 @@ export function ContextBar({ lob, setLob, state, setState, planYear, setPlanYear
 
 export function DisclosureStep({ title, text, done, onDone }: { title: string; text: string; done: boolean; onDone: () => void }) {
   return (
-    <section className="mb-4 rounded-lg border-2 border-brand-green-dark bg-surface p-4">
+    <section className="mb-4 border-l-[3px] border-brand-green-dark bg-surface px-5 py-4">
       <p className="text-sm font-bold text-brand-green-dark">Step 1 · Read before discussing benefits</p>
       <p className="mt-1 flex items-center gap-1.5 text-xs font-bold tracking-wide text-ink-muted">
         <Lock className="h-3.5 w-3.5" aria-hidden="true" /> READ EXACTLY AS WRITTEN · {title}
       </p>
-      <p className="mt-2 select-all text-lg leading-relaxed">{text}</p>
+      <p className="mt-2 select-all text-base leading-relaxed">{text}</p>
       <label className="mt-3 flex items-center gap-2 font-semibold">
         <Checkbox checked={done} disabled={done} onCheckedChange={(v) => v && onDone()} aria-label="I read this" />
         I read this
