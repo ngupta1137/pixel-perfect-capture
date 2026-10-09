@@ -2,11 +2,26 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { RequirePage } from "@/components/shell/Denied";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { guide, useGuide } from "@/lib/guide";
-import { ArrowRight, Mic, Square, BookOpen, History, ShieldCheck, Phone } from "lucide-react";
+import {
+  ArrowRight,
+  Mic,
+  Square,
+  Phone,
+  Search,
+  Send,
+  ChevronRight,
+  FileText,
+  Clock,
+  Paperclip,
+  Truck,
+  CalendarDays,
+  ShieldCheck,
+  Stethoscope,
+  CreditCard,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OutcomeCard } from "@/components/ask/OutcomeCard";
 import { TraceDrawer } from "@/components/ask/TraceDrawer";
-import { OutcomePill } from "@/components/ask/outcomeMeta";
 import { AnswerDetails } from "@/components/ask/AnswerDetails";
 import {
   Conversation,
@@ -60,14 +75,20 @@ export const Route = createFileRoute("/")({
 });
 
 const EXAMPLES = [
-  "Rx pricing disclaimer",
-  "closing statement",
-  "how many days supply can I get by mail",
-  "how long does mail order delivery take",
-  "luminexa copay",
-  "is there a copay assistance program",
-  "is there a shipping fee for mail order",
-  "I have chest pain, can you rush my heart pills",
+  { query: "Rx pricing disclaimer", label: "Rx pricing disclaimer", icon: Paperclip },
+  { query: "how long does mail order delivery take", label: "Mail order delivery", icon: Truck },
+  {
+    query: "how many days supply can I get by mail",
+    label: "How many days supply can I get by mail?",
+    icon: CalendarDays,
+  },
+  { query: "ID card replacement", label: "How do I get a replacement ID card?", icon: CreditCard },
+  {
+    query: "is there a copay assistance program",
+    label: "Is there a copay assistance program?",
+    icon: ShieldCheck,
+  },
+  { query: "closing statement", label: "Call closing statement", icon: Stethoscope },
 ];
 interface Answer {
   res: SearchResponse;
@@ -94,10 +115,13 @@ export function AskPage() {
   const [error, setError] = useState("");
   const [textSize, setTextSize] = useState(0);
   const [handoff, setHandoff] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const storedRequests = useDemoStore((s) => s.requests);
-  const sessionHistory = storedRequests.filter((r) => r.person === persona.name).slice(0, 8);
+  const sessionHistory = storedRequests
+    .filter((r) => r.person === persona.name)
+    .slice(0, showHistory ? 12 : 5);
   useDemoStore((s) => s.units);
-  const browse = scopedLibrary(listUnits(), persona).slice(0, 4);
+  const browse = scopedLibrary(listUnits(), persona).slice(0, 5);
   const scope = `${persona.id}:${channel}`;
   const voice = useBrowserVoice(scope);
   const scopeRef = useRef(scope);
@@ -219,7 +243,6 @@ export function AskPage() {
     event.preventDefault();
     void run(query);
   };
-  const safety = answer?.res.outcome === "safety_escalation";
   const clarify = answer?.res.outcome === "needs_clarification";
   const renderAnswer = (item: Answer, compact = false) => (
     <>
@@ -267,16 +290,17 @@ export function AskPage() {
       className={
         isChat
           ? `mx-auto max-w-3xl ${textSize === 2 ? "[&_p]:text-[22px]" : textSize === 1 ? "[&_p]:text-xl" : ""}`
-          : "grid gap-7 xl:grid-cols-[minmax(0,1fr)_250px]"
+          : "ask-workspace grid gap-8 min-[1100px]:grid-cols-[minmax(0,1fr)_260px]"
       }
     >
       <section className="min-w-0">
         {!isChat && (
-          <div className="mb-6">
-            <p className="mb-2 text-xs text-ink-muted">KNOWLEDGE WORKSPACE</p>
+          <div className="ask-intro pb-8 pt-5">
+            <p className="mb-3 text-sm text-ink-muted">Welcome back, {persona.name}</p>
             <h1 className="font-semibold">Ask with confidence</h1>
-            <p className="mt-2 text-sm text-ink-muted">
-              Find the approved answer for the conversation in front of you.
+            <p className="mt-3 max-w-xl text-base leading-relaxed text-ink-muted">
+              Get accurate, approved answers from trusted knowledge. Verity only uses verified
+              content and shows you the source.
             </p>
           </div>
         )}
@@ -383,55 +407,64 @@ export function AskPage() {
           </PromptInput>
         ) : (
           <>
-            <ContextBar
-              lob={lob}
-              setLob={setLob}
-              state={state}
-              setState={setState}
-              planYear={planYear}
-              setPlanYear={setPlanYear}
-              highlight={clarify}
-            />
-            <form onSubmit={submit} className="flex items-center gap-2">
-              <label htmlFor="ask" className="sr-only">
-                Ask Verity
-              </label>
-              <input
-                id="ask"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Ask a question about approved knowledge…"
-                className="h-14 min-w-0 flex-1 rounded-lg border border-border bg-surface px-4 text-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-              {channel === "voice" && (
-                <Button
-                  type="button"
-                  size="icon"
-                  aria-label={voice.listening ? "Stop listening" : "Start voice input"}
-                  title={voice.listening ? "Stop listening" : "Start voice input"}
-                  aria-pressed={voice.listening}
-                  disabled={!voice.supported || loading}
-                  onClick={() =>
-                    voice.listening
-                      ? voice.stopListening()
-                      : voice.startListening(setQuery, (text) => {
-                          void run(text, persona, "voice");
-                        })
-                  }
-                  className={`h-16 w-16 shrink-0 rounded-full [&_svg]:size-7 ${voice.listening ? "bg-destructive text-destructive-foreground motion-safe:animate-pulse" : ""}`}
-                >
-                  {voice.listening ? <Square /> : <Mic />}
-                </Button>
-              )}
-              <Button
-                type="submit"
-                size="lg"
-                className="h-14 shrink-0 px-4 sm:px-6"
-                disabled={loading || voice.listening || !query.trim()}
+            <div className="ask-search sticky top-3 z-20 rounded-lg border border-border bg-surface p-3 sm:p-4">
+              <form
+                onSubmit={submit}
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
               >
-                Ask <ArrowRight className="h-4 w-4" />
-              </Button>
-            </form>
+                <div className="relative min-w-0">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-primary" />
+                  <label htmlFor="ask" className="sr-only">
+                    Ask Verity
+                  </label>
+                  <input
+                    id="ask"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Ask about member benefits, pharmacy, claims or policies…"
+                    className="h-12 w-full min-w-0 rounded-md border border-border bg-surface pl-10 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {channel === "voice" && (
+                    <Button
+                      type="button"
+                      size="icon"
+                      aria-label={voice.listening ? "Stop listening" : "Start voice input"}
+                      title={voice.listening ? "Stop listening" : "Start voice input"}
+                      aria-pressed={voice.listening}
+                      disabled={!voice.supported || loading}
+                      onClick={() =>
+                        voice.listening
+                          ? voice.stopListening()
+                          : voice.startListening(setQuery, (text) => {
+                              void run(text, persona, "voice");
+                            })
+                      }
+                      className={`h-12 w-12 shrink-0 rounded-full ${voice.listening ? "bg-destructive text-destructive-foreground motion-safe:animate-pulse" : ""}`}
+                    >
+                      {voice.listening ? <Square /> : <Mic />}
+                    </Button>
+                  )}
+                  <Button
+                    type="submit"
+                    className="h-12 px-4 sm:px-5"
+                    disabled={loading || voice.listening || !query.trim()}
+                  >
+                    <Send /> <span className="hidden sm:inline">Ask</span>
+                  </Button>
+                </div>
+              </form>
+              <ContextBar
+                lob={lob}
+                setLob={setLob}
+                state={state}
+                setState={setState}
+                planYear={planYear}
+                setPlanYear={setPlanYear}
+                highlight={clarify}
+              />
+            </div>
           </>
         )}
 
@@ -481,37 +514,9 @@ export function AskPage() {
             </label>
           </div>
         )}
-        {!isChat && !answer && !loading && sessionHistory.length === 0 && (
-          <div className="mt-6 rounded-md border border-dashed border-border bg-surface px-5 py-6 text-center">
-            <ShieldCheck className="mx-auto h-6 w-6 text-primary" />
-            <p className="mt-2 text-sm font-semibold">Ask your first question</p>
-            <p className="mt-1 text-xs text-ink-muted">
-              Set the caller's context above, then ask. Verity answers only from approved, in-scope knowledge.
-            </p>
-          </div>
-        )}
-        <p className="mt-6 text-xs font-semibold text-ink-muted">
-          {answer && !isChat ? "RELATED QUESTIONS" : "SUGGESTED QUESTIONS"}
-        </p>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          {EXAMPLES.filter((ex) => !answer || ex !== lastQuery)
-            .slice(0, answer || isChat ? 4 : 6)
-            .map((ex) => (
-            <Button
-              key={ex}
-              type="button"
-              variant="outline"
-              onClick={() => setQuery(ex)}
-              className="h-auto min-h-12 justify-between whitespace-normal border-border bg-surface px-4 py-3 text-left text-[13px] font-normal"
-            >
-              {ex}
-              <ArrowRight className="h-3.5 w-3.5 text-ink-muted" />
-            </Button>
-          ))}
-        </div>
         {!isChat && (
           <div className="mt-6 space-y-4" aria-live="polite">
-            {disclosure && (
+            {disclosure && answer && (
               <DisclosureStep
                 title={disclosure.title}
                 text={disclosure.text}
@@ -521,7 +526,15 @@ export function AskPage() {
                 }
               />
             )}
-            {loading && <Shimmer>Checking...</Shimmer>}
+            {loading && (
+              <div
+                role="status"
+                className="flex items-center gap-3 border-l-2 border-primary px-5 py-6"
+              >
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                <Shimmer>Checking approved knowledge...</Shimmer>
+              </div>
+            )}
             {!loading && answer && renderAnswer(answer)}
             {!loading && answer && can("get_unit") && (
               <AnswerDetails res={answer.res} onCite={setOpenCite} />
@@ -541,18 +554,61 @@ export function AskPage() {
             <UnitDrawer citation={openCite} onClose={() => setOpenCite(null)} />
           </div>
         )}
+        <section
+          className="mt-8"
+          aria-label={answer && !isChat ? "Related questions" : "Suggested questions"}
+        >
+          <h2 className="mb-4 text-sm font-semibold">
+            {answer && !isChat ? "Related questions" : "Suggested questions"}
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {EXAMPLES.filter((ex) => !answer || ex.query !== lastQuery)
+              .slice(0, answer || isChat ? 4 : 6)
+              .map((ex) => (
+                <Button
+                  key={ex.query}
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setQuery(ex.query);
+                    void run(ex.query);
+                  }}
+                  className="ask-suggestion h-auto min-h-[68px] justify-start gap-3 whitespace-normal bg-surface px-3 py-3 text-left text-[13px] font-normal shadow-none"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/6 text-primary">
+                    <ex.icon className="h-[18px] w-[18px]" />
+                  </span>
+                  <span className="min-w-0 flex-1 leading-relaxed">{ex.label}</span>
+                  <ChevronRight className="h-4 w-4 text-ink-muted" />
+                </Button>
+              ))}
+          </div>
+        </section>
       </section>
-      {!isChat && !safety && (
-        <aside className="space-y-7 xl:border-l xl:border-border xl:pl-6">
-          <div>
-            <h2 className="flex items-center gap-2 text-sm font-semibold">
-              <History className="h-4 w-4 text-ink-muted" />
-              Recent searches
-            </h2>
+      {!isChat && (
+        <aside className="ask-rail min-w-0 space-y-4 min-[1100px]:-mr-4 min-[1100px]:-mt-7 min-[1100px]:border-l min-[1100px]:border-border min-[1100px]:bg-surface min-[1100px]:px-4 min-[1100px]:pt-5 lg:min-[1100px]:-mr-7">
+          <section className="rounded-lg border border-border bg-surface p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold">Recent searches</h2>
+              {storedRequests.some((r) => r.person === persona.name) && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-[11px]"
+                  onClick={() => setShowHistory(!showHistory)}
+                >
+                  {showHistory ? "Show less" : "View all"}
+                  <ArrowRight className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
             {sessionHistory.length === 0 ? (
-              <div className="mt-4 border-l-2 border-border py-2 pl-4">
-                <p className="text-sm text-ink-muted">No searches yet</p>
-                <p className="mt-1 text-xs text-ink-muted">Your session starts here.</p>
+              <div className="flex items-start gap-3 py-6 text-ink-muted">
+                <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="text-sm">No recent searches</p>
+                  <p className="mt-1 text-xs leading-relaxed">Your searches will appear here.</p>
+                </div>
               </div>
             ) : (
               <ul className="mt-3 divide-y divide-border">
@@ -564,48 +620,48 @@ export function AskPage() {
                         setQuery(item.query);
                         void run(item.query);
                       }}
-                      className="h-auto w-full flex-col items-stretch gap-2 whitespace-normal px-0 py-3 text-left"
+                      className="h-auto min-h-16 w-full justify-start gap-3 whitespace-normal rounded-none px-0 py-3 text-left"
                     >
-                      <span className="text-[13px] font-medium">{item.query}</span>
-                      <OutcomePill outcome={item.outcome} size="sm" />
+                      <Clock className="h-4 w-4 text-ink-muted" />
+                      <span className="min-w-0 flex-1 text-xs font-normal leading-relaxed">
+                        {item.query}
+                      </span>
+                      <ChevronRight className="h-3.5 w-3.5 text-ink-muted" />
                     </Button>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
+          </section>
           {can("get_unit") && (
-            <div>
-              <div className="flex items-center justify-between">
-                <h2 className="flex items-center gap-2 text-sm font-semibold">
-                  <BookOpen className="h-4 w-4 text-ink-muted" />
-                  Browse knowledge
-                </h2>
-                <Link to="/library" className="text-xs text-primary">
-                  View all
-                </Link>
+            <section className="rounded-lg border border-border bg-surface p-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold">Browse knowledge</h2>
+                <Button variant="link" size="sm" asChild className="h-auto p-0 text-[11px]">
+                  <Link to="/library">
+                    View all
+                    <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </Button>
               </div>
               <div className="mt-3 divide-y divide-border">
                 {browse.map((u) => (
                   <Link
                     key={u.unit_id}
                     to="/library"
-                    className="flex items-start gap-2 py-3 text-[13px] text-ink-muted hover:text-primary"
+                    className="flex min-h-12 items-center gap-3 py-3 text-xs text-ink-muted hover:text-primary"
                   >
-                    <BookOpen className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <span>{u.title}</span>
+                    <FileText className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 flex-1 leading-relaxed">{u.title}</span>
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0" />
                   </Link>
                 ))}
+                {!browse.length && (
+                  <p className="py-4 text-xs text-ink-muted">No knowledge in your scope.</p>
+                )}
               </div>
-            </div>
+            </section>
           )}
-          <div className="border-t border-border pt-5">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            <h2 className="mt-3 text-sm font-semibold">Grounded in approved knowledge</h2>
-            <p className="mt-2 text-xs leading-6 text-ink-muted">
-              Authority, access, freshness, and safety are checked for each answer.
-            </p>
-          </div>
         </aside>
       )}
     </div>

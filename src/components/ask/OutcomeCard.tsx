@@ -3,7 +3,7 @@ import { ArrowRightCircle, Check, Copy, Lock, Phone, Volume2, Square } from "luc
 import { Button } from "@/components/ui/button";
 import type { Choice, Citation, Part } from "@/services/verity";
 import { TrustBadge } from "./TrustBadge";
-import { OutcomePill } from "./outcomeMeta";
+import { OutcomePill, OUTCOME_META } from "./outcomeMeta";
 import { CHANNELS, useSession } from "@/lib/session";
 import { personaDef } from "@/lib/rights";
 import { MessageResponse } from "@/components/ai-elements/message";
@@ -31,7 +31,7 @@ function CitationLine({
         variant="ghost"
         type="button"
         onClick={() => onCite(c)}
-        className="mt-3 inline-flex flex-wrap items-center gap-1 rounded-full border border-border bg-surface-alt px-3 py-1 text-left text-sm text-ink hover:border-brand-green-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="mt-5 inline-flex h-auto max-w-full flex-wrap items-center justify-start gap-1 rounded-md border border-border bg-surface-alt px-3 py-2 text-left text-xs text-ink hover:border-brand-green-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={`Open unit ${c.unit_id}: ${c.title}`}
       >
         <span className="font-semibold">{c.title}</span> · v{c.version} · effective{" "}
@@ -54,7 +54,7 @@ function VerbatimBox({ text }: { text: string }) {
     setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <div className="rounded-md border-2 border-brand-green-dark">
+    <div className="overflow-hidden rounded-md border-l-[3px] border-brand-green-dark bg-primary/4">
       <div className="flex items-center justify-between border-b border-border bg-surface-alt px-4 py-2">
         <span className="flex items-center gap-1.5 text-xs font-bold tracking-wide text-brand-green-dark">
           <Lock className="h-3.5 w-3.5" aria-hidden="true" /> READ EXACTLY AS WRITTEN
@@ -64,7 +64,7 @@ function VerbatimBox({ text }: { text: string }) {
           {copied ? "Copied" : "Copy"}
         </Button>
       </div>
-      <p aria-readonly="true" className="select-all px-4 py-4 text-xl leading-relaxed">
+      <p aria-readonly="true" className="select-all px-5 py-5 text-lg leading-relaxed">
         {text}
       </p>
     </div>
@@ -149,7 +149,7 @@ function Body({
           ) : compact ? (
             <MessageResponse className="text-lg leading-relaxed">{part.text ?? ""}</MessageResponse>
           ) : (
-            <p className="text-xl leading-relaxed">{part.text}</p>
+            <p className="text-lg leading-8">{part.text}</p>
           )}
           {c0 && <CitationLine c={c0} onCite={onCite} minimal={minimal} showOwner={showOwner} />}
         </>
@@ -199,14 +199,15 @@ function Body({
             {part.citations.map((c) => (
               <div key={c.unit_id} className="rounded-md border border-border p-4">
                 {onCite ? (
-                  <button
+                  <Button
+                    variant="link"
                     type="button"
                     onClick={() => onCite(c)}
                     aria-label={`Open unit ${c.unit_id}: ${c.title}`}
-                    className="text-left font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                    className="h-auto justify-start whitespace-normal p-0 text-left font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring"
                   >
                     {c.title}
-                  </button>
+                  </Button>
                 ) : (
                   <p className="font-semibold">{c.title}</p>
                 )}
@@ -290,11 +291,32 @@ export function OutcomeCard({
   const minimal = person.memberAudience;
   const showOwner = personaDef(person.persona).sees_internal_owner;
   const safety = part.outcome === "safety_escalation";
+  const meta = OUTCOME_META[part.outcome];
+  const StatusIcon = meta.icon;
+  const headings = {
+    answer: "Approved answer",
+    needs_clarification: "A little more context is needed",
+    insufficient_evidence: "No approved answer found",
+    conflict: "Conflicting sources — answer withheld",
+    stale: "Review required — answer withheld",
+    not_authorized: "Outside your access",
+    safety_escalation: "Immediate safety escalation",
+  };
   return (
     <article
-      className={`bg-surface ${compact ? "border-l-2 border-primary/20 pl-4 py-3 text-lg [&_p.text-xl]:text-lg [&_p.text-2xl]:text-lg" : "p-6"} ${safety ? "rounded-md border-2 border-outcome-safety" : compact ? "" : "rounded-md border border-border"}`}
+      className={`bg-surface ${compact ? "border-l-2 border-primary/20 pl-4 py-3 text-lg [&_p.text-xl]:text-lg [&_p.text-2xl]:text-lg" : `answer-focus overflow-hidden rounded-lg border border-border border-t-[3px] ${meta.border} p-5 sm:p-6`} ${safety ? "border-2 border-outcome-safety" : ""}`}
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+      {!compact && (
+        <div className="mb-5 flex items-center gap-3">
+          <span
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${meta.bg} ${meta.text}`}
+          >
+            <StatusIcon className="h-5 w-5" />
+          </span>
+          <h2 className="text-base font-semibold">{headings[part.outcome]}</h2>
+        </div>
+      )}
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
         <span className="flex flex-wrap items-center gap-2">
           <OutcomePill outcome={part.outcome} />
           {part.trust && <TrustBadge trust={part.trust} />}
