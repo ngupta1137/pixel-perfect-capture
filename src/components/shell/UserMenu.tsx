@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ChevronDown, ShieldCheck, RotateCcw, BookOpen, User, ExternalLink } from "lucide-react";
+import { ChevronDown, ShieldCheck, RotateCcw, BookOpen, User, ExternalLink, LogOut } from "lucide-react";
 import { useSession } from "@/lib/session";
-import { resetDemo } from "@/services/verity";
+import { resetDemoStore } from "@/services/demoStore";
+import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function UserMenu() {
-  const { person } = useSession();
+  const { person, signOut } = useSession();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
@@ -21,7 +22,8 @@ export function UserMenu() {
   const handleReset = async () => {
     setBusy(true);
     try {
-      await resetDemo();
+      resetDemoStore();
+      toast.success("Demo state reset to original seed data");
       setOpen(false);
     } finally {
       setBusy(false);
@@ -69,6 +71,17 @@ export function UserMenu() {
             <ExternalLink className="h-3.5 w-3.5 text-ink-muted" />
             <span>Verity Overview</span>
           </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            signOut();
+            setOpen(false);
+            void navigate({ to: "/welcome" });
+          }}
+          className="flex cursor-pointer items-center gap-2 text-xs text-ink"
+        >
+          <LogOut className="h-3.5 w-3.5 text-ink-muted" />
+          <span>Sign out</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

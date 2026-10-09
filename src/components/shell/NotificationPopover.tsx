@@ -31,6 +31,7 @@ export function NotificationPopover() {
       icon: Clock,
       iconColor: "text-red-600 bg-red-50",
       to: "/work",
+      search: { tab: "gaps" },
     },
     {
       id: "n-3",
@@ -76,6 +77,7 @@ export function NotificationPopover() {
             <Link
               key={n.id}
               to={n.to}
+              search={(n as any).search}
               onClick={() => setOpen(false)}
               className="flex items-start gap-3 p-3 text-left transition-colors hover:bg-muted"
             >

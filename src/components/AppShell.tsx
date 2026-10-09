@@ -1,5 +1,5 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Compass,
   Home,
@@ -21,6 +21,7 @@ import { HelpModal } from "@/components/shell/HelpModal";
 import { ActingAsBar } from "@/components/shell/ActingAsBar";
 import { useSession } from "@/lib/session";
 import { SIDEBAR_ITEMS } from "@/components/workspace/navigation";
+import { canOpen, canView } from "@/lib/rights";
 import { useBreadcrumbs } from "@/lib/breadcrumbs";
 
 function GuideButton() {
@@ -41,14 +42,23 @@ function GuideButton() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { person } = useSession();
+  const { person, authenticated } = useSession();
+  const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const searchStr = useRouterState({ select: (s) => s.location.searchStr });
+  const isGapsActive = searchStr.includes("gaps");
 
   const [collapsed, setCollapsed] = useState(false);
   const docked = useGuide((s) => s.open && !s.collapsed);
   useGuideKeys();
   const publicPage = ["/welcome", "/sign-in", "/onboarding", "/story"].includes(pathname);
   const customCrumbs = useBreadcrumbs();
+
+  useEffect(() => {
+    if (!authenticated && !publicPage) {
+      void navigate({ to: "/welcome" });
+    }
+  }, [authenticated, publicPage, navigate]);
 
   // Derive current page label for breadcrumb
   const currentItem = SIDEBAR_ITEMS.find((n) => n.to === pathname);
@@ -57,21 +67,34 @@ export function AppShell({ children }: { children: ReactNode }) {
     customCrumbs.length > 0
       ? customCrumbs
       : pathname === "/work"
-      ? ["Workspace", "Ingest", "New source"]
+      ? isGapsActive
+        ? ["Workspace", "Knowledge gaps"]
+        : ["Workspace", "Ingest", "New source"]
       : pathname === "/review"
       ? ["Workspace", "Review queue"]
       : [pageTitle];
 
+  // Filter sidebar items according to centralized role permissions
+  const permittedSidebarItems = SIDEBAR_ITEMS.filter((item) => {
+    if (item.view) return canView(person, item.view);
+    return canOpen(person, item.to);
+  });
 
   const nav = (
     <nav aria-label="Workspace navigation" className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
-      {SIDEBAR_ITEMS.map((item, idx) => {
+      {permittedSidebarItems.map((item) => {
         const Icon = item.icon;
-        const isActive = pathname === item.to && (item.label !== "Knowledge gaps" || idx === 0);
+        const isThisGaps = item.label === "Knowledge gaps";
+        const isThisIngest = item.label === "Ingest";
+        const isActive =
+          pathname === item.to &&
+          (isThisGaps ? isGapsActive : isThisIngest ? !isGapsActive : true);
+
         return (
           <Link
             key={`${item.to}-${item.label}`}
             to={item.to}
+            search={isThisGaps ? ({ tab: "gaps" } as any) : undefined}
             activeOptions={{ exact: true }}
             title={item.label}
             className={`group relative flex min-h-10 items-center justify-between rounded-lg px-3 py-2 text-[13px] font-normal transition-all ${
@@ -223,9 +246,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           {/* Mobile navigation tab bar */}
           <div className="flex gap-2 overflow-x-auto border-t border-border px-4 py-2 md:hidden">
-            {SIDEBAR_ITEMS.map((n) => (
+            {permittedSidebarItems.map((n) => (
               <Link
-                key={n.to}
+                key={`${n.to}-${n.label}`}
                 to={n.to}
                 className="shrink-0 rounded px-2.5 py-1 text-xs text-ink-muted"
                 activeProps={{ className: "bg-primary/8 text-primary font-semibold" }}

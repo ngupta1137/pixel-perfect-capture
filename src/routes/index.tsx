@@ -181,7 +181,7 @@ export function AskPage() {
   const scopeRef = useRef(scope);
   scopeRef.current = scope;
   const pending = useRef(false);
-  const isChat = persona.memberAudience && channel === "member_chat";
+  const isChat = channel === "member_chat";
 
   useEffect(() => {
     setAnswer(null);
@@ -209,8 +209,7 @@ export function AskPage() {
     if (!q.trim() || pending.current) return null;
     voice.stopReading();
     const requestScope = scopeRef.current;
-    const requestChannel =
-      p.memberAudience && channel === "advocate_view" ? "member_chat" : channel;
+    const requestChannel = channel;
     const id = crypto.randomUUID();
     setLastQuery(q);
     pending.current = true;
@@ -669,15 +668,31 @@ export function AskPage() {
           </>
         )}
 
-        {(channel === "voice" || isChat || voice.listening || voice.transcript) && (
-          <div role="status" className="mt-3 text-sm text-ink-muted">
-            {!voice.supported && <p>Voice input needs Chrome</p>}
-            {voice.listening && <p className="font-semibold text-outcome-safety">Listening...</p>}
-            {voice.transcript && <p className="mt-1 break-words">{voice.transcript}</p>}
+        {(channel === "voice" || voice.listening || voice.transcript) && (
+          <div role="status" className="mt-3 space-y-1.5 text-sm text-ink-muted">
+            {!voice.supported && channel === "voice" && (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
+                Speech recognition is not supported in this browser. You can type questions below to receive spoken audio synthesis, or use Chrome / Edge for microphone input.
+              </p>
+            )}
+            {voice.listening && (
+              <div className="flex items-center gap-2 font-semibold text-emerald-700">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+                </span>
+                Listening... Speak your question clearly
+              </div>
+            )}
+            {voice.transcript && (
+              <p className="break-words rounded-lg border border-border bg-surface p-2.5 text-xs font-mono text-ink">
+                <strong>Heard:</strong> {voice.transcript}
+              </p>
+            )}
           </div>
         )}
         {(voice.error || error) && (
-          <p role="alert" className="mt-3 text-sm text-outcome-safety">
+          <p role="alert" className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-2.5 text-xs text-destructive">
             {voice.error || error}
           </p>
         )}

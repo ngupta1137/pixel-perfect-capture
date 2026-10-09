@@ -15,34 +15,37 @@ import {
   Settings,
   CircleHelp,
 } from "lucide-react";
-import type { PagePath } from "@/lib/rights";
+import type { PagePath, ViewKey } from "@/lib/rights";
 
 export interface NavItemConfig {
   to: PagePath;
   label: string;
   icon: typeof Home;
+  view?: ViewKey;
   badge?: { count: number; color: "amber" | "red" | "emerald" };
 }
 
 export const SIDEBAR_ITEMS: NavItemConfig[] = [
-  { to: "/", label: "Ask", icon: Home },
-  { to: "/library", label: "Knowledge library", icon: BookOpen },
-  { to: "/work", label: "Ingest", icon: PlusCircle },
+  { to: "/", label: "Ask", icon: Home, view: "ask" },
+  { to: "/library", label: "Knowledge library", icon: BookOpen, view: "units" },
+  { to: "/work", label: "Ingest", icon: PlusCircle, view: "author_ingest" },
   {
     to: "/review",
     label: "Review queue",
     icon: ClipboardCheck,
+    view: "needs_review",
     badge: { count: 3, color: "amber" },
   },
   {
     to: "/work",
     label: "Knowledge gaps",
     icon: Settings,
+    view: "author_gaps",
     badge: { count: 5, color: "red" },
   },
-  { to: "/health", label: "Analytics", icon: BarChart2 },
-  { to: "/agents", label: "Agents & tools", icon: Plug },
-  { to: "/access", label: "Settings", icon: Settings },
+  { to: "/health", label: "Analytics", icon: BarChart2, view: "analytics" },
+  { to: "/agents", label: "Agents & tools", icon: Plug, view: "agents" },
+  { to: "/access", label: "Settings", icon: Settings, view: "author_access" },
 ];
 
 export const WORKSPACE_GROUPS = [

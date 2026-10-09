@@ -209,7 +209,7 @@ describe("Verity Ingest & Drafts Screen", () => {
     fireEvent.pointerDown(gapsTab);
     fireEvent.click(gapsTab);
     await waitFor(() => {
-      expect(screen.getByText(/No unresolved knowledge gaps/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Prior authorization for GLP-1 medications/i).length).toBeGreaterThan(0);
     });
 
     // Insights tab

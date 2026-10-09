@@ -15,6 +15,7 @@ import { IngestSidebarGuide } from "@/components/ingest/IngestSidebarGuide";
 import { IngestSourceWizard } from "@/components/ingest/IngestSourceWizard";
 import { CandidateReviewView } from "@/components/ingest/CandidateReviewView";
 import { ReviewExtractWorkspace } from "@/components/ingest/ReviewExtractWorkspace";
+import { KnowledgeGapsView } from "@/components/gaps/KnowledgeGapsView";
 import { setBreadcrumbs } from "@/lib/breadcrumbs";
 import { MEMBER_SERVICES_GUIDE_UNITS, type ExtractedUnit } from "@/types/ingest";
 
@@ -44,7 +45,29 @@ export const Route = createFileRoute("/work")({
 
 function WorkPage() {
   const { person } = useSession();
-  const [tab, setTab] = useState<"sources" | "drafts" | "gaps" | "insights">("sources");
+  const getSearchTab = () => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("tab") === "gaps" || window.location.search.includes("gaps")) {
+        return "gaps";
+      }
+    }
+    return "sources";
+  };
+
+  const [tab, setTab] = useState<"sources" | "drafts" | "gaps" | "insights">(getSearchTab());
+
+  useEffect(() => {
+    const handleUrlChange = () => {
+      const currentTab = getSearchTab();
+      if (currentTab === "gaps") {
+        setTab("gaps");
+      }
+    };
+    handleUrlChange();
+    window.addEventListener("popstate", handleUrlChange);
+    return () => window.removeEventListener("popstate", handleUrlChange);
+  }, []);
 
   // Ingestion workflow steps: "upload" | "review_extract" | "review_units"
   const [ingestStep, setIngestStep] = useState<"upload" | "review_extract" | "review_units">("upload");
@@ -67,7 +90,7 @@ function WorkPage() {
     } else if (tab === "drafts") {
       setBreadcrumbs(["Workspace", "Ingest", "My drafts"]);
     } else if (tab === "gaps") {
-      setBreadcrumbs(["Workspace", "Ingest", "Gaps"]);
+      setBreadcrumbs(["Workspace", "Knowledge gaps"]);
     } else {
       setBreadcrumbs(["Workspace", "Ingest", "Insights"]);
     }
@@ -122,28 +145,32 @@ function WorkPage() {
 
   return (
     <div className="space-y-6">
-      {/* Back button link */}
-      <div>
-        <button
-          type="button"
-          onClick={handleResetToSource}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-muted hover:text-ink transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to ingest
-        </button>
-      </div>
+      {tab === "sources" && (
+        <>
+          {/* Back button link */}
+          <div>
+            <button
+              type="button"
+              onClick={handleResetToSource}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-muted hover:text-ink transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Back to ingest
+            </button>
+          </div>
 
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-ink">
-          {ingestStep === "review_extract" ? "Review & extract" : "Ingest source"}
-        </h1>
-        <p className="mt-1 text-xs sm:text-sm text-ink-muted">
-          {ingestStep === "review_extract"
-            ? "Verity has identified candidate knowledge units from your document. Review, edit and select units to submit for approval."
-            : "Upload or paste a source document to extract candidate knowledge units. Publication requires human approval."}
-        </p>
-      </div>
+          {/* Header */}
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-ink">
+              {ingestStep === "review_extract" ? "Review & extract" : "Ingest source"}
+            </h1>
+            <p className="mt-1 text-xs sm:text-sm text-ink-muted">
+              {ingestStep === "review_extract"
+                ? "Verity has identified candidate knowledge units from your document. Review, edit and select units to submit for approval."
+                : "Upload or paste a source document to extract candidate knowledge units. Publication requires human approval."}
+            </p>
+          </div>
+        </>
+      )}
 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
@@ -151,28 +178,28 @@ function WorkPage() {
           <TabsTrigger
             value="sources"
             onClick={() => setTab("sources")}
-            className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs"
+            className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs cursor-pointer"
           >
             Sources
           </TabsTrigger>
           <TabsTrigger
             value="drafts"
             onClick={() => setTab("drafts")}
-            className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs"
+            className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs cursor-pointer"
           >
             My drafts
           </TabsTrigger>
           <TabsTrigger
             value="gaps"
             onClick={() => setTab("gaps")}
-            className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs"
+            className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs cursor-pointer"
           >
             Gaps
           </TabsTrigger>
           <TabsTrigger
             value="insights"
             onClick={() => setTab("insights")}
-            className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs"
+            className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs cursor-pointer"
           >
             Insights
           </TabsTrigger>
@@ -222,7 +249,12 @@ function WorkPage() {
 
         {/* Tab 3: Gaps */}
         <TabsContent value="gaps" className="mt-6">
-          <Gaps />
+          <KnowledgeGapsView
+            onCreateUnit={() => {
+              setTab("sources");
+              setIngestStep("upload");
+            }}
+          />
         </TabsContent>
 
         {/* Tab 4: Insights */}

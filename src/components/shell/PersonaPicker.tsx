@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { ChevronDown, Check } from "lucide-react";
 import { useSession } from "@/lib/session";
-import { GROUPS, PEOPLE, findPerson, homeRoute, type Person } from "@/lib/rights";
+import { GROUPS, PEOPLE, findPerson, homeRoute, canOpen, type PagePath, type Person } from "@/lib/rights";
 import { getAvatarUrl } from "@/lib/avatars";
 import {
   DropdownMenu,
@@ -33,13 +33,21 @@ export function ScopeChips({ kbs }: { kbs: string[] }) {
 export function PersonaPicker() {
   const { person, setPersona } = useSession();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const avatarUrl = getAvatarUrl(person.id);
 
   const handleSelect = (selectedPerson: Person) => {
     setPersona(selectedPerson.id);
     setOpen(false);
-    void navigate({ to: homeRoute(selectedPerson) });
+    const publicPage = ["/welcome", "/sign-in", "/onboarding", "/story"].includes(pathname);
+    if (!publicPage && pathname) {
+      const isAuthorized = canOpen(selectedPerson, pathname as PagePath);
+      if (!isAuthorized) {
+        const target = homeRoute(selectedPerson);
+        void navigate({ to: target });
+      }
+    }
   };
 
   return (
