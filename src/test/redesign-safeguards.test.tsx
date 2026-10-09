@@ -19,20 +19,33 @@ describe("redesign entitlement safeguards", () => {
     const priya = findPerson("priya");
     if (!priya) throw new Error("Missing Priya fixture");
     const units = scopedLibrary(listUnits(), priya);
-    expect(units.some(u => u.unit_id === "U-PH-003")).toBe(true);
-    expect(units.some(u => u.unit_id === "U-IN-002")).toBe(false);
+    expect(units.some((u) => u.unit_id === "U-PH-003")).toBe(true);
+    expect(units.some((u) => u.unit_id === "U-IN-002")).toBe(false);
   });
 
   it("member approved answers preserve exact text and conceal internal citation metadata", () => {
-    const response = mockSearch({ query: "Rx pricing disclaimer", role: "member_chat", channel: "member_chat" });
+    const response = mockSearch({
+      query: "Rx pricing disclaimer",
+      role: "member_chat",
+      channel: "member_chat",
+    });
     const part = response.parts[0];
     if (!part?.text || !part.citations[0]) throw new Error("Missing approved fixture");
     const citation = part.citations[0];
     function MemberResult() {
       const { setPersona } = useSession();
-      return <><button onClick={() => setPersona("eleanor")}>Select member</button><OutcomeCard part={part} channel="member_chat" compact /></>;
+      return (
+        <>
+          <button onClick={() => setPersona("eleanor")}>Select member</button>
+          <OutcomeCard part={part} channel="member_chat" compact />
+        </>
+      );
     }
-    const { container } = render(<SessionProvider><MemberResult /></SessionProvider>);
+    const { container } = render(
+      <SessionProvider>
+        <MemberResult />
+      </SessionProvider>,
+    );
     fireEvent.click(screen.getByText("Select member"));
     expect(screen.getByText(part.text)).toBeInTheDocument();
     expect(container.textContent).not.toContain(citation.unit_id);
