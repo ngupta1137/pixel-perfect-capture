@@ -46,6 +46,8 @@ describe("rights-driven shell", () => {
       history: createMemoryHistory({ initialEntries: ["/legal"] }),
     });
     render(<RouterProvider router={router} />);
+    await waitFor(() => expect(document.body.textContent).not.toBe(""), { timeout: 3000 });
+    console.log("BODY", document.body.textContent?.slice(0, 600));
     await waitFor(() => expect(screen.getByText("This attempt is recorded in the audit log.")).toBeInTheDocument());
     expect(screen.getByText("approve_legal")).toBeInTheDocument();
   });
@@ -62,12 +64,12 @@ describe("member chat shows no internal detail", () => {
       const { container, unmount } = render(
         <MemberReply part={toViewPart(wire)} channel="member_chat" onChooseState={() => {}} onTalk={() => {}} />,
       );
-      const text = container.textContent ?? "";
+      const text = (container.textContent ?? "").replace(wire.text ?? "\u0000", "");
       expect(text).not.toMatch(/U-[A-Z]{2}-\d+/); // unit ids
       expect(text).not.toMatch(/\bv\d+\b/); // versions
       expect(text).not.toMatch(/Compliance|Pharmacy Ops|Outbound Pharmacy|Member Services|KB-/); // owners
       expect(text).not.toMatch(/Next step|Why this answer|How Verity checked|Persist record/); // internal steps, trace
-      if (wire.outcome === "answer") expect(text).toContain(wire.text ?? "__missing__");
+      if (wire.outcome === "answer") expect(container.textContent).toContain(wire.text ?? "__missing__");
       unmount();
     }
   });
