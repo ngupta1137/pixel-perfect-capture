@@ -31,7 +31,10 @@ export function RequirePage({ to, children }: { to: PagePath; children: ReactNod
   const { person } = useSession();
   const denied = !canOpen(person, to);
   useEffect(() => {
-    if (denied) recordDenied(person.name, to, pageCaps(to).join(" or "), "Role does not hold the capability for this page");
+    if (!denied) return;
+    // Wait a moment: switching person briefly renders the old page before moving home.
+    const t = setTimeout(() => recordDenied(person.name, to, pageCaps(to).join(" or "), "Role does not hold the capability for this page"), 400);
+    return () => clearTimeout(t);
   }, [denied, person.name, to]);
   if (denied) return <Denied capabilities={pageCaps(to)} />;
   return <>{children}</>;
