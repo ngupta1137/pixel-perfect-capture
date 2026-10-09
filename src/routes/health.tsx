@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { RequirePage } from "@/components/shell/Denied";
 import { useDemoStore } from "@/services/demoStore";
@@ -22,7 +23,8 @@ export const Route = createFileRoute("/health")({
 });
 
 function HealthPage() {
-  const aep = useDemoStore(aepReadiness);
+  const state = useDemoStore((s) => s);
+  const aep = useMemo(() => aepReadiness(state), [state]);
   const tiles = [
     { label: "Verbatim compliance on recorded calls", value: "98.7%" },
     { label: "Cross-channel consistency", value: "100%" },
