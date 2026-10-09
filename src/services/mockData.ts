@@ -172,3 +172,56 @@ export function mockSearch(req: SearchRequest): SearchResponse {
     engine: "mock-0.1",
   };
 }
+
+// ---------------------------------------------------------------------------
+// Demo store seed. The shared demo store (src/services/demoStore.ts) starts
+// from these fixtures and returns to them on "Reset demo".
+import type { DemoState, DemoUnit } from "./demoStore";
+
+const unit = (
+  unit_id: string, title: string, owner: string, verbatim: boolean, status: string,
+  versions: { version: number; text: string; effective_date: string; approver: string }[],
+): DemoUnit => ({ unit_id, title, owner, verbatim, status, versions });
+
+export function seedDemoState(): DemoState {
+  return {
+    requests: [],
+    drafts: [],
+    units: [
+      unit("U-PH-003", "Pricing disclaimer (Rx)", "Compliance", true, "approved", [
+        { version: 1, effective_date: "2026-01-15", approver: "Rita (Legal)",
+          text: "The prices I share today are estimates based on your current plan and may change. Your final cost will be confirmed when your prescription is processed." },
+      ]),
+      unit("U-SH-002", "Call closing: no impact on membership", "Compliance", true, "approved", [
+        { version: 1, effective_date: "2025-06-01", approver: "Rita (Legal)", text: "Your decision today has no impact on your plan membership." },
+        { version: 2, effective_date: "2026-01-15", approver: "Rita (Legal)",
+          text: "Your decision today has no impact on your plan membership. Is there anything else I can help you with today?" },
+      ]),
+      unit("U-PH-006", "Mail order delivery time", "Pharmacy Ops", false, "approved", [
+        { version: 1, effective_date: "2026-01-15", approver: "Owen (Knowledge owner)",
+          text: "Mail order prescriptions typically arrive within 7 to 10 business days after the prescription is received from the doctor." },
+      ]),
+      unit("U-PH-007", "Days supply by mail (90-day)", "Pharmacy Ops", false, "approved", [
+        { version: 1, effective_date: "2026-01-15", approver: "Owen (Knowledge owner)", text: "A 90-day supply is available by mail for most maintenance medications." },
+      ]),
+      unit("U-PH-107", "Days supply by mail (100-day, legacy)", "Outbound Pharmacy", false, "conflict", [
+        { version: 3, effective_date: "2025-11-01", approver: "Owen (Knowledge owner)", text: "Members can get up to a 100-day supply of maintenance medications by mail." },
+      ]),
+      unit("U-PH-008", "Mail order shipping cost", "Pharmacy Ops", false, "stale", [
+        { version: 1, effective_date: "2025-06-30", approver: "Owen (Knowledge owner)", text: "Standard shipping for mail order is at no extra cost." },
+      ]),
+      unit("U-PH-010", "Copay assistance program (Kentucky pilot)", "Pharmacy Ops", false, "approved", [
+        { version: 1, effective_date: "2026-03-01", approver: "Owen (Knowledge owner)",
+          text: "Members in Kentucky can enroll in the Rx copay assistance pilot through an advocate. Eligibility is confirmed in the pharmacy system before enrollment." },
+      ]),
+    ],
+    audit: [
+      { at: "2026-01-15T09:00:00Z", actor: "Rita (Legal)", action: "approve", target: "U-PH-003", detail: "Verbatim v1 approved" },
+    ],
+    reviewTasks: [
+      { id: "R-1", kind: "conflict", unit_ids: ["U-PH-007", "U-PH-107"], owner: "Pharmacy Ops", status: "open" },
+      { id: "R-2", kind: "stale", unit_ids: ["U-PH-008"], owner: "Pharmacy Ops", status: "open" },
+    ],
+    feedback: [],
+  };
+}
