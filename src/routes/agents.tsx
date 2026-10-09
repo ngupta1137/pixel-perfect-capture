@@ -5,7 +5,6 @@ import { Info, Play, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { callToolFn, getCallLog } from "@/services/agents.functions";
 import { useDemoStore } from "@/services/demoStore";
-import { PEOPLE } from "@/lib/rights";
 import type { AgentTool, CallLogRow, ToolCallResult } from "@/services/agents";
 
 export const Route = createFileRoute("/agents")({
@@ -64,9 +63,8 @@ function AgentsPage() {
     ...log,
     ...searches.map((q) => ({ at: q.at, iface: "REST", principal: q.person, role: q.context.role, tool: "search_knowledge", outcome: String(q.outcome) }) as CallLogRow),
   ].sort((a, b) => String(b.at).localeCompare(String(a.at)));
-  const agentPeople = PEOPLE.filter((p) => p.persona === "ai_agent");
   const connections = CONNECTIONS.map((c, i) => {
-    const principal = agentPeople[i]?.name ?? `agent-${c.role}`;
+    const principal = `agent-assist-${i + 1}`;
     const last = rows.find((r) => r.role === c.role && r.iface === "MCP");
     return { ...c, principal, last: last?.at ?? "—" };
   });
