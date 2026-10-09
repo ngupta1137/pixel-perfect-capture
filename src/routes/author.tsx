@@ -1,3 +1,5 @@
+import { RequireView } from "@/components/shell/Denied";
+import { routeCaps } from "@/lib/rights";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -25,7 +27,7 @@ export const Route = createFileRoute("/author")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: AuthorPage,
+  component: GuardedAuthorPage,
 });
 
 const PEOPLE: { name: string; role: ApproverRole; label: string }[] = [
@@ -796,5 +798,13 @@ function AccessPanel({ state, onResult }: { state: AuthoringState | null; onResu
         </tbody>
       </table>
     </div>
+  );
+}
+
+function GuardedAuthorPage() {
+  return (
+    <RequireView caps={["ingest_source"]}>
+      <AuthorPage />
+    </RequireView>
   );
 }
