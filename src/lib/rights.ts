@@ -60,15 +60,22 @@ export const PAGES = [
   },
   { to: "/evals", label: "Evals", views: ["evals"] },
   { to: "/agents", label: "Agents", views: ["agents"] },
-  { to: "/audit", label: "Audit", views: ["audit_replay"] },
-  { to: "/rights", label: "Rights", views: ["rights"] },
-] as const satisfies readonly { to: string; label: string; views: readonly ViewKey[] }[];
+  { to: "/access", label: "Access", views: ["author_access"] },
+  { to: "/audit", label: "Audit", views: ["audit_replay", "author_audit"] },
+  { to: "/rights", label: "Rights", views: ["rights"], public: true },
+] as const satisfies readonly { to: string; label: string; views: readonly ViewKey[]; public?: boolean }[];
 
 export type PagePath = (typeof PAGES)[number]["to"];
 
 export const pageFor = (to: PagePath) => PAGES.find((p) => p.to === to)!;
-export const canOpen = (p: Person, to: PagePath) => pageFor(to).views.some((v) => canView(p, v));
+export const canOpen = (p: Person, to: PagePath) => {
+  const pg = pageFor(to);
+  return ("public" in pg && pg.public) || pg.views.some((v) => canView(p, v));
+};
 /** Capabilities that would open a page, for the Denied message. */
 export const pageCaps = (to: PagePath): Capability[] => [...new Set(pageFor(to).views.flatMap((v) => VIEWS[v]))];
 export const navFor = (p: Person) => PAGES.filter((pg) => canOpen(p, pg.to));
 export const homeRoute = (p: Person): PagePath => navFor(p)[0]?.to ?? "/rights";
+
+export const NEVER_TOGETHER = policy.never_together as [Capability, Capability][];
+export const personaDef = (key: string) => (policy.personas as Record<string, PersonaDef>)[key]!;

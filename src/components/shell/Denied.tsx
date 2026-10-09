@@ -1,5 +1,6 @@
 import { ShieldAlert } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
+import { recordDenied } from "@/services/verity";
 import { useSession } from "@/lib/session";
 import { canOpen, pageCaps, type PagePath } from "@/lib/rights";
 
@@ -28,6 +29,10 @@ export function Denied({ capabilities }: { capabilities: string[] }) {
 /** Route guard: renders the page only when the signed-in person may open it. */
 export function RequirePage({ to, children }: { to: PagePath; children: ReactNode }) {
   const { person } = useSession();
-  if (!canOpen(person, to)) return <Denied capabilities={pageCaps(to)} />;
+  const denied = !canOpen(person, to);
+  useEffect(() => {
+    if (denied) recordDenied(person.name, to, pageCaps(to).join(" or "), "Role does not hold the capability for this page");
+  }, [denied, person.name, to]);
+  if (denied) return <Denied capabilities={pageCaps(to)} />;
   return <>{children}</>;
 }

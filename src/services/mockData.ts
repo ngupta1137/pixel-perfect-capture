@@ -310,6 +310,8 @@ export function seedDemoState(): DemoState {
       ]),
     ],
     audit: [
+      { at: "2026-10-08T14:02:00Z", actor: "Dana", action: "denied", target: "approve U-PH-207", detail: "Approve own draft", capability: "approve_standard", reason: "Maker-checker: the proposer cannot approve" },
+      { at: "2026-10-07T10:30:00Z", actor: "Alex", action: "denied", target: "/", detail: "Open Ask", capability: "search", reason: "Access administrators cannot search content" },
       { at: "2026-01-15T09:00:00Z", actor: "Rita (Legal)", action: "approve", target: "U-PH-003", detail: "Verbatim v1 approved" },
     ],
     reviewTasks: [
@@ -319,6 +321,13 @@ export function seedDemoState(): DemoState {
     feedback: [],
     chainDrafts: [],
     reverified: [],
+    access: {
+      pharmacy_advocate: ["KB-PHARM", "KB-SHARED"],
+      insurance_advocate: ["KB-INS", "KB-SHARED"],
+      advocate_supervisor: ["KB-PHARM", "KB-SHARED"],
+      member_chat: ["KB-PHARM", "KB-INS"],
+      ai_agent: ["KB-PHARM", "KB-SHARED"],
+    },
   };
 }
 
