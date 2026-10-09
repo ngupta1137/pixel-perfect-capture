@@ -15,3 +15,4 @@
 - People, navigation, home routes, route guards and Author tabs derive only from src/data/personas.json via src/lib/rights.ts; never branch on a person's name or persona key — why: one policy file drives engine, API and UI.
 - Shared demo state lives in src/services/demoStore.ts (module-level, not per person); screens change it only through service functions in src/services/verity.ts, seeded by mockData.seedDemoState — why: switching person must never reset data, and the real engine can replace the seam later.
 - Ask answers come from the fixtures in src/services/mockData.ts by default; VITE_VERITY_ENGINE=engine switches search() to src/verity-engine — why: the demo needs plan-year and context fixtures the engine does not model yet.
+- The demo guide lives in src/lib/guide.ts (module-level store) with its script in src/data/guide.ts; the Ask page only consumes queued guide commands — why: the app must work identically with the rail closed.

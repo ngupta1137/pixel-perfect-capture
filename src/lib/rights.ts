@@ -57,6 +57,7 @@ export const PAGES = [
   },
   { to: "/evals", label: "Evals", views: ["evals"] },
   { to: "/agents", label: "Agents", views: ["agents"] },
+  { to: "/audit", label: "Audit", views: ["audit_replay"] },
   { to: "/rights", label: "Rights", views: ["rights"] },
 ] as const satisfies readonly { to: string; label: string; views: readonly ViewKey[] }[];
 
