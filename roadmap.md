@@ -1,4 +1,7 @@
 # Enterprise redesign
+- [ ] Rebuild Ask composition to match the supplied search-workspace reference.
+- [ ] Redesign all seven outcome states and accessible supporting details.
+- [ ] Verify search, governance regressions, and desktop/mobile presentation.
 - [x] Shared enterprise shell, grouped permission-aware navigation, and design system.
 - [x] Public product page and honest prototype entry flow.
 - [x] Ask, answer states, citations, member chat, and session history.
