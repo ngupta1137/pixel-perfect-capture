@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { RequirePage } from "@/components/shell/Denied";
 import { useEffect, useState } from "react";
 import {
-  AlertTriangle, BarChart3, CheckCircle2, FileText, GitMerge, History, Inbox, KeyRound, Lock, PlusCircle, RotateCcw, Scissors, Search, ShieldCheck, Tags, XCircle,
+  AlertTriangle, BarChart3, CheckCircle2, FileText, GitMerge, History, Inbox, KeyRound, Lock, PlusCircle, Scissors, Search, ShieldCheck, Tags, XCircle,
 } from "lucide-react";
 import { OUTCOME_META } from "@/components/ask/outcomeMeta";
 import type { Outcome } from "@/services/verity";
@@ -61,6 +61,12 @@ function Diff({ diff }: { diff: string[] }) {
       })}
     </ul>
   );
+}
+
+/** The signed-in person as recorded on proposals, claims and audit rows. */
+function useActor() {
+  const { person } = useSession();
+  return `${person.name} (${person.label})`;
 }
 
 function RouteChip({ to }: { to: string }) {
@@ -188,6 +194,7 @@ function UnitList({ state }: { state: AuthoringState | null }) {
 }
 
 function IngestPanel({ state, onQueued }: { state: AuthoringState | null; onQueued: (r: ActionResult) => void }) {
+  const actor = useActor();
   const [text, setText] = useState("");
   const [result, setResult] = useState<IngestView | null>(null);
   const [chosen, setChosen] = useState<Set<string>>(new Set());
@@ -199,7 +206,7 @@ function IngestPanel({ state, onQueued }: { state: AuthoringState | null; onQueu
     setBusy(true);
     setError(null);
     try {
-      const r = await extractSource(person.name, t);
+      const r = await extractSource(actor, t);
       setResult(r);
       setChosen(new Set(r.candidates.filter((c) => c.status !== "unchanged").map((c) => c.cid)));
     } catch (e) {
@@ -283,7 +290,7 @@ function IngestPanel({ state, onQueued }: { state: AuthoringState | null; onQueu
           )}
           <Button
             disabled={busy || chosen.size === 0}
-            onClick={async () => onQueued(await proposeDraft(person.name, text, [...chosen]))}
+            onClick={async () => onQueued(await proposeDraft(actor, text, [...chosen]))}
           >
             <Inbox className="h-4 w-4" /> Send {chosen.size} to the review queue
           </Button>
@@ -513,8 +520,7 @@ function OwnerItems({ items, person, onResult }: { items: ReviewItemView[]; pers
 }
 
 function GapsPanel({ state, onResult }: { state: AuthoringState | null; onResult: (r: ActionResult) => void }) {
-  const { person: me } = useSession();
-  const by = `${me.name} (${me.label})`;
+  const actor = useActor();
   return (
     <div className="space-y-3">
       <p className="text-sm text-ink-muted">
@@ -545,7 +551,7 @@ function GapCard({ g, onResult }: { g: GapCluster; onResult: (r: ActionResult) =
       <p className="text-xs text-ink-muted">
         {g.age_days !== null ? `Open ${g.age_days} days (first asked ${g.first_seen})` : "Age unknown"} · suggested owner {g.suggested_owner}
         {g.claimed_by ? <span className="ml-2 font-semibold text-brand-green-dark">Claimed by {g.claimed_by}</span> : (
-          <Button size="sm" variant="outline" className="ml-2" onClick={async () => onResult(await claimGap(g.cluster_id, by))}>Claim</Button>
+          <Button size="sm" variant="outline" className="ml-2" onClick={async () => onResult(await claimGap(g.cluster_id, actor))}>Claim</Button>
         )}
       </p>
       <ul className="list-disc pl-5 text-sm">
@@ -578,7 +584,7 @@ function GapCard({ g, onResult }: { g: GapCluster; onResult: (r: ActionResult) =
             onClick={async () => {
               setBusy(true);
               try {
-                onResult(await proposeGapDraft(by, { cluster_id: g.cluster_id, title, body }));
+                onResult(await proposeGapDraft(actor, { cluster_id: g.cluster_id, title, body }));
               } finally {
                 setBusy(false);
               }
@@ -738,7 +744,7 @@ function InsightsPanel({ state, onDraft }: { state: AuthoringState | null; onDra
 }
 
 function AccessPanel({ state, onResult }: { state: AuthoringState | null; onResult: (r: ActionResult) => void }) {
-  const [admin, setAdmin] = useState(`${useSession().person.name} (${useSession().person.label})`);
+  const [admin, setAdmin] = useState(useActor());
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const acc = state?.access;
