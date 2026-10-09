@@ -15,9 +15,9 @@ function parse(step: string) {
     : { n: "", title: step, tag: "", detail: "" };
 }
 
-export function TraceDrawer({ res, compact = false }: { res: SearchResponse; compact?: boolean }) {
+export function TraceDrawer({ res, compact = false, defaultOpen = false }: { res: SearchResponse; compact?: boolean; defaultOpen?: boolean }) {
   return (
-    <details className={`group ${compact ? "" : "rounded-lg border border-border bg-surface-alt"}`}>
+    <details open={defaultOpen || undefined} className={`group ${compact ? "" : "rounded-lg border border-border bg-surface-alt"}`}>
       <summary
         className={`flex cursor-pointer list-none items-center gap-2 text-sm ${compact ? "py-2 text-brand-green-dark underline underline-offset-4" : "justify-between px-5 py-3 font-semibold"}`}
       >
