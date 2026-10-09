@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { RequirePage } from "@/components/shell/Denied";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { guide, useGuide } from "@/lib/guide";
 import { ArrowRight, Mic, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OutcomeCard } from "@/components/ask/OutcomeCard";
@@ -98,8 +99,13 @@ export function AskPage() {
     setError("");
   }, [scope]);
 
-  const run = async (q: string, p = persona, inputMode: "typed" | "voice" = "typed") => {
-    if (!q.trim() || pending.current) return;
+  const run = async (
+    q: string,
+    p = persona,
+    inputMode: "typed" | "voice" = "typed",
+    ctx = { lob, state, planYear },
+  ): Promise<SearchResponse | null> => {
+    if (!q.trim() || pending.current) return null;
     voice.stopReading();
     const requestScope = scopeRef.current;
     const requestChannel =
@@ -119,11 +125,11 @@ export function AskPage() {
         role: p.role,
         channel: requestChannel,
         input_mode: inputMode,
-        lob,
-        state: state || null,
-        plan_year: planYear || null,
+        lob: ctx.lob,
+        state: ctx.state || null,
+        plan_year: ctx.planYear || null,
       });
-      if (scopeRef.current !== requestScope) return;
+      if (scopeRef.current !== requestScope) return null;
       const next = { res, channel: requestChannel };
       setAnswer(next);
       if (isChat)
@@ -144,6 +150,7 @@ export function AskPage() {
       );
       if (requestChannel === "voice")
         voice.read(res.parts.map((part) => ({ key: `${res.request_id}:${part.part}`, part })));
+      return res;
     } catch {
       if (scopeRef.current === requestScope) {
         setError("Verity could not check this question. Please try again.");
@@ -155,6 +162,7 @@ export function AskPage() {
         setLoading(false);
       }
     }
+    return null;
   };
 
   // Changing the call context re-runs the last advocate search.
@@ -166,6 +174,29 @@ export function AskPage() {
     if (!isChat && lastQuery) void run(lastQuery);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctxKey]);
+  // Demo guide: run a queued query once the right person is signed in.
+  const command = useGuide((s) => s.command);
+  useEffect(() => {
+    if (!command || command.personId !== persona.id) return;
+    guide.consume(command.id);
+    const ctx = {
+      lob: command.context?.lob ?? lob,
+      state: command.context?.state ?? state,
+      planYear: command.context?.planYear ?? planYear,
+    };
+    setLob(ctx.lob);
+    setState(ctx.state);
+    setPlanYear(ctx.planYear);
+    lastCtx.current = `${ctx.lob}|${ctx.state}|${ctx.planYear}`;
+    setQuery(isChat ? "" : command.query);
+    pending.current = false;
+    void run(command.query, persona, "typed", ctx).then((res) => {
+      if (!res) return;
+      if (command.record) guide.record(command.record, res.request_id);
+      if (command.thenPlanYear) setTimeout(() => setPlanYear(command.thenPlanYear!), 1200);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [command, persona.id]);
   const choose = (c: Choice) => {
     if (c.set.plan_year !== undefined) setPlanYear(c.set.plan_year);
     if (c.set.state !== undefined) setState(c.set.state);

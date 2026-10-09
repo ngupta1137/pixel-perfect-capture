@@ -1,6 +1,8 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
-import { RotateCcw } from "lucide-react";
+import { Compass, RotateCcw } from "lucide-react";
+import { GuideRail, useGuideKeys } from "@/components/shell/GuideRail";
+import { guide, useGuide } from "@/lib/guide";
 import { VerityLogo } from "./VerityLogo";
 import { Button } from "@/components/ui/button";
 import { PersonaPicker } from "@/components/shell/PersonaPicker";
@@ -42,10 +44,22 @@ function ResetDemo() {
   );
 }
 
+function GuideButton() {
+  const open = useGuide((s) => s.open);
+  return (
+    <Button variant={open ? "default" : "outline"} size="sm" aria-pressed={open} title="Demo guide (g)" onClick={guide.toggle}>
+      <Compass className="h-4 w-4" /> Guide
+    </Button>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { person } = useSession();
+  useGuideKeys();
+  const docked = useGuide((s) => s.open && !s.collapsed);
+  const plain = useRouterState({ select: (s) => s.location.pathname === "/story" });
   return (
-    <div className="flex min-h-screen flex-col bg-surface text-ink">
+    <div className={`flex min-h-screen flex-col bg-surface text-ink ${docked ? "md:pr-80" : ""}`}>
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-3">
           <Link to="/" className="flex items-center gap-2">
@@ -53,11 +67,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="text-xl font-semibold tracking-tight">Verity</span>
           </Link>
           <div className="flex flex-wrap items-center gap-2">
-            <PersonaPicker />
-            <ChannelSwitch />
+            {!plain && <PersonaPicker />}
+            {!plain && <ChannelSwitch />}
+            <GuideButton />
           </div>
         </div>
-        <nav className="mx-auto flex max-w-6xl gap-6 px-6">
+        {!plain && <nav className="mx-auto flex max-w-6xl gap-6 px-6">
           {navFor(person).map((n) => (
             <Link
               key={n.to}
@@ -69,9 +84,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               {n.label}
             </Link>
           ))}
-        </nav>
+        </nav>}
       </header>
-      <ActingAsBar />
+      {!plain && <ActingAsBar />}
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">{children}</main>
       <footer className="border-t border-border bg-surface-alt">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
@@ -79,6 +94,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <ResetDemo />
         </div>
       </footer>
+      <GuideRail />
     </div>
   );
 }
