@@ -442,7 +442,8 @@ export function asOfWindow(unitId: string, date: string) {
   const u = getUnit(unitId);
   if (!u) return null;
   const sorted = [...u.versions].sort((a, b) => a.effective_date.localeCompare(b.effective_date));
-  const i = sorted.findLastIndex((v) => v.effective_date <= date);
+  let i = -1;
+  sorted.forEach((v, k) => { if (v.effective_date <= date) i = k; });
   if (i < 0) return { unit: u, version: null, until: sorted[0]?.effective_date ?? null };
   return { unit: u, version: sorted[i]!, until: sorted[i + 1]?.effective_date ?? null };
 }
