@@ -1,4 +1,6 @@
-import { mockSearch } from "./mockData";
+import { mockSearch, UNIT_META as UNIT_META_LOCAL } from "./mockData";
+import personasFile from "@/data/personas.json";
+const PEOPLE_LOCAL = personasFile.people as { name: string; persona: string; kbs: string[] }[];
 
 export type Outcome =
   | "answer"
@@ -27,7 +29,12 @@ export interface Part {
   owner_team: string | null;
   citations: Citation[];
   next_step?: string | null; // what the person does now when Verity cannot answer
+  /** Choice chips for needs_clarification; picking one sets that context field. */
+  choices?: Choice[];
+  trust?: "approved" | "stale" | "conflict" | null;
 }
+
+export interface Choice { label: string; set: { plan_year?: string; state?: string } }
 
 export interface SearchResponse {
   request_id: string;
@@ -44,6 +51,8 @@ export interface SearchRequest {
   input_mode?: "typed" | "voice";
   lob?: string | null;
   state?: string | null;
+  /** "2026" | "2027"; null = unknown (cleared). Omitted = 2026. */
+  plan_year?: string | null;
 }
 
 /**
@@ -53,7 +62,8 @@ export interface SearchRequest {
  * fails, the fixtures answer and the trace drawer's engine line says so.
  */
 export async function search(req: SearchRequest): Promise<SearchResponse> {
-  if (import.meta.env["VITE_VERITY_ENGINE"] === "mock") {
+  // Fixtures are the answer source; VITE_VERITY_ENGINE=engine runs src/verity-engine instead.
+  if (import.meta.env["VITE_VERITY_ENGINE"] !== "engine") {
     await new Promise((r) => setTimeout(r, 400));
     return mockSearch(req);
   }
@@ -85,7 +95,7 @@ export async function searchAs(person: string, req: SearchRequest): Promise<Sear
     at: now(),
     query: req.query,
     person,
-    context: { role: req.role, channel: req.channel, lob: req.lob ?? null, state: req.state ?? null, input_mode: req.input_mode ?? "typed" },
+    context: { role: req.role, channel: req.channel, lob: req.lob ?? null, state: req.state ?? null, plan_year: req.plan_year === undefined ? "2026" : req.plan_year, input_mode: req.input_mode ?? "typed" },
     outcome: res.outcome,
     trace: res.trace,
     cited: res.parts.flatMap((p) =>
@@ -100,6 +110,24 @@ export async function searchAs(person: string, req: SearchRequest): Promise<Sear
   updateDemoState((s) => ({ ...s, requests: [record, ...s.requests] }));
   audit({ actor: person, action: "search", target: res.request_id, detail: `${req.query} → ${res.outcome}` });
   return res;
+}
+
+export { UNIT_META } from "./mockData";
+
+/** "I read this" on a read-before-benefits unit: recorded attestation in the store. */
+export function recordRead(person: string, requestId: string | null, unitId: string) {
+  updateDemoState((s) => ({ ...s, readEvents: [{ at: now(), person, request_id: requestId, unit_id: unitId }, ...s.readEvents] }));
+  audit({ actor: person, action: "read_attested", target: unitId, detail: requestId ?? "" });
+}
+
+/** Flag an answer: adds an open review task for the owner of the cited unit's knowledge base. */
+export function flagAnswer(person: string, requestId: string, unitIds: string[], reason: string) {
+  const kb = UNIT_META_LOCAL[unitIds[0] ?? ""]?.kb ?? "KB-PHARM";
+  const owner = PEOPLE_LOCAL.find((p) => p.persona === "knowledge_owner" && p.kbs.includes(kb))?.name ?? "Owen";
+  const id = `R-${Date.now()}`;
+  updateDemoState((s) => ({ ...s, reviewTasks: [{ id, kind: "flag", unit_ids: unitIds, owner, status: "open", request_id: requestId, reason, by: person }, ...s.reviewTasks] }));
+  giveFeedback(person, requestId, "flag", reason);
+  return { id, owner };
 }
 
 export const listUnits = (): DemoUnit[] => getDemoState().units;
