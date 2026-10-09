@@ -36,7 +36,7 @@ export function AdvocateAsk() {
   const [lastQuery, setLastQuery] = useState("");
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [error, setError] = useState("");
-  const [unit, setUnit] = useState<{ unitId: string; version?: number } | null>(null);
+  const [unit, setUnit] = useState<{ unitId: string; version?: number | undefined } | null>(null);
   const [traceOpen, setTraceOpen] = useState(false);
   const [escalations, setEscalations] = useState<Escalation[] | null>(null);
   const scope = `${person.id}:${channel}`;

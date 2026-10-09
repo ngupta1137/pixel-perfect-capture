@@ -35,7 +35,7 @@ function ChannelChip({ channel }: { channel: string }) {
   );
 }
 
-function CitationChip({ c, onOpen }: { c: Citation; onOpen?: (c: Citation) => void }) {
+function CitationChip({ c, onOpen }: { c: Citation; onOpen?: ((c: Citation) => void) | undefined }) {
   return (
     <button
       type="button"

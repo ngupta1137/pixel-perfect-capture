@@ -6,7 +6,7 @@ import type { UnitRecord } from "@/services/contracts";
 import { useSession } from "@/lib/session";
 import { TrustBadge } from "./OutcomeCard";
 
-export function UnitDrawer({ target, onClose }: { target: { unitId: string; version?: number } | null; onClose: () => void }) {
+export function UnitDrawer({ target, onClose }: { target: { unitId: string; version?: number | undefined } | null; onClose: () => void }) {
   const { person, can } = useSession();
   const [unit, setUnit] = useState<UnitRecord | null | "loading">(null);
   useEffect(() => {
