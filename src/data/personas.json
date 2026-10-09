@@ -26,154 +26,447 @@
     "run_evals": "Run the golden, blind and hold-out sets",
     "view_evals": "Read eval results and release gates",
     "manage_agents": "Register agent connections and bind each to a role",
-    "view_analytics": "See aggregate health metrics only: no unit bodies, no query text"
+    "view_analytics": "See aggregate health metrics only: no unit bodies, no query text",
+    "create_change_notice": "Enter a formulary or notice-of-change update once and open a task for every affected unit",
+    "reverify_unit": "Attest that a unit is still correct and extend its review date (verbatim needs Legal)",
+    "give_feedback": "Rate an answer and flag it; a flag opens an item for the unit owner",
+    "replay_answer": "Reconstruct a past answer from its request id, and see which version was live on a date",
+    "view_rights_matrix": "See the persona by capability matrix and the separation-of-duties rules (read only)"
   },
   "never_together": [
-    ["manage_access", "approve_standard"],
-    ["manage_access", "approve_legal"],
-    ["manage_access", "ingest_source"],
-    ["approve_legal", "ingest_source"],
-    ["run_evals", "approve_legal"]
+    [
+      "manage_access",
+      "approve_standard"
+    ],
+    [
+      "manage_access",
+      "approve_legal"
+    ],
+    [
+      "manage_access",
+      "ingest_source"
+    ],
+    [
+      "approve_legal",
+      "ingest_source"
+    ],
+    [
+      "run_evals",
+      "approve_legal"
+    ]
   ],
-  "agent_allowed": ["search", "get_unit", "list_changes", "report_gap"],
+  "agent_allowed": [
+    "search",
+    "get_unit",
+    "list_changes",
+    "report_gap"
+  ],
   "personas": {
     "pharmacy_advocate": {
-      "label": "Pharmacy advocate", "group": "Consumers", "entitlement_role": "pharmacy_advocate",
+      "label": "Pharmacy advocate",
+      "group": "Consumers",
+      "entitlement_role": "pharmacy_advocate",
       "who": "Takes calls and chats about drugs, pharmacy benefits and prior authorization of medicines.",
       "goal": "Say the approved thing, quickly, with a citation, and know what to do when there is no answer.",
-      "capabilities": ["search", "get_unit", "list_changes", "report_gap"],
-      "citation_detail": "standard", "sees_internal_owner": true,
+      "capabilities": [
+        "search",
+        "get_unit",
+        "list_changes",
+        "report_gap",
+        "give_feedback"
+      ],
+      "citation_detail": "standard",
+      "sees_internal_owner": true,
       "cannot_see": "Insurance knowledge base bodies, drafts, the audit log, other advocates' queries.",
       "denied_example": "Open the Author or Access pages: the pages are not offered and the API returns 403."
     },
     "insurance_advocate": {
-      "label": "Insurance advocate", "group": "Consumers", "entitlement_role": "insurance_advocate",
+      "label": "Insurance advocate",
+      "group": "Consumers",
+      "entitlement_role": "insurance_advocate",
       "who": "Takes calls and chats about plan benefits, eligibility, claims and ID cards.",
       "goal": "Same as the pharmacy advocate, on the insurance knowledge base.",
-      "capabilities": ["search", "get_unit", "list_changes", "report_gap"],
-      "citation_detail": "standard", "sees_internal_owner": true,
+      "capabilities": [
+        "search",
+        "get_unit",
+        "list_changes",
+        "report_gap",
+        "give_feedback"
+      ],
+      "citation_detail": "standard",
+      "sees_internal_owner": true,
       "cannot_see": "Pharmacy knowledge base bodies. A pharmacy question returns not_authorized plus the owning team.",
       "denied_example": "Same denials as the pharmacy advocate."
     },
     "advocate_supervisor": {
-      "label": "Advocate supervisor", "group": "Consumers", "entitlement_role": "pharmacy_supervisor",
+      "label": "Advocate supervisor",
+      "group": "Consumers",
+      "entitlement_role": "pharmacy_supervisor",
       "who": "Team lead who takes the escalation when an advocate gets conflict, stale or no answer.",
       "goal": "Unblock the advocate on the call, then make sure the gap reaches an owner.",
-      "capabilities": ["search", "get_unit", "list_changes", "report_gap", "view_trace", "view_provenance", "view_search_insights"],
-      "citation_detail": "full", "sees_internal_owner": true,
+      "capabilities": [
+        "search",
+        "get_unit",
+        "list_changes",
+        "report_gap",
+        "view_trace",
+        "view_provenance",
+        "view_search_insights",
+        "give_feedback"
+      ],
+      "citation_detail": "full",
+      "sees_internal_owner": true,
       "cannot_see": "Drafts, approvals, access and audit. Sees the reasoning trace but cannot change anything.",
       "denied_example": "Approve or edit a unit: denied."
     },
     "member_chat": {
-      "label": "Member (self-service)", "group": "Consumers", "entitlement_role": "member_chat",
+      "label": "Member (self-service)",
+      "group": "Consumers",
+      "entitlement_role": "member_chat",
       "who": "A member asking in chat or by voice.",
       "goal": "A plain, correct answer, or a warm hand-off to a person. Never a wrong or internal one.",
-      "capabilities": ["search", "report_gap"],
-      "citation_detail": "minimal", "sees_internal_owner": false,
+      "capabilities": [
+        "search",
+        "report_gap",
+        "give_feedback"
+      ],
+      "citation_detail": "minimal",
+      "sees_internal_owner": false,
       "cannot_see": "Advocate-only units, unit ids, owner teams, internal next steps, trace, anything not marked for the member audience.",
       "denied_example": "A restricted question returns a hand-off, never the owner team or the unit title."
     },
     "ai_agent": {
-      "label": "AI agent (downstream channel)", "group": "Consumers", "entitlement_role": null,
+      "label": "AI agent (downstream channel)",
+      "group": "Consumers",
+      "entitlement_role": null,
       "who": "Voice bot, chat assistant or Agent Assist calling Verity as a tool.",
       "goal": "Ground every answer in an approved unit and insert legal verbatim by reference.",
-      "capabilities": ["search", "get_unit", "list_changes", "report_gap"],
-      "citation_detail": "standard", "sees_internal_owner": false,
+      "capabilities": [
+        "search",
+        "get_unit",
+        "list_changes",
+        "report_gap"
+      ],
+      "citation_detail": "standard",
+      "sees_internal_owner": false,
       "cannot_see": "Anything outside the role bound to its connection. The role is fixed on the connection, never an argument.",
       "denied_example": "Cannot hold any authoring, approval or access capability, whatever its configuration says."
     },
     "knowledge_author": {
-      "label": "Knowledge author (Knowledge Ops)", "group": "Authors and approvers", "entitlement_role": null,
+      "label": "Knowledge author (Knowledge Ops)",
+      "group": "Authors and approvers",
+      "entitlement_role": null,
       "who": "Turns messy source documents into knowledge units and keeps them current.",
       "goal": "Get correct units reviewed fast, and close the gaps people actually ask about.",
-      "capabilities": ["ingest_source", "propose_unit", "accept_merge_split", "view_review_queue", "view_gaps", "claim_gap", "view_search_insights", "view_trace", "view_channel_compare", "view_provenance", "get_unit"],
-      "citation_detail": "full", "sees_internal_owner": true, "scoped": true,
+      "capabilities": [
+        "ingest_source",
+        "create_change_notice",
+        "propose_unit",
+        "accept_merge_split",
+        "view_review_queue",
+        "view_gaps",
+        "claim_gap",
+        "view_search_insights",
+        "view_trace",
+        "view_channel_compare",
+        "view_provenance",
+        "get_unit"
+      ],
+      "citation_detail": "full",
+      "sees_internal_owner": true,
+      "scoped": true,
       "cannot_see": "Knowledge bases outside their write scope, access settings, other people's audit detail.",
       "denied_example": "Approve any unit, including their own: denied (maker-checker). Touch a verbatim unit: denied."
     },
     "knowledge_owner": {
-      "label": "Knowledge owner (domain)", "group": "Authors and approvers", "entitlement_role": null,
+      "label": "Knowledge owner (domain)",
+      "group": "Authors and approvers",
+      "entitlement_role": null,
       "who": "Accountable for one domain's units, such as Pharmacy Ops or Member Services.",
       "goal": "Approve non-legal changes, clear stale and conflict items, own the backlog of gaps.",
-      "capabilities": ["view_review_queue", "approve_standard", "view_owner_queue", "resolve_owner_item", "view_gaps", "claim_gap", "view_search_insights", "view_trace", "view_channel_compare", "view_provenance", "get_unit", "accept_merge_split"],
-      "citation_detail": "full", "sees_internal_owner": true, "scoped": true,
+      "capabilities": [
+        "view_review_queue",
+        "approve_standard",
+        "create_change_notice",
+        "reverify_unit",
+        "view_owner_queue",
+        "resolve_owner_item",
+        "view_gaps",
+        "claim_gap",
+        "view_search_insights",
+        "view_trace",
+        "view_channel_compare",
+        "view_provenance",
+        "get_unit",
+        "accept_merge_split"
+      ],
+      "citation_detail": "full",
+      "sees_internal_owner": true,
+      "scoped": true,
       "cannot_see": "Other domains' drafts. Legal-routed drafts are visible only as read-only context.",
       "denied_example": "Approve a verbatim or legal unit: denied. Approve a draft they proposed: denied."
     },
     "legal_approver": {
-      "label": "Legal / Compliance approver", "group": "Authors and approvers", "entitlement_role": null,
+      "label": "Legal / Compliance approver",
+      "group": "Authors and approvers",
+      "entitlement_role": null,
       "who": "Owns every word that must be said exactly.",
       "goal": "Approve, edit or reject verbatim and legal wording, seeing exactly what changed and what it would break.",
-      "capabilities": ["view_review_queue", "approve_legal", "approve_standard", "view_gaps", "view_trace", "view_channel_compare", "view_provenance", "get_unit", "accept_merge_split", "view_search_insights"],
-      "citation_detail": "full", "sees_internal_owner": true, "scoped": false,
+      "capabilities": [
+        "view_review_queue",
+        "approve_legal",
+        "approve_standard",
+        "reverify_unit",
+        "view_gaps",
+        "view_trace",
+        "view_channel_compare",
+        "view_provenance",
+        "get_unit",
+        "accept_merge_split",
+        "view_search_insights"
+      ],
+      "citation_detail": "full",
+      "sees_internal_owner": true,
+      "scoped": false,
       "cannot_see": "Access settings, eval controls. Cannot ingest or propose, so Legal never approves its own proposal.",
       "denied_example": "Grant access or upload a source: denied."
     },
     "access_admin": {
-      "label": "Access administrator", "group": "Governance", "entitlement_role": null,
+      "label": "Access administrator",
+      "group": "Governance",
+      "entitlement_role": null,
       "who": "Grants and revokes which role may read which knowledge base.",
       "goal": "Least privilege, with a named person and a reason on every change.",
-      "capabilities": ["manage_access", "view_access_matrix", "view_audit"],
-      "citation_detail": "none", "sees_internal_owner": true,
+      "capabilities": [
+        "manage_access",
+        "view_access_matrix",
+        "view_audit",
+        "view_rights_matrix"
+      ],
+      "citation_detail": "none",
+      "sees_internal_owner": true,
       "cannot_see": "Unit bodies, queries, drafts. Cannot search.",
       "denied_example": "Search, approve, ingest or run evals: denied. Separation of duties: access and content never sit with one person."
     },
     "compliance_auditor": {
-      "label": "Compliance auditor / QA", "group": "Governance", "entitlement_role": null,
+      "label": "Compliance auditor / QA",
+      "group": "Governance",
+      "entitlement_role": null,
       "who": "Checks that the system did what policy says, after the fact.",
       "goal": "Reconstruct any answer or publication: who, what, which version, which rule.",
-      "capabilities": ["get_unit", "view_provenance", "view_trace", "view_channel_compare", "view_audit", "view_call_log", "view_evals", "view_access_matrix", "view_search_insights", "view_review_queue", "view_owner_queue", "view_gaps"],
-      "citation_detail": "full", "sees_internal_owner": true,
+      "capabilities": [
+        "get_unit",
+        "view_provenance",
+        "view_trace",
+        "view_channel_compare",
+        "view_audit",
+        "view_call_log",
+        "view_evals",
+        "view_access_matrix",
+        "view_search_insights",
+        "view_review_queue",
+        "view_owner_queue",
+        "view_gaps",
+        "replay_answer",
+        "view_rights_matrix"
+      ],
+      "citation_detail": "full",
+      "sees_internal_owner": true,
       "cannot_see": "Nothing is hidden from them, and nothing is writable by them.",
       "denied_example": "Any write: approve, propose, ingest, access change, claim: denied. Read-only by construction."
     },
     "ai_product_owner": {
-      "label": "AI product owner (platform)", "group": "Governance", "entitlement_role": null,
+      "label": "AI product owner (platform)",
+      "group": "Governance",
+      "entitlement_role": null,
       "who": "Owns the platform, the evals and the release gates.",
       "goal": "Prove the system is safe to publish to, and see where it fails.",
-      "capabilities": ["run_evals", "view_evals", "manage_agents", "view_call_log", "view_trace", "view_search_insights", "view_analytics", "view_access_matrix", "view_audit", "view_gaps"],
-      "citation_detail": "full", "sees_internal_owner": true,
+      "capabilities": [
+        "run_evals",
+        "view_evals",
+        "manage_agents",
+        "view_call_log",
+        "view_trace",
+        "view_search_insights",
+        "view_analytics",
+        "view_access_matrix",
+        "view_audit",
+        "view_gaps",
+        "view_rights_matrix"
+      ],
+      "citation_detail": "full",
+      "sees_internal_owner": true,
       "cannot_see": "Cannot approve content or change access. A platform owner who could also publish would be marking their own homework.",
       "denied_example": "Approve a unit or change access: denied."
     },
     "leadership": {
-      "label": "Operations leadership", "group": "Governance", "entitlement_role": null,
+      "label": "Operations leadership",
+      "group": "Governance",
+      "entitlement_role": null,
       "who": "Accountable for compliance findings, handle time and channel consistency.",
       "goal": "See whether the program is working: consistency, backlog age, verbatim compliance, review time.",
-      "capabilities": ["view_analytics"],
-      "citation_detail": "none", "sees_internal_owner": false,
+      "capabilities": [
+        "view_analytics",
+        "view_rights_matrix"
+      ],
+      "citation_detail": "none",
+      "sees_internal_owner": false,
       "cannot_see": "Unit bodies, query text, drafts, audit rows. Aggregates only.",
       "denied_example": "Open any unit, queue or log: denied."
     }
   },
   "people": [
-    {"name": "Priya", "persona": "pharmacy_advocate", "kbs": ["KB-PHARM", "KB-SHARED"]},
-    {"name": "Marcus", "persona": "insurance_advocate", "kbs": ["KB-INS", "KB-SHARED"]},
-    {"name": "Sam", "persona": "advocate_supervisor", "kbs": ["KB-PHARM", "KB-SHARED"]},
-    {"name": "Eleanor", "persona": "member_chat", "kbs": ["KB-PHARM", "KB-INS"]},
-    {"name": "Agent Assist", "persona": "ai_agent", "kbs": []},
-    {"name": "Dana", "persona": "knowledge_author", "kbs": ["KB-PHARM", "KB-SHARED"]},
-    {"name": "Ian", "persona": "knowledge_author", "kbs": ["KB-INS", "KB-SHARED"]},
-    {"name": "Owen", "persona": "knowledge_owner", "kbs": ["KB-PHARM"]},
-    {"name": "Olivia", "persona": "knowledge_owner", "kbs": ["KB-INS"]},
-    {"name": "Rita", "persona": "legal_approver", "kbs": ["KB-PHARM", "KB-INS", "KB-SHARED"]},
-    {"name": "Alex", "persona": "access_admin", "kbs": []},
-    {"name": "Casey", "persona": "compliance_auditor", "kbs": ["KB-PHARM", "KB-INS", "KB-SHARED"]},
-    {"name": "Nitin", "persona": "ai_product_owner", "kbs": []},
-    {"name": "Lee", "persona": "leadership", "kbs": []}
+    {
+      "name": "Priya",
+      "persona": "pharmacy_advocate",
+      "kbs": [
+        "KB-PHARM",
+        "KB-SHARED"
+      ]
+    },
+    {
+      "name": "Marcus",
+      "persona": "insurance_advocate",
+      "kbs": [
+        "KB-INS",
+        "KB-SHARED"
+      ]
+    },
+    {
+      "name": "Sam",
+      "persona": "advocate_supervisor",
+      "kbs": [
+        "KB-PHARM",
+        "KB-SHARED"
+      ]
+    },
+    {
+      "name": "Eleanor",
+      "persona": "member_chat",
+      "kbs": [
+        "KB-PHARM",
+        "KB-INS"
+      ]
+    },
+    {
+      "name": "Agent Assist",
+      "persona": "ai_agent",
+      "kbs": []
+    },
+    {
+      "name": "Dana",
+      "persona": "knowledge_author",
+      "kbs": [
+        "KB-PHARM",
+        "KB-SHARED"
+      ]
+    },
+    {
+      "name": "Ian",
+      "persona": "knowledge_author",
+      "kbs": [
+        "KB-INS",
+        "KB-SHARED"
+      ]
+    },
+    {
+      "name": "Owen",
+      "persona": "knowledge_owner",
+      "kbs": [
+        "KB-PHARM"
+      ]
+    },
+    {
+      "name": "Olivia",
+      "persona": "knowledge_owner",
+      "kbs": [
+        "KB-INS"
+      ]
+    },
+    {
+      "name": "Rita",
+      "persona": "legal_approver",
+      "kbs": [
+        "KB-PHARM",
+        "KB-INS",
+        "KB-SHARED"
+      ]
+    },
+    {
+      "name": "Alex",
+      "persona": "access_admin",
+      "kbs": []
+    },
+    {
+      "name": "Casey",
+      "persona": "compliance_auditor",
+      "kbs": [
+        "KB-PHARM",
+        "KB-INS",
+        "KB-SHARED"
+      ]
+    },
+    {
+      "name": "Nitin",
+      "persona": "ai_product_owner",
+      "kbs": []
+    },
+    {
+      "name": "Lee",
+      "persona": "leadership",
+      "kbs": []
+    }
   ],
   "views": {
-    "ask": ["search"],
-    "units": ["get_unit"],
-    "author_ingest": ["ingest_source"],
-    "author_queue": ["view_review_queue"],
-    "author_owner": ["view_owner_queue"],
-    "author_gaps": ["view_gaps"],
-    "author_insights": ["view_search_insights"],
-    "author_access": ["manage_access", "view_access_matrix"],
-    "author_audit": ["view_audit"],
-    "evals": ["view_evals"],
-    "agents": ["manage_agents", "view_call_log"],
-    "analytics": ["view_analytics"]
+    "ask": [
+      "search"
+    ],
+    "units": [
+      "get_unit"
+    ],
+    "author_ingest": [
+      "ingest_source"
+    ],
+    "author_queue": [
+      "view_review_queue"
+    ],
+    "author_owner": [
+      "view_owner_queue"
+    ],
+    "author_gaps": [
+      "view_gaps"
+    ],
+    "author_insights": [
+      "view_search_insights"
+    ],
+    "author_access": [
+      "manage_access",
+      "view_access_matrix"
+    ],
+    "author_audit": [
+      "view_audit"
+    ],
+    "evals": [
+      "view_evals"
+    ],
+    "agents": [
+      "manage_agents",
+      "view_call_log"
+    ],
+    "analytics": [
+      "view_analytics"
+    ],
+    "audit_replay": [
+      "replay_answer"
+    ],
+    "rights": [
+      "view_rights_matrix"
+    ],
+    "needs_review": [
+      "reverify_unit"
+    ],
+    "change_notices": [
+      "create_change_notice"
+    ]
   }
 }
