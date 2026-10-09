@@ -182,13 +182,16 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-20 border-b border-border bg-surface">
           <div className="flex min-h-[64px] items-center justify-between gap-3 px-6 lg:px-8">
             {/* Left: Breadcrumbs */}
-            <div className="flex items-center gap-2.5">
-              <Link to="/" className="flex items-center text-ink-muted hover:text-ink">
-                <Home className="h-4 w-4" />
-              </Link>
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded border border-border bg-surface text-ink-muted">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-ink-muted">
+                  <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                  <circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+                </svg>
+              </div>
               {breadcrumbs.map((crumb, idx) => (
-                <div key={idx} className="flex items-center gap-2.5">
-                  <span className="text-xs text-ink-muted">/</span>
+                <div key={idx} className="flex items-center gap-2">
+                  {idx > 0 && <ChevronRight className="h-3 w-3 text-ink-muted" />}
                   <span
                     className={`text-xs ${
                       idx === breadcrumbs.length - 1
