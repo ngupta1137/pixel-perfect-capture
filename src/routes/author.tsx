@@ -12,6 +12,7 @@ import {
   changeAccess, claimGap, claimReview, decideDraft, extractSource, getAuthoringState, proposeDraft, proposeGapDraft,
 } from "@/services/verity";
 import { useSession } from "@/lib/session";
+import { canView, type ViewKey } from "@/lib/rights";
 import { useDemoStore } from "@/services/demoStore";
 import type {
   ActionResult, ApproverRole, AuthoringState, CandidateView, DraftView, GapCluster, ReviewItemView, IngestView, SuggestionView,
@@ -74,10 +75,16 @@ function RouteChip({ to }: { to: string }) {
 
 function AuthorPage() {
   const [state, setState] = useState<AuthoringState | null>(null);
-  const [tab, setTab] = useState("ingest");
   const [flash, setFlash] = useState<{ ok: boolean; text: string } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const session = useSession();
+  const TAB_VIEWS: [string, ViewKey[]][] = [
+    ["ingest", ["author_ingest"]], ["queue", ["author_queue", "author_owner"]], ["gaps", ["author_gaps"]],
+    ["insights", ["author_insights"]], ["access", ["author_access"]], ["audit", ["author_audit"]],
+  ];
+  const tabs = TAB_VIEWS.filter(([, vs]) => vs.some((v) => canView(session.person, v))).map(([t]) => t);
+  const [picked, setTab] = useState<string | null>(null);
+  const tab = picked && tabs.includes(picked) ? picked : (tabs[0] ?? "ingest");
   // Approver role comes from capabilities, never from who the person is.
   const person: { name: string; role: ApproverRole; label: string } = {
     name: `${session.person.name} (${session.person.label})`,
@@ -125,31 +132,31 @@ function AuthorPage() {
         <div className="lg:col-span-3">
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="mb-4 flex h-auto flex-wrap justify-start">
-              <TabsTrigger value="ingest"><FileText className="mr-1 h-4 w-4" />Ingest a source</TabsTrigger>
-              <TabsTrigger value="queue"><Inbox className="mr-1 h-4 w-4" />Review queue{pending ? ` (${pending})` : ""}</TabsTrigger>
-              <TabsTrigger value="gaps"><Search className="mr-1 h-4 w-4" />Gaps{state ? ` (${state.gaps.length})` : ""}</TabsTrigger>
-              <TabsTrigger value="insights"><BarChart3 className="mr-1 h-4 w-4" />Search insights</TabsTrigger>
-              <TabsTrigger value="access"><KeyRound className="mr-1 h-4 w-4" />Access</TabsTrigger>
-              <TabsTrigger value="audit"><History className="mr-1 h-4 w-4" />Audit log</TabsTrigger>
+              {tabs.includes("ingest") && <TabsTrigger value="ingest"><FileText className="mr-1 h-4 w-4" />Ingest a source</TabsTrigger>}
+              {tabs.includes("queue") && <TabsTrigger value="queue"><Inbox className="mr-1 h-4 w-4" />Review queue{pending ? ` (${pending})` : ""}</TabsTrigger>}
+              {tabs.includes("gaps") && <TabsTrigger value="gaps"><Search className="mr-1 h-4 w-4" />Gaps{state ? ` (${state.gaps.length})` : ""}</TabsTrigger>}
+              {tabs.includes("insights") && <TabsTrigger value="insights"><BarChart3 className="mr-1 h-4 w-4" />Search insights</TabsTrigger>}
+              {tabs.includes("access") && <TabsTrigger value="access"><KeyRound className="mr-1 h-4 w-4" />Access</TabsTrigger>}
+              {tabs.includes("audit") && <TabsTrigger value="audit"><History className="mr-1 h-4 w-4" />Audit log</TabsTrigger>}
             </TabsList>
-            <TabsContent value="ingest">
+            {tabs.includes("ingest") && <TabsContent value="ingest">
               <IngestPanel state={state} onQueued={(r) => { apply(r); if (r.ok) setTab("queue"); }} />
-            </TabsContent>
-            <TabsContent value="queue">
+            </TabsContent>}
+            {tabs.includes("queue") && <TabsContent value="queue">
               <QueuePanel state={state} person={person} onResult={apply} />
-            </TabsContent>
-            <TabsContent value="gaps">
+            </TabsContent>}
+            {tabs.includes("gaps") && <TabsContent value="gaps">
               <GapsPanel state={state} onResult={(r) => { apply(r); if (r.ok) setTab("queue"); }} />
-            </TabsContent>
-            <TabsContent value="insights">
+            </TabsContent>}
+            {tabs.includes("insights") && <TabsContent value="insights">
               <InsightsPanel state={state} onDraft={() => setTab("gaps")} />
-            </TabsContent>
-            <TabsContent value="access">
+            </TabsContent>}
+            {tabs.includes("access") && <TabsContent value="access">
               <AccessPanel state={state} onResult={apply} />
-            </TabsContent>
-            <TabsContent value="audit">
+            </TabsContent>}
+            {tabs.includes("audit") && <TabsContent value="audit">
               <AuditPanel state={state} />
-            </TabsContent>
+            </TabsContent>}
           </Tabs>
         </div>
       </div>
