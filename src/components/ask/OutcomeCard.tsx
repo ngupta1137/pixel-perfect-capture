@@ -199,7 +199,14 @@ function Body({
             {part.citations.map((c) => (
               <div key={c.unit_id} className="rounded-md border border-border p-4">
                 {onCite ? (
-                  <CitationLine c={c} onCite={onCite} />
+                  <button
+                    type="button"
+                    onClick={() => onCite(c)}
+                    aria-label={`Open unit ${c.unit_id}: ${c.title}`}
+                    className="text-left font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                  >
+                    {c.title}
+                  </button>
                 ) : (
                   <p className="font-semibold">{c.title}</p>
                 )}

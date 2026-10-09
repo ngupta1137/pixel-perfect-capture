@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { OutcomeCard } from "@/components/ask/OutcomeCard";
 import { TraceDrawer } from "@/components/ask/TraceDrawer";
 import { OutcomePill } from "@/components/ask/outcomeMeta";
+import { AnswerDetails } from "@/components/ask/AnswerDetails";
 import {
   Conversation,
   ConversationContent,
@@ -480,8 +481,22 @@ export function AskPage() {
             </label>
           </div>
         )}
-        <div className="mt-5 grid gap-2 sm:grid-cols-2">
-          {(answer || isChat ? EXAMPLES.slice(0, 4) : EXAMPLES.slice(0, 6)).map((ex) => (
+        {!isChat && !answer && !loading && sessionHistory.length === 0 && (
+          <div className="mt-6 rounded-md border border-dashed border-border bg-surface px-5 py-6 text-center">
+            <ShieldCheck className="mx-auto h-6 w-6 text-primary" />
+            <p className="mt-2 text-sm font-semibold">Ask your first question</p>
+            <p className="mt-1 text-xs text-ink-muted">
+              Set the caller's context above, then ask. Verity answers only from approved, in-scope knowledge.
+            </p>
+          </div>
+        )}
+        <p className="mt-6 text-xs font-semibold text-ink-muted">
+          {answer && !isChat ? "RELATED QUESTIONS" : "SUGGESTED QUESTIONS"}
+        </p>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {EXAMPLES.filter((ex) => !answer || ex !== lastQuery)
+            .slice(0, answer || isChat ? 4 : 6)
+            .map((ex) => (
             <Button
               key={ex}
               type="button"
@@ -508,6 +523,9 @@ export function AskPage() {
             )}
             {loading && <Shimmer>Checking...</Shimmer>}
             {!loading && answer && renderAnswer(answer)}
+            {!loading && answer && can("get_unit") && (
+              <AnswerDetails res={answer.res} onCite={setOpenCite} />
+            )}
             {!loading &&
               can("view_channel_compare") &&
               answer?.res.outcome === "answer" &&
