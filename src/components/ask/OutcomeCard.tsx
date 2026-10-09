@@ -7,7 +7,7 @@ import { OutcomePill } from "./outcomeMeta";
 import { CHANNELS } from "@/lib/session";
 import { MessageResponse } from "@/components/ai-elements/message";
 
-function CitationLine({ c, onCite }: { c: Citation; onCite?: (c: Citation) => void }) {
+function CitationLine({ c, onCite }: { c: Citation; onCite?: ((c: Citation) => void) | undefined }) {
   if (onCite)
     return (
       <button
@@ -61,7 +61,7 @@ function NextStep({ text }: { text: string }) {
   );
 }
 
-function Choices({ choices, onChoose }: { choices: Choice[]; onChoose?: (c: Choice) => void }) {
+function Choices({ choices, onChoose }: { choices: Choice[]; onChoose?: ((c: Choice) => void) | undefined }) {
   return (
     <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Choose one">
       {choices.map((c) => (
@@ -73,7 +73,7 @@ function Choices({ choices, onChoose }: { choices: Choice[]; onChoose?: (c: Choi
   );
 }
 
-type Hooks = { onCite?: (c: Citation) => void; onChoose?: (c: Choice) => void };
+type Hooks = { onCite?: ((c: Citation) => void) | undefined; onChoose?: ((c: Choice) => void) | undefined };
 
 function Body({ part, compact, onCite, onChoose }: { part: Part; compact: boolean } & Hooks) {
   const c0 = part.citations[0];

@@ -6,7 +6,7 @@ import { searchAs } from "@/services/verity";
 import { mockSearch } from "@/services/mockData";
 import type { BrowserRecognition } from "@/lib/browser-speech";
 
-vi.mock("@/services/verity", () => ({ searchAs: vi.fn(async (_person: string, request) => mockSearch(request)) }));
+vi.mock("@/services/verity", async (orig) => ({ ...(await orig<typeof import("@/services/verity")>()), searchAs: vi.fn(async (_person: string, request) => mockSearch(request)) }));
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
