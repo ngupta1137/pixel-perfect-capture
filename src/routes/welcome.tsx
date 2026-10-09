@@ -1,0 +1,132 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowRight, ShieldCheck, FileInput, Search, Users, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { pageHead } from "@/lib/page-head";
+import workplace from "@/assets/verity-workplace.jpg";
+export const Route = createFileRoute("/welcome")({
+  head: () =>
+    pageHead(
+      "Governed enterprise knowledge",
+      "Verity brings permission-aware search, approved answers and human-controlled knowledge governance together.",
+    ),
+  component: WelcomePage,
+});
+function WelcomePage() {
+  return (
+    <>
+      <section className="public-hero flex min-h-[520px] items-center overflow-hidden px-6 py-16">
+        <img
+          src={workplace}
+          alt="Colleagues reviewing knowledge in a bright workplace"
+          width={1600}
+          height={912}
+          className="absolute inset-0 -z-10 h-full w-full object-cover"
+        />
+        <div className="mx-auto w-full max-w-7xl">
+          <div className="max-w-xl">
+            <span className="inline-flex items-center gap-2 text-sm font-semibold text-primary">
+              <ShieldCheck className="h-4 w-4" />
+              GOVERNED ENTERPRISE KNOWLEDGE
+            </span>
+            <h1 className="mt-5 text-5xl font-semibold leading-tight">Verity</h1>
+            <p className="mt-4 text-3xl font-medium leading-snug">
+              Trusted answers.
+              <br />
+              Accountable knowledge.
+            </p>
+            <p className="mt-5 max-w-md text-base leading-7 text-ink-muted">
+              Give employees and agents answers grounded in approved information. Keep access,
+              freshness, and human approval at the center.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Button size="lg" asChild>
+                <Link to="/onboarding">
+                  Explore the demo <ArrowRight />
+                </Link>
+              </Button>
+              <Button size="lg" variant="outline" asChild>
+                <Link to="/sign-in">Request a demo</Link>
+              </Button>
+            </div>
+            <p className="mt-5 text-xs text-ink-muted">Concept prototype · Synthetic data</p>
+          </div>
+        </div>
+      </section>
+      <section className="border-b border-border bg-surface-alt px-6 py-10">
+        <div className="mx-auto grid max-w-7xl gap-6 sm:grid-cols-3">
+          {[
+            {
+              icon: ShieldCheck,
+              title: "Approved, not improvised",
+              text: "Answers carry citations and approval status.",
+            },
+            {
+              icon: Users,
+              title: "Permission-aware by design",
+              text: "The right knowledge for the right responsibility.",
+            },
+            {
+              icon: CheckCircle2,
+              title: "Human-controlled publication",
+              text: "Changes are reviewed before becoming approved knowledge.",
+            },
+          ].map((item) => (
+            <div key={item.title} className="flex gap-3">
+              <item.icon className="mt-1 h-5 w-5 shrink-0 text-primary" />
+              <div>
+                <h2 className="text-sm font-semibold">{item.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-ink-muted">{item.text}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="mx-auto max-w-7xl px-6 py-16">
+        <p className="text-xs font-semibold text-primary">THE KNOWLEDGE LIFECYCLE</p>
+        <h2 className="mt-3 text-3xl font-semibold">From source to trusted answer.</h2>
+        <div className="mt-10 grid gap-8 md:grid-cols-3">
+          {[
+            {
+              icon: FileInput,
+              title: "01 · Ingest & propose",
+              text: "Extract candidates from source content and identify changes, duplicates, and conflicts.",
+            },
+            {
+              icon: ShieldCheck,
+              title: "02 · Review & approve",
+              text: "Compare wording, check impact, and record a named human decision.",
+            },
+            {
+              icon: Search,
+              title: "03 · Ask & verify",
+              text: "Deliver a scoped answer with citations, or clearly explain why an answer cannot be given.",
+            },
+          ].map((item) => (
+            <div key={item.title} className="border-t border-border pt-6">
+              <item.icon className="h-6 w-6 text-primary" />
+              <h3 className="mt-5 font-semibold">{item.title}</h3>
+              <p className="mt-3 text-sm leading-7 text-ink-muted">{item.text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="bg-surface-alt px-6 py-14">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6">
+          <div>
+            <h2 className="text-2xl font-semibold">
+              One knowledge system. Multiple responsibilities.
+            </h2>
+            <p className="mt-3 text-sm text-ink-muted">
+              Advocates · Authors · Approvers · Governance teams · AI agents
+            </p>
+          </div>
+          <Button asChild>
+            <Link to="/onboarding">
+              Open the workspace <ArrowRight />
+            </Link>
+          </Button>
+        </div>
+      </section>
+    </>
+  );
+}

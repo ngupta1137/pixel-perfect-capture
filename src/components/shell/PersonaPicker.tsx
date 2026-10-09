@@ -7,7 +7,12 @@ export function ScopeChips({ kbs }: { kbs: string[] }) {
   return (
     <span className="flex flex-wrap gap-1">
       {kbs.map((kb) => (
-        <span key={kb} className="rounded border border-border bg-surface-alt px-1.5 py-0.5 font-mono text-[11px] text-ink">{kb}</span>
+        <span
+          key={kb}
+          className="rounded border border-border bg-surface-alt px-1.5 py-0.5 font-mono text-[11px] text-ink"
+        >
+          {kb}
+        </span>
       ))}
     </span>
   );
@@ -18,10 +23,12 @@ export function PersonaPicker() {
   const navigate = useNavigate();
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <label htmlFor="persona" className="text-sm text-ink-muted">Signed in as</label>
+      <label htmlFor="persona" className="text-sm text-ink-muted">
+        Signed in as
+      </label>
       <select
         id="persona"
-        className="field-select"
+        className="field-select max-w-[250px] sm:max-w-[300px]"
         value={person.id}
         onChange={(e) => {
           const next = findPerson(e.target.value);
@@ -34,13 +41,16 @@ export function PersonaPicker() {
           <optgroup key={g} label={g}>
             {PEOPLE.filter((p) => p.group === g).map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name}, {p.label}{p.kbs.length ? ` · ${p.kbs.join(" ")}` : ""}
+                {p.name}, {p.label}
+                {p.kbs.length ? ` · ${p.kbs.join(" ")}` : ""}
               </option>
             ))}
           </optgroup>
         ))}
       </select>
-      <ScopeChips kbs={person.kbs} />
+      <span className="hidden max-w-40 lg:inline">
+        <ScopeChips kbs={person.kbs} />
+      </span>
     </div>
   );
 }

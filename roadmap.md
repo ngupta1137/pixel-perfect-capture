@@ -1,4 +1,11 @@
-# Channel updates
-- [x] Browser speech capture and exact answer playback with automatic Voice reading.
-- [x] Eleanor member-chat layout and originating-channel labels.
-- [x] Tests and browser verification (speech APIs simulated; physical microphone/audio requires the user's browser).
+# Enterprise redesign
+- [x] Shared enterprise shell, grouped permission-aware navigation, and design system.
+- [x] Public product page and honest prototype entry flow.
+- [x] Ask, answer states, citations, member chat, and session history.
+- [x] Knowledge library, ingestion, review, and governance workspaces.
+- [x] Evaluations, analytics, integrations, audit, and access presentation.
+- [x] Verify workflows, permission safeguards, and desktop/mobile layouts.
+
+## Existing service limitations (outside this frontend redesign)
+- Enterprise authentication, live transfers, PDF/Word extraction, source previews, and historical production telemetry are not connected; the UI identifies these limitations.
+- Full-repository lint reports pre-existing formatting findings in protected engine files; changed page code passes focused lint.

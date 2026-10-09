@@ -4,24 +4,44 @@ import { Button } from "@/components/ui/button";
 import type { Choice, Citation, Part } from "@/services/verity";
 import { TrustBadge } from "./TrustBadge";
 import { OutcomePill } from "./outcomeMeta";
-import { CHANNELS } from "@/lib/session";
+import { CHANNELS, useSession } from "@/lib/session";
+import { personaDef } from "@/lib/rights";
 import { MessageResponse } from "@/components/ai-elements/message";
 
-function CitationLine({ c, onCite }: { c: Citation; onCite?: ((c: Citation) => void) | undefined }) {
+function CitationLine({
+  c,
+  onCite,
+  minimal = false,
+  showOwner = true,
+}: {
+  c: Citation;
+  onCite?: ((c: Citation) => void) | undefined;
+  minimal?: boolean;
+  showOwner?: boolean;
+}) {
+  if (minimal)
+    return (
+      <p className="mt-3 text-sm text-ink-muted">
+        {c.title} · {c.effective_date}
+      </p>
+    );
   if (onCite)
     return (
-      <button
+      <Button
+        variant="ghost"
         type="button"
         onClick={() => onCite(c)}
         className="mt-3 inline-flex flex-wrap items-center gap-1 rounded-full border border-border bg-surface-alt px-3 py-1 text-left text-sm text-ink hover:border-brand-green-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={`Open unit ${c.unit_id}: ${c.title}`}
       >
-        <span className="font-semibold">{c.title}</span> · v{c.version} · effective {c.effective_date}
-      </button>
+        <span className="font-semibold">{c.title}</span> · v{c.version} · effective{" "}
+        {c.effective_date}
+      </Button>
     );
   return (
     <p className="mt-3 text-sm text-ink-muted">
-      {c.title} · {c.owner} · v{c.version} · effective {c.effective_date} · <span className="whitespace-nowrap">{c.unit_id}</span>
+      {c.title} {showOwner && `· ${c.owner}`} · v{c.version} · effective {c.effective_date} ·{" "}
+      <span className="whitespace-nowrap">{c.unit_id}</span>
     </p>
   );
 }
@@ -44,7 +64,9 @@ function VerbatimBox({ text }: { text: string }) {
           {copied ? "Copied" : "Copy"}
         </Button>
       </div>
-      <p aria-readonly="true" className="select-all px-4 py-4 text-xl leading-relaxed">{text}</p>
+      <p aria-readonly="true" className="select-all px-4 py-4 text-xl leading-relaxed">
+        {text}
+      </p>
     </div>
   );
 }
@@ -61,11 +83,25 @@ function NextStep({ text }: { text: string }) {
   );
 }
 
-function Choices({ choices, onChoose }: { choices: Choice[]; onChoose?: ((c: Choice) => void) | undefined }) {
+function Choices({
+  choices,
+  onChoose,
+}: {
+  choices: Choice[];
+  onChoose?: ((c: Choice) => void) | undefined;
+}) {
   return (
     <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Choose one">
       {choices.map((c) => (
-        <Button key={c.label} type="button" variant="outline" size="sm" className="rounded-full border-outcome-clarify" onClick={() => onChoose?.(c)} disabled={!onChoose}>
+        <Button
+          key={c.label}
+          type="button"
+          variant="outline"
+          size="sm"
+          className="rounded-full border-outcome-clarify"
+          onClick={() => onChoose?.(c)}
+          disabled={!onChoose}
+        >
           {c.label}
         </Button>
       ))}
@@ -73,9 +109,36 @@ function Choices({ choices, onChoose }: { choices: Choice[]; onChoose?: ((c: Cho
   );
 }
 
-type Hooks = { onCite?: ((c: Citation) => void) | undefined; onChoose?: ((c: Choice) => void) | undefined };
+type Hooks = {
+  onCite?: ((c: Citation) => void) | undefined;
+  onChoose?: ((c: Choice) => void) | undefined;
+};
 
-function Body({ part, compact, onCite, onChoose }: { part: Part; compact: boolean } & Hooks) {
+function Body({
+  part,
+  compact,
+  onCite,
+  onChoose,
+  minimal,
+  showOwner,
+}: { part: Part; compact: boolean; minimal: boolean; showOwner: boolean } & Hooks) {
+  const [handoff, setHandoff] = useState(false);
+  const transfer = (
+    <>
+      <Button variant="outline" className="mt-4" onClick={() => setHandoff(true)}>
+        <Phone />
+        {minimal ? "Talk to a person" : "Transfer guidance"}
+      </Button>
+      {handoff && (
+        <p role="status" className="mt-3 text-sm text-ink-muted">
+          Live transfer is not connected in this prototype.{" "}
+          {minimal
+            ? "Contact Member Services using the number on your member ID card."
+            : (part.next_step ?? "Follow your contact-center escalation procedure.")}
+        </p>
+      )}
+    </>
+  );
   const c0 = part.citations[0];
   switch (part.outcome) {
     case "answer":
@@ -88,7 +151,7 @@ function Body({ part, compact, onCite, onChoose }: { part: Part; compact: boolea
           ) : (
             <p className="text-xl leading-relaxed">{part.text}</p>
           )}
-          {c0 && <CitationLine c={c0} onCite={onCite} />}
+          {c0 && <CitationLine c={c0} onCite={onCite} minimal={minimal} showOwner={showOwner} />}
         </>
       );
     case "needs_clarification":
@@ -109,12 +172,23 @@ function Body({ part, compact, onCite, onChoose }: { part: Part; compact: boolea
           <p className="mt-2 text-sm text-ink-muted">
             Verity does not answer from general knowledge.
           </p>
-          <span className="mt-3 inline-block rounded border border-border bg-surface-alt px-2 py-0.5 text-xs font-semibold text-ink-muted">
-            Gap logged
-          </span>
+          {!minimal && (
+            <span className="mt-3 inline-block rounded border border-border bg-surface-alt px-2 py-0.5 text-xs font-semibold text-ink-muted">
+              Gap logged
+            </span>
+          )}
         </>
       );
     case "conflict":
+      if (minimal)
+        return (
+          <>
+            <p className="text-lg">
+              The available plan information disagrees. I cannot choose an answer for you.
+            </p>
+            {transfer}
+          </>
+        );
       return (
         <>
           <p className="text-lg">{part.message}</p>
@@ -124,9 +198,14 @@ function Body({ part, compact, onCite, onChoose }: { part: Part; compact: boolea
           <div className="mt-3 grid gap-4 md:grid-cols-2">
             {part.citations.map((c) => (
               <div key={c.unit_id} className="rounded-md border border-border p-4">
-                {onCite ? <CitationLine c={c} onCite={onCite} /> : <p className="font-semibold">{c.title}</p>}
+                {onCite ? (
+                  <CitationLine c={c} onCite={onCite} />
+                ) : (
+                  <p className="font-semibold">{c.title}</p>
+                )}
                 <p className="text-sm text-ink-muted">
-                  {c.owner} · v{c.version} · effective {c.effective_date} · <span className="whitespace-nowrap">{c.unit_id}</span>
+                  {showOwner && `${c.owner} · `}v{c.version} · effective {c.effective_date} ·{" "}
+                  <span className="whitespace-nowrap">{c.unit_id}</span>
                 </p>
                 <p className="mt-3">{c.text}</p>
               </div>
@@ -135,6 +214,15 @@ function Body({ part, compact, onCite, onChoose }: { part: Part; compact: boolea
         </>
       );
     case "stale":
+      if (minimal)
+        return (
+          <>
+            <p className="text-lg">
+              This information needs to be checked before I can give you an answer.
+            </p>
+            {transfer}
+          </>
+        );
       return (
         <>
           <div className="mb-3 rounded border border-outcome-stale bg-outcome-stale/10 px-3 py-2 text-sm font-semibold text-outcome-stale">
@@ -144,17 +232,19 @@ function Body({ part, compact, onCite, onChoose }: { part: Part; compact: boolea
             {part.text}
           </p>
           <p className="mt-2 text-sm">{part.message}</p>
-          {c0 && <CitationLine c={c0} onCite={onCite} />}
+          {c0 && <CitationLine c={c0} onCite={onCite} minimal={minimal} showOwner={showOwner} />}
         </>
       );
     case "not_authorized":
       return (
         <>
-          <p className="text-2xl font-semibold">Owned by {part.owner_team}</p>
-          <p className="mt-2">{part.message}</p>
-          <Button variant="outline" className="mt-4">
-            Transfer to team
-          </Button>
+          {showOwner && <p className="text-lg font-semibold">Owned by {part.owner_team}</p>}
+          <p className="mt-2">
+            {minimal
+              ? "I cannot answer this question from the plan information available to me."
+              : part.message}
+          </p>
+          {transfer}
         </>
       );
     case "safety_escalation":
@@ -162,9 +252,7 @@ function Body({ part, compact, onCite, onChoose }: { part: Part; compact: boolea
         <div className="flex flex-col gap-5 md:flex-row md:items-center">
           <Phone className="h-10 w-10 shrink-0 text-outcome-safety" aria-hidden="true" />
           <p className="flex-1 text-xl font-semibold leading-relaxed">{part.text}</p>
-          <Button size="lg" variant="destructive">
-            Connect to a person now
-          </Button>
+          {transfer}
         </div>
       );
   }
@@ -191,10 +279,13 @@ export function OutcomeCard({
   onRead?: () => void;
   onStop?: () => void;
 }) {
+  const { person } = useSession();
+  const minimal = person.memberAudience;
+  const showOwner = personaDef(person.persona).sees_internal_owner;
   const safety = part.outcome === "safety_escalation";
   return (
     <article
-      className={`rounded-lg bg-surface ${compact ? "p-4 text-lg [&_p.text-xl]:text-lg [&_p.text-2xl]:text-lg" : "p-6"} ${safety ? "border-2 border-outcome-safety" : "border border-border"}`}
+      className={`bg-surface ${compact ? "border-l-2 border-primary/20 pl-4 py-3 text-lg [&_p.text-xl]:text-lg [&_p.text-2xl]:text-lg" : "p-6"} ${safety ? "rounded-md border-2 border-outcome-safety" : compact ? "" : "rounded-md border border-border"}`}
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <span className="flex flex-wrap items-center gap-2">
@@ -206,13 +297,25 @@ export function OutcomeCard({
         </span>
       </div>
       {held ? (
-        <div role="status" className="rounded-md border-2 border-dashed border-outcome-clarify bg-outcome-clarify/10 px-4 py-3 font-semibold text-outcome-clarify">
+        <div
+          role="status"
+          className="rounded-md border-2 border-dashed border-outcome-clarify bg-outcome-clarify/10 px-4 py-3 font-semibold text-outcome-clarify"
+        >
           Held until the disclosure is read
         </div>
       ) : (
-        <Body part={part} compact={compact} onCite={onCite} onChoose={onChoose} />
+        <Body
+          part={part}
+          compact={compact}
+          onCite={onCite}
+          onChoose={onChoose}
+          minimal={minimal}
+          showOwner={showOwner}
+        />
       )}
-      {part.next_step && part.outcome !== "answer" && <NextStep text={part.next_step} />}
+      {!minimal && part.next_step && part.outcome !== "answer" && (
+        <NextStep text={part.next_step} />
+      )}
       {onRead && !held && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Button

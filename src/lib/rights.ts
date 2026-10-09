@@ -21,7 +21,11 @@ export interface Person {
 
 type PersonaDef = (typeof policy.personas)[keyof typeof policy.personas];
 
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 
 export const PEOPLE: Person[] = policy.people.map((p) => {
   const def = (policy.personas as Record<string, PersonaDef>)[p.persona]!;
@@ -56,16 +60,30 @@ export const PAGES = [
   {
     to: "/author",
     label: "Author",
-    views: ["author_ingest", "author_queue", "author_owner", "author_gaps", "author_insights", "author_access", "author_audit"],
+    views: [
+      "author_ingest",
+      "author_queue",
+      "author_owner",
+      "author_gaps",
+      "author_insights",
+      "author_access",
+      "author_audit",
+    ],
   },
-  { to: "/evals", label: "Evals", views: ["evals"] },
-  { to: "/agents", label: "Agents", views: ["agents"] },
+  { to: "/library", label: "Knowledge library", views: ["units"] },
+  { to: "/evals", label: "Evaluations", views: ["evals"] },
+  { to: "/agents", label: "Agents & integrations", views: ["agents"] },
   { to: "/access", label: "Access", views: ["author_access"] },
   { to: "/audit", label: "Audit", views: ["audit_replay", "author_audit"] },
-  { to: "/health", label: "Health", views: ["analytics"] },
+  { to: "/health", label: "Analytics", views: ["analytics"] },
   { to: "/rights", label: "Rights", views: ["rights"], public: true },
   { to: "/platform", label: "Platform", views: [], public: true },
-] as const satisfies readonly { to: string; label: string; views: readonly ViewKey[]; public?: boolean }[];
+] as const satisfies readonly {
+  to: string;
+  label: string;
+  views: readonly ViewKey[];
+  public?: boolean;
+}[];
 
 export type PagePath = (typeof PAGES)[number]["to"];
 
@@ -75,7 +93,9 @@ export const canOpen = (p: Person, to: PagePath) => {
   return ("public" in pg && pg.public) || pg.views.some((v) => canView(p, v));
 };
 /** Capabilities that would open a page, for the Denied message. */
-export const pageCaps = (to: PagePath): Capability[] => [...new Set(pageFor(to).views.flatMap((v) => VIEWS[v]))];
+export const pageCaps = (to: PagePath): Capability[] => [
+  ...new Set(pageFor(to).views.flatMap((v) => VIEWS[v])),
+];
 export const navFor = (p: Person) => PAGES.filter((pg) => canOpen(p, pg.to));
 export const homeRoute = (p: Person): PagePath => navFor(p)[0]?.to ?? "/rights";
 

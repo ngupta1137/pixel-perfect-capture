@@ -1,4 +1,5 @@
 <!-- LOVABLE:BEGIN -->
+
 > [!IMPORTANT]
 > This project is connected to [Lovable](https://lovable.dev). Avoid rewriting
 > published git history — force pushing, or rebasing/amending/squashing commits
@@ -7,6 +8,7 @@
 >
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
+
 <!-- LOVABLE:END -->
 
 - Keep browser recognition and speech synthesis in a lifecycle-managed hook; cancel microphone and playback on persona/channel changes and unmount.
@@ -18,3 +20,7 @@
 - The demo guide lives in src/lib/guide.ts (module-level store) with its script in src/data/guide.ts; the Ask page only consumes queued guide commands — why: the app must work identically with the rail closed.
 - The authoring chain (drafts, gate results, publishing, re-verify, AEP readiness) lives in the demo store via service functions in src/services/verity.ts, with extraction fixtures in mockData.ts; answers cite the latest stored version of a unit — why: one person's action must show up in the next person's session.
 - Governance pages (/audit, /rights, /access) read the demo store through verity.ts; denied attempts are logged by RequirePage and service functions, and event details are shown only to people who can read units — why: auditors need evidence while the access admin must never see unit text or queries.
+
+- Workspace navigation groups and icons are presentation metadata; permissions and home routing remain derived through rights.ts — why: redesign must not introduce a second authorization policy.
+- The knowledge library reads existing service units and applies policy capability and knowledge-base scope before display — why: source browsing must preserve existing entitlement boundaries.
+- Public entry routes identify prototype limitations and never simulate authentication — why: this frontend redesign does not change authentication contracts.
