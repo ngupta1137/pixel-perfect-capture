@@ -172,7 +172,7 @@ function syncAuthoring(a: AuthoringState) {
       ...s,
       units,
       drafts: a.queue.map((d) => ({ draft_id: d.draft_id, unit_id: d.unit_id, title: d.title, status: d.status, proposed_by: d.proposed_by, decided_by: d.decided_by })),
-      reviewTasks: a.reviews.map((r) => ({ id: r.item_id, kind: r.kind, unit_ids: r.unit_ids, owner: r.owner, status: r.status })),
+      reviewTasks: [...s.reviewTasks.filter((t) => t.kind === "flag"), ...a.reviews.map((r) => ({ id: r.item_id, kind: r.kind, unit_ids: r.unit_ids, owner: r.owner, status: r.status }))],
     };
   });
   return a;
