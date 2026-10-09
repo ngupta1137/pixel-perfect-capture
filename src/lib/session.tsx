@@ -30,7 +30,7 @@ const SessionContext = createContext<SessionState | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [person, setP] = useState<Person>(DEFAULT_PERSON);
-  const [channel, setC] = useState(DEFAULT_PERSON.memberAudience ? "member_chat" : "advocate_view");
+  const [channel, setC] = useState(DEFAULT_PERSON.memberAudience ? "member_chat" : "voice");
   const allowedChannels = channelsFor(person);
 
   // Switching person never touches the shared demo store.
@@ -38,7 +38,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const p = findPerson(id) ?? DEFAULT_PERSON;
     setP(p);
     if (p.memberAudience) setC("member_chat");
-    else if (!channelsFor(p).some((c) => c.id === channel)) setC("advocate_view");
+    else if (!channelsFor(p).some((c) => c.id === channel)) setC("voice");
   };
   const setChannel = (id: string) => {
     if (allowedChannels.some((c) => c.id === id)) setC(id);

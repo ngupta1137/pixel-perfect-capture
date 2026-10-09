@@ -47,13 +47,13 @@
 
 :root {
   --radius: 0.5rem;
-  --brand-green: oklch(0.59 0.14 148);
-  --brand-green-dark: oklch(0.43 0.11 149);
-  --ink: oklch(0.24 0.015 155);
-  --ink-muted: oklch(0.48 0.015 155);
+  --brand-green: #2E7D32;
+  --brand-green-dark: #1E5E2E;
+  --ink: #111827;
+  --ink-muted: #6B7280;
   --surface: #ffffff;
-  --surface-alt: oklch(0.975 0.004 150);
-  --border: oklch(0.91 0.008 150);
+  --surface-alt: #F9FAFB;
+  --border: #E5E7EB;
 
   --outcome-answer: var(--brand-green-dark);
   --outcome-clarify: #1f6fb2;

@@ -48,59 +48,85 @@ export function ContextBar({
   highlight: boolean;
 }) {
   return (
-    <div className="mt-4 grid gap-2 text-xs sm:grid-cols-3">
-      <label className="flex min-w-0 items-center gap-2 rounded-md border border-border px-2.5 text-ink-muted">
-        <BriefcaseBusiness className="h-4 w-4 shrink-0" />{" "}
-        <span className="shrink-0 text-[11px]">Line of business</span>
+    <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
+      {/* Line of Business Pill */}
+      <div className="relative flex items-center rounded-lg border border-border bg-[#F9FAFB]/80 hover:bg-[#F3F4F6] px-3 py-1.5 transition-colors focus-within:ring-2 focus-within:ring-ring">
+        <span className="mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink-muted/60 text-[10px] font-bold text-ink-muted">
+          A
+        </span>
+        <span className="mr-2 text-ink-muted text-xs">Line of business</span>
+        <span className="font-semibold text-ink text-xs">{lob}</span>
         <select
           aria-label="Line of business"
-          className="h-9 min-w-0 flex-1 bg-surface text-xs text-ink outline-none focus-visible:ring-2 focus-visible:ring-ring"
           value={lob}
           onChange={(e) => setLob(e.target.value)}
+          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
         >
           <option value="MAPD">MAPD</option>
           <option value="PDP">PDP</option>
         </select>
-      </label>
-      <label className="flex min-w-0 items-center gap-2 rounded-md border border-border px-2.5 text-ink-muted">
-        <MapPin className="h-4 w-4 shrink-0" /> <span className="text-[11px]">State</span>
+        <svg
+          className="ml-2 h-3.5 w-3.5 shrink-0 text-ink-muted pointer-events-none"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+
+      {/* State Pill */}
+      <div
+        className={`relative flex items-center rounded-lg border border-border bg-[#F9FAFB]/80 hover:bg-[#F3F4F6] px-3 py-1.5 transition-colors focus-within:ring-2 focus-within:ring-ring ${
+          highlight ? "ring-2 ring-outcome-clarify border-outcome-clarify" : ""
+        }`}
+      >
+        <MapPin className="mr-2 h-3.5 w-3.5 shrink-0 text-ink-muted" />
+        <span className="mr-2 text-ink-muted text-xs">State</span>
+        <span className="font-semibold text-ink text-xs">{state || "Unknown"}</span>
         <select
           aria-label="State"
-          className={`h-9 min-w-0 flex-1 bg-surface text-xs text-ink outline-none focus-visible:ring-2 focus-visible:ring-ring ${highlight ? "ring-2 ring-outcome-clarify" : ""}`}
           value={state}
           onChange={(e) => setState(e.target.value)}
+          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
         >
           <option value="">Unknown</option>
           <option value="KY">KY</option>
           <option value="FL">FL</option>
           <option value="OH">OH</option>
         </select>
-      </label>
-      <div
-        className="flex min-w-0 items-center justify-between gap-1 rounded-md border border-border px-2 text-ink-muted"
-        role="group"
-        aria-label="Plan year"
-      >
-        <span className="flex items-center gap-2 text-[11px]">
-          <CalendarDays className="h-4 w-4 shrink-0" />
-          Plan year
-        </span>
-        <div className="inline-flex shrink-0 gap-0.5">
-          {["2026", "2027"].map((y) => (
-            <Button
-              variant="ghost"
-              size="sm"
-              key={y}
-              type="button"
-              aria-pressed={planYear === y}
-              onClick={() => setPlanYear(planYear === y ? "" : y)}
-              className={`h-7 px-2 text-[11px] font-semibold ${planYear === y ? "bg-primary/8 text-primary" : "bg-surface text-ink-muted"}`}
-            >
-              {y}
-            </Button>
-          ))}
-        </div>
-        {!planYear && <span className="text-xs text-outcome-clarify">Unknown</span>}
+        <svg
+          className="ml-2 h-3.5 w-3.5 shrink-0 text-ink-muted pointer-events-none"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+
+      {/* Plan Year Pill */}
+      <div className="relative flex items-center rounded-lg border border-border bg-[#F9FAFB]/80 hover:bg-[#F3F4F6] px-3 py-1.5 transition-colors focus-within:ring-2 focus-within:ring-ring">
+        <CalendarDays className="mr-2 h-3.5 w-3.5 shrink-0 text-ink-muted" />
+        <span className="mr-2 text-ink-muted text-xs">Plan year</span>
+        <span className="font-semibold text-ink text-xs">{planYear || "2026"}</span>
+        <select
+          aria-label="Plan year"
+          value={planYear}
+          onChange={(e) => setPlanYear(e.target.value)}
+          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+        >
+          <option value="2026">2026</option>
+          <option value="2027">2027</option>
+        </select>
+        <svg
+          className="ml-2 h-3.5 w-3.5 shrink-0 text-ink-muted pointer-events-none"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
       </div>
       <span className="sr-only">AEP opens Oct 15. Answers apply to this context</span>
     </div>

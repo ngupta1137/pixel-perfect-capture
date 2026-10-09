@@ -17,7 +17,7 @@ import {
   CalendarDays,
   ShieldCheck,
   Stethoscope,
-  CreditCard,
+  Contact,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OutcomeCard } from "@/components/ask/OutcomeCard";
@@ -47,15 +47,18 @@ import {
   UnitDrawer,
 } from "@/components/ask/AdvocateExtras";
 import { useDemoStore } from "@/services/demoStore";
-import { scopedLibrary } from "@/lib/library";
+import { AnswerDetailsView } from "@/components/ask/AnswerDetailsView";
+import { setBreadcrumbs } from "@/lib/breadcrumbs";
 import {
   getReadBeforeBenefits,
   recordRead,
   listUnits,
   type Choice,
   type Citation,
+  searchAs,
+  type SearchResponse,
 } from "@/services/verity";
-import { searchAs, type Outcome, type SearchResponse } from "@/services/verity";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -74,31 +77,81 @@ export const Route = createFileRoute("/")({
   component: GuardedAskPage,
 });
 
-const EXAMPLES = [
-  { query: "Rx pricing disclaimer", label: "Rx pricing disclaimer", icon: Paperclip },
-  { query: "how long does mail order delivery take", label: "Mail order delivery", icon: Truck },
+const SUGGESTED_QUESTIONS = [
+  {
+    query: "Rx pricing disclaimer",
+    label: "Rx pricing disclaimer",
+    icon: Paperclip,
+  },
+  {
+    query: "how long does mail order delivery take",
+    label: "Mail order benefits",
+    icon: Truck,
+  },
   {
     query: "how many days supply can I get by mail",
     label: "How many days supply can I get by mail?",
     icon: CalendarDays,
   },
-  { query: "ID card replacement", label: "How do I get a replacement ID card?", icon: CreditCard },
+  {
+    query: "ID card replacement",
+    label: "How do I get a replacement ID card?",
+    icon: Contact,
+  },
   {
     query: "is there a copay assistance program",
     label: "Is there a copay assistance program?",
     icon: ShieldCheck,
   },
-  { query: "closing statement", label: "Call closing statement", icon: Stethoscope },
+  {
+    query: "closing statement",
+    label: "How do I change my primary care provider?",
+    icon: Stethoscope,
+  },
 ];
+
+const DEFAULT_RECENT_SEARCHES = [
+  { query: "is there a copay assistance program", time: "2 mins ago" },
+  { query: "I have chest pain, can you rush my heart pills", time: "12 mins ago" },
+  { query: "how many days supply can I get by mail", time: "24 mins ago" },
+  { query: "is there a shipping fee for mail order", time: "1 hour ago" },
+  { query: "Rx pricing disclaimer", time: "3 hours ago" },
+];
+
+const DEFAULT_BROWSE_KNOWLEDGE = [
+  { unit_id: "U-PH-003", title: "Pricing disclaimer (Rx)" },
+  { unit_id: "U-PH-006", title: "Mail order benefits" },
+  { unit_id: "U-SH-002", title: "Call closing: no impact on membership" },
+  { unit_id: "U-PH-007", title: "Days supply by mail (90-day)" },
+  { unit_id: "U-SH-001", title: "Member ID card" },
+];
+
 interface Answer {
   res: SearchResponse;
   channel: string;
 }
+
 interface ChatTurn {
   id: string;
   question: string;
   personaId: string;
   answer: Answer | null;
+}
+
+function formatRelativeTime(dateStr: string): string {
+  try {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "Just now";
+    if (mins === 1) return "1 min ago";
+    if (mins < 60) return `${mins} mins ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours === 1) return "1 hour ago";
+    if (hours < 24) return `${hours} hours ago`;
+    return "1 day ago";
+  } catch {
+    return "Recently";
+  }
 }
 
 export function AskPage() {
@@ -116,24 +169,36 @@ export function AskPage() {
   const [textSize, setTextSize] = useState(0);
   const [handoff, setHandoff] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+
   const storedRequests = useDemoStore((s) => s.requests);
-  const sessionHistory = storedRequests
-    .filter((r) => r.person === persona.name)
-    .slice(0, showHistory ? 12 : 5);
-  useDemoStore((s) => s.units);
-  const browse = scopedLibrary(listUnits(), persona).slice(0, 5);
+  const userRequests = storedRequests.filter((r) => r.person === persona.name);
+  const sessionHistory = userRequests.slice(0, showHistory ? 12 : 5);
+
+  const browseList = DEFAULT_BROWSE_KNOWLEDGE;
+
   const scope = `${persona.id}:${channel}`;
   const voice = useBrowserVoice(scope);
   const scopeRef = useRef(scope);
   scopeRef.current = scope;
   const pending = useRef(false);
   const isChat = persona.memberAudience && channel === "member_chat";
+
   useEffect(() => {
     setAnswer(null);
     setLoading(false);
     pending.current = false;
     setError("");
+    setBreadcrumbs([]);
   }, [scope]);
+
+  useEffect(() => {
+    if (answer && !isChat) {
+      setBreadcrumbs(["Ask", "Answer"]);
+    } else {
+      setBreadcrumbs([]);
+    }
+  }, [answer, isChat]);
+
 
   const run = async (
     q: string,
@@ -189,7 +254,7 @@ export function AskPage() {
     return null;
   };
 
-  // Changing the call context re-runs the last advocate search.
+  // Changing call context re-runs last advocate search.
   const ctxKey = `${lob}|${state}|${planYear}`;
   const lastCtx = useRef(ctxKey);
   useEffect(() => {
@@ -198,7 +263,8 @@ export function AskPage() {
     if (!isChat && lastQuery) void run(lastQuery);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctxKey]);
-  // Demo guide: run a queued query once the right person is signed in.
+
+  // Demo guide: run queued query once right person signed in
   const command = useGuide((s) => s.command);
   useEffect(() => {
     if (!command || command.personId !== persona.id) return;
@@ -222,6 +288,7 @@ export function AskPage() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [command, persona.id]);
+
   const choose = (c: Choice) => {
     if (c.set.plan_year !== undefined) setPlanYear(c.set.plan_year);
     if (c.set.state !== undefined) setState(c.set.state);
@@ -232,6 +299,7 @@ export function AskPage() {
         planYear: c.set.plan_year ?? planYear,
       });
   };
+
   const disclosure = isChat ? null : getReadBeforeBenefits(persona.role);
   const readDone = useDemoStore(
     (s) =>
@@ -243,7 +311,9 @@ export function AskPage() {
     event.preventDefault();
     void run(query);
   };
+
   const clarify = answer?.res.outcome === "needs_clarification";
+
   const renderAnswer = (item: Answer, compact = false) => (
     <>
       {item.res.parts.map((part) => {
@@ -271,7 +341,7 @@ export function AskPage() {
         );
       })}
       {!compact && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
           <FeedbackRow
             key={item.res.request_id}
             person={persona.name}
@@ -285,25 +355,117 @@ export function AskPage() {
     </>
   );
 
+  if (!isChat && answer) {
+    return (
+      <AnswerDetailsView
+        question={lastQuery || query || "Is there a copay assistance program?"}
+        response={answer.res}
+        lob={lob}
+        setLob={setLob}
+        state={state}
+        setState={setState}
+        planYear={planYear}
+        setPlanYear={setPlanYear}
+        onBack={() => {
+          setAnswer(null);
+          setBreadcrumbs([]);
+        }}
+        onSelectQuestion={(q) => {
+          setQuery(q);
+          void run(q);
+        }}
+        onChoose={choose}
+      />
+    );
+  }
+
   return (
     <div
       className={
         isChat
           ? `mx-auto max-w-3xl ${textSize === 2 ? "[&_p]:text-[22px]" : textSize === 1 ? "[&_p]:text-xl" : ""}`
-          : "ask-workspace grid gap-8 min-[1100px]:grid-cols-[minmax(0,1fr)_260px]"
+          : "ask-workspace relative grid gap-8 min-[1180px]:grid-cols-[minmax(0,1fr)_340px]"
       }
     >
+      {/* Decorative subtle organic wave background behind heading area */}
+      {!isChat && (
+        <div className="pointer-events-none absolute right-0 top-0 -z-10 h-72 w-full max-w-2xl overflow-hidden opacity-90">
+          <svg
+            viewBox="0 0 700 300"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-full w-full object-cover"
+            preserveAspectRatio="none"
+          >
+            <path
+              d="M320 0C440 130 580 170 700 70V0H320Z"
+              fill="url(#paint0_linear)"
+              fillOpacity="0.45"
+            />
+            <path
+              d="M180 0C300 170 510 230 700 130V0H180Z"
+              fill="url(#paint1_linear)"
+              fillOpacity="0.3"
+            />
+            <path
+              d="M380 0C490 210 610 260 700 210V0H380Z"
+              fill="url(#paint2_linear)"
+              fillOpacity="0.18"
+            />
+            <defs>
+              <linearGradient
+                id="paint0_linear"
+                x1="700"
+                y1="0"
+                x2="320"
+                y2="150"
+                gradientUnits="userSpaceOnUse"
+              >
+                <stop stopColor="#86EFAC" />
+                <stop offset="1" stopColor="#DCFCE7" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient
+                id="paint1_linear"
+                x1="700"
+                y1="0"
+                x2="180"
+                y2="200"
+                gradientUnits="userSpaceOnUse"
+              >
+                <stop stopColor="#4ADE80" />
+                <stop offset="1" stopColor="#F0FDF4" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient
+                id="paint2_linear"
+                x1="700"
+                y1="0"
+                x2="380"
+                y2="250"
+                gradientUnits="userSpaceOnUse"
+              >
+                <stop stopColor="#22C55E" />
+                <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+      )}
+
+      {/* Main Column */}
       <section className="min-w-0">
         {!isChat && (
-          <div className="ask-intro pb-8 pt-5">
-            <p className="mb-3 text-sm text-ink-muted">Welcome back, {persona.name}</p>
-            <h1 className="font-semibold">Ask with confidence</h1>
-            <p className="mt-3 max-w-xl text-base leading-relaxed text-ink-muted">
-              Get accurate, approved answers from trusted knowledge. Verity only uses verified
+          <div className="ask-intro pb-4 pt-1">
+            <p className="text-sm font-normal text-ink-muted">Good morning, {persona.name}</p>
+            <h1 className="mt-1.5 text-[38px] font-bold tracking-tight text-ink leading-tight">
+              Ask with confidence
+            </h1>
+            <p className="mt-2.5 max-w-xl text-[14.5px] leading-relaxed text-ink-muted">
+              Get accurate, approved answers from trusted knowledge. Verity uses only verified
               content and shows you the source.
             </p>
           </div>
         )}
+
         {isChat && (
           <>
             <div className="mb-4 flex items-baseline justify-between border-b border-border pb-3">
@@ -325,7 +487,7 @@ export function AskPage() {
                 ))}
               </div>
               <Button variant="outline" size="sm" onClick={() => setHandoff(!handoff)}>
-                <Phone />
+                <Phone className="h-4 w-4" />
                 Talk to a person
               </Button>
             </div>
@@ -407,62 +569,102 @@ export function AskPage() {
           </PromptInput>
         ) : (
           <>
-            <div className="ask-search sticky top-3 z-20 rounded-lg border border-border bg-surface p-3 sm:p-4">
+            {/* Search Box Card */}
+            <div className="ask-search mt-6 rounded-2xl border border-border bg-surface p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] sm:p-5">
               <form
                 onSubmit={submit}
-                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+                className="flex items-center gap-3"
               >
-                <div className="relative min-w-0">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-primary" />
+                <div className="relative min-w-0 flex-1">
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-muted/80" />
                   <label htmlFor="ask" className="sr-only">
-                    Ask Verity
+                    Ask a question about member benefits, pharmacy, claims or policies...
                   </label>
                   <input
                     id="ask"
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Ask about member benefits, pharmacy, claims or policies…"
-                    className="h-12 w-full min-w-0 rounded-md border border-border bg-surface pl-10 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    placeholder="Ask a question about member benefits, pharmacy, claims or policies..."
+                    className="h-12 w-full min-w-0 rounded-lg border-0 bg-transparent pl-11 pr-3 text-sm text-ink placeholder:text-ink-muted/70 outline-none focus:ring-0"
                   />
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <Button
                     type="button"
                     size="icon"
-                    variant="outline"
-                    aria-label={voice.listening ? "Stop listening" : "Start voice input"}
-                    title={voice.supported ? (voice.listening ? "Stop listening" : "Start voice input") : "Voice input needs Chrome"}
-                    aria-pressed={voice.listening}
-                    disabled={!voice.supported || loading}
-                    onClick={() =>
+                    variant="ghost"
+                    aria-label={
                       voice.listening
-                        ? voice.stopListening()
-                        : voice.startListening(setQuery, (text) => {
-                            void run(text, persona, "voice");
-                          })
+                        ? "Stop listening"
+                        : voice.supported
+                          ? "Start voice input"
+                          : "Voice input unavailable in this browser"
                     }
-                    className={`h-12 w-12 shrink-0 rounded-full ${voice.listening ? "bg-destructive text-destructive-foreground motion-safe:animate-pulse" : ""}`}
+                    title={
+                      voice.listening
+                        ? "Stop listening"
+                        : voice.supported
+                          ? "Start voice input"
+                          : "Speech recognition is not supported in this browser"
+                    }
+                    aria-pressed={voice.listening}
+                    disabled={loading}
+                    onClick={() => {
+                      if (!voice.supported) {
+                        setError(
+                          "Speech recognition is not supported in this browser. Please type your question.",
+                        );
+                        return;
+                      }
+                      if (voice.listening) {
+                        voice.stopListening();
+                      } else {
+                        voice.startListening(
+                          (text) => setQuery(text),
+                          (finalText) => {
+                            setQuery(finalText);
+                            if (channel === "voice") {
+                              void run(finalText, persona, "voice");
+                            }
+                          },
+                        );
+                      }
+                    }}
+                    className={`h-11 w-11 shrink-0 rounded-lg text-ink-muted hover:text-ink ${
+                      voice.listening
+                        ? "bg-destructive text-destructive-foreground motion-safe:animate-pulse"
+                        : ""
+                    }`}
                   >
-                    {voice.listening ? <Square /> : <Mic />}
+                    {voice.listening ? (
+                      <Square className="h-4 w-4" />
+                    ) : (
+                      <Mic className={`h-4 w-4 ${!voice.supported ? "opacity-40" : ""}`} />
+                    )}
                   </Button>
                   <Button
                     type="submit"
-                    className="h-12 px-4 sm:px-5"
+                    className="h-11 rounded-lg bg-[#2E7D32] px-6 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#256629]"
                     disabled={loading || voice.listening || !query.trim()}
                   >
-                    <Send /> <span className="hidden sm:inline">Ask</span>
+                    <Send className="h-4 w-4" />
+                    <span>Ask</span>
                   </Button>
                 </div>
               </form>
-              <ContextBar
-                lob={lob}
-                setLob={setLob}
-                state={state}
-                setState={setState}
-                planYear={planYear}
-                setPlanYear={setPlanYear}
-                highlight={clarify}
-              />
+
+              {/* Context Filters Row */}
+              <div className="mt-3 border-t border-border/60 pt-3">
+                <ContextBar
+                  lob={lob}
+                  setLob={setLob}
+                  state={state}
+                  setState={setState}
+                  planYear={planYear}
+                  setPlanYear={setPlanYear}
+                  highlight={clarify}
+                />
+              </div>
             </div>
           </>
         )}
@@ -513,6 +715,7 @@ export function AskPage() {
             </label>
           </div>
         )}
+
         {!isChat && (
           <div className="mt-6 space-y-4" aria-live="polite">
             {disclosure && answer && (
@@ -528,7 +731,7 @@ export function AskPage() {
             {loading && (
               <div
                 role="status"
-                className="flex items-center gap-3 border-l-2 border-primary px-5 py-6"
+                className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/4 px-5 py-6 shadow-sm"
               >
                 <ShieldCheck className="h-5 w-5 text-primary" />
                 <Shimmer>Checking approved knowledge...</Shimmer>
@@ -553,111 +756,146 @@ export function AskPage() {
             <UnitDrawer citation={openCite} onClose={() => setOpenCite(null)} />
           </div>
         )}
+
+        {/* Suggested Questions Section */}
         <section
           className="mt-8"
           aria-label={answer && !isChat ? "Related questions" : "Suggested questions"}
         >
-          <h2 className="mb-4 text-sm font-semibold">
+          <h2 className="mb-4 text-[15px] font-semibold text-ink">
             {answer && !isChat ? "Related questions" : "Suggested questions"}
           </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {EXAMPLES.filter((ex) => !answer || ex.query !== lastQuery)
+          <div className="grid gap-3.5 sm:grid-cols-2">
+            {SUGGESTED_QUESTIONS.filter((ex) => !answer || ex.query !== lastQuery)
               .slice(0, answer || isChat ? 4 : 6)
               .map((ex) => (
-                <Button
+                <button
                   key={ex.query}
                   type="button"
-                  variant="outline"
                   onClick={() => {
                     setQuery(ex.query);
                     void run(ex.query);
                   }}
-                  className="ask-suggestion h-auto min-h-[68px] justify-start gap-3 whitespace-normal bg-surface px-3 py-3 text-left text-[13px] font-normal shadow-none"
+                  className="ask-suggestion flex min-h-[64px] items-center justify-between gap-3 rounded-xl border border-border bg-surface p-3.5 text-left transition-all hover:border-border/80 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/6 text-primary">
-                    <ex.icon className="h-[18px] w-[18px]" />
-                  </span>
-                  <span className="min-w-0 flex-1 leading-relaxed">{ex.label}</span>
-                  <ChevronRight className="h-4 w-4 text-ink-muted" />
-                </Button>
+                  <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EAF7EE] text-[#1E5E2E]">
+                      <ex.icon className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 text-[13px] font-normal leading-snug text-ink">
+                      {ex.label}
+                    </span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-ink-muted/80" />
+                </button>
               ))}
           </div>
         </section>
       </section>
+
+      {/* Right Column / Rail */}
       {!isChat && (
-        <aside className="ask-rail min-w-0 space-y-4 min-[1100px]:-mr-4 min-[1100px]:-mt-7 min-[1100px]:border-l min-[1100px]:border-border min-[1100px]:bg-surface min-[1100px]:px-4 min-[1100px]:pt-5 lg:min-[1100px]:-mr-7">
-          <section className="rounded-lg border border-border bg-surface p-4">
+        <aside className="ask-rail min-w-0 space-y-4">
+          {/* Recent Searches Card */}
+          <section className="rounded-2xl border border-border bg-surface p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold">Recent searches</h2>
-              {storedRequests.some((r) => r.person === persona.name) && (
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 text-[11px]"
-                  onClick={() => setShowHistory(!showHistory)}
-                >
-                  {showHistory ? "Show less" : "View all"}
-                  <ArrowRight className="h-3 w-3" />
-                </Button>
-              )}
+              <h2 className="text-sm font-bold text-ink">Recent searches</h2>
+              <button
+                type="button"
+                onClick={() => setShowHistory(!showHistory)}
+                className="flex items-center gap-1 text-xs font-semibold text-[#2E7D32] transition-colors hover:underline focus:outline-none"
+              >
+                <span>{showHistory ? "Show less" : "View all"}</span>
+                <ArrowRight className="h-3 w-3" />
+              </button>
             </div>
-            {sessionHistory.length === 0 ? (
-              <div className="flex items-start gap-3 py-6 text-ink-muted">
-                <Clock className="mt-0.5 h-4 w-4 shrink-0" />
-                <div>
-                  <p className="text-sm">No recent searches</p>
-                  <p className="mt-1 text-xs leading-relaxed">Your searches will appear here.</p>
-                </div>
-              </div>
-            ) : (
-              <ul className="mt-3 divide-y divide-border">
-                {sessionHistory.map((item) => (
+
+            <ul className="mt-3 divide-y divide-border/60">
+              {sessionHistory.length > 0 ? (
+                sessionHistory.map((item) => (
                   <li key={item.id}>
-                    <Button
-                      variant="ghost"
+                    <button
+                      type="button"
                       onClick={() => {
                         setQuery(item.query);
                         void run(item.query);
                       }}
-                      className="h-auto min-h-16 w-full justify-start gap-3 whitespace-normal rounded-none px-0 py-3 text-left"
+                      className="group flex w-full items-start justify-between gap-3 py-3 text-left transition-colors hover:bg-muted/50 rounded-lg px-1.5 -mx-1.5 focus:outline-none"
                     >
-                      <Clock className="h-4 w-4 text-ink-muted" />
-                      <span className="min-w-0 flex-1 text-xs font-normal leading-relaxed">
-                        {item.query}
-                      </span>
-                      <ChevronRight className="h-3.5 w-3.5 text-ink-muted" />
-                    </Button>
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
+                        <Clock className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-normal text-ink group-hover:text-primary leading-snug">
+                            {item.query}
+                          </p>
+                          <span className="mt-0.5 block text-[11px] text-ink-muted">
+                            {formatRelativeTime(item.at)}
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0 self-center text-ink-muted group-hover:text-ink" />
+                    </button>
                   </li>
-                ))}
-              </ul>
-            )}
+                ))
+              ) : (
+                DEFAULT_RECENT_SEARCHES.map((item, idx) => (
+                  <li key={idx}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuery(item.query);
+                        void run(item.query);
+                      }}
+                      className="group flex w-full items-start justify-between gap-3 py-3 text-left transition-colors hover:bg-muted/50 rounded-lg px-1.5 -mx-1.5 focus:outline-none"
+                    >
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
+                        <Clock className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
+                        <div className="min-w-0 flex-1">
+                          <p className="line-clamp-2 text-xs font-normal text-ink group-hover:text-primary leading-snug">
+                            {item.query}
+                          </p>
+                          <span className="mt-0.5 block text-[11px] text-ink-muted">
+                            {item.time}
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0 self-center text-ink-muted group-hover:text-ink" />
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
           </section>
+
+          {/* Browse Knowledge Card */}
           {can("get_unit") && (
-            <section className="rounded-lg border border-border bg-surface p-4">
+            <section className="rounded-2xl border border-border bg-surface p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold">Browse knowledge</h2>
-                <Button variant="link" size="sm" asChild className="h-auto p-0 text-[11px]">
-                  <Link to="/library">
-                    View all
-                    <ArrowRight className="h-3 w-3" />
-                  </Link>
-                </Button>
+                <h2 className="text-sm font-bold text-ink">Browse knowledge</h2>
+                <Link
+                  to="/library"
+                  className="flex items-center gap-1 text-xs font-semibold text-[#2E7D32] transition-colors hover:underline focus:outline-none"
+                >
+                  <span>View all</span>
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
               </div>
-              <div className="mt-3 divide-y divide-border">
-                {browse.map((u) => (
+              <div className="mt-3 divide-y divide-border/60">
+                {browseList.map((u) => (
                   <Link
                     key={u.unit_id}
                     to="/library"
-                    className="flex min-h-12 items-center gap-3 py-3 text-xs text-ink-muted hover:text-primary"
+                    className="group flex items-center justify-between gap-3 py-3 text-left transition-colors hover:bg-muted/50 rounded-lg px-1.5 -mx-1.5"
                   >
-                    <FileText className="h-4 w-4 shrink-0" />
-                    <span className="min-w-0 flex-1 leading-relaxed">{u.title}</span>
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <FileText className="h-4 w-4 shrink-0 text-ink-muted" />
+                      <span className="truncate text-xs font-normal text-ink group-hover:text-primary leading-snug">
+                        {u.title}
+                      </span>
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-muted group-hover:text-ink" />
                   </Link>
                 ))}
-                {!browse.length && (
-                  <p className="py-4 text-xs text-ink-muted">No knowledge in your scope.</p>
-                )}
               </div>
             </section>
           )}
