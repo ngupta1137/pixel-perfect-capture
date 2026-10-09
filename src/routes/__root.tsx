@@ -82,7 +82,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Verity — One approved truth, in every channel" },
-      { name: "description", content: "Concept prototype of a governed knowledge search tool for contact-center advocates." },
+      {
+        name: "description",
+        content:
+          "Concept prototype of a governed knowledge search tool for contact-center advocates.",
+      },
       { name: "author", content: "Nitin Gupta" },
       { property: "og:title", content: "Verity" },
       { property: "og:description", content: "One approved truth, in every channel." },
@@ -92,7 +96,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap",
+      },
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
     ],
@@ -123,11 +130,11 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <DemoStoreProvider>
-      <SessionProvider>
-        <AppShell>
-          <Outlet />
-        </AppShell>
-      </SessionProvider>
+        <SessionProvider>
+          <AppShell>
+            <Outlet />
+          </AppShell>
+        </SessionProvider>
       </DemoStoreProvider>
     </QueryClientProvider>
   );

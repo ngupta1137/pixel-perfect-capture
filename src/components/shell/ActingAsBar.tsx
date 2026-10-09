@@ -12,10 +12,20 @@ export function ActingAsBar() {
           You are <strong>{person.name}</strong>, {person.label}. You can:
         </span>
         {shown.map((c) => (
-          <span key={c} className="rounded border border-border bg-surface px-2 py-0.5 font-mono text-[10px]">{c}</span>
+          <span
+            key={c}
+            className="rounded border border-border bg-surface px-2 py-0.5 font-mono text-[10px]"
+          >
+            {c}
+          </span>
         ))}
         {more > 0 && <span className="text-xs text-ink-muted">+ {more} more</span>}
-        <Link to="/rights" className="ml-auto text-xs font-semibold text-brand-green-dark underline">See all rights</Link>
+        <Link
+          to="/rights"
+          className="ml-auto text-xs font-semibold text-brand-green-dark underline"
+        >
+          See all rights
+        </Link>
       </div>
     </div>
   );
