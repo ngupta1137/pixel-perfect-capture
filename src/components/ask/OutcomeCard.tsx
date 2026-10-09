@@ -1,12 +1,24 @@
 import { useState } from "react";
 import { ArrowRightCircle, Check, Copy, Lock, Phone, Volume2, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Citation, Part } from "@/services/verity";
+import type { Choice, Citation, Part } from "@/services/verity";
+import { TrustBadge } from "./TrustBadge";
 import { OutcomePill } from "./outcomeMeta";
 import { CHANNELS } from "@/lib/session";
 import { MessageResponse } from "@/components/ai-elements/message";
 
-function CitationLine({ c }: { c: Citation }) {
+function CitationLine({ c, onCite }: { c: Citation; onCite?: ((c: Citation) => void) | undefined }) {
+  if (onCite)
+    return (
+      <button
+        type="button"
+        onClick={() => onCite(c)}
+        className="mt-3 inline-flex flex-wrap items-center gap-1 rounded-full border border-border bg-surface-alt px-3 py-1 text-left text-sm text-ink hover:border-brand-green-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label={`Open unit ${c.unit_id}: ${c.title}`}
+      >
+        <span className="font-semibold">{c.title}</span> · v{c.version} · effective {c.effective_date}
+      </button>
+    );
   return (
     <p className="mt-3 text-sm text-ink-muted">
       {c.title} · {c.owner} · v{c.version} · effective {c.effective_date} · <span className="whitespace-nowrap">{c.unit_id}</span>
@@ -25,14 +37,14 @@ function VerbatimBox({ text }: { text: string }) {
     <div className="rounded-md border-2 border-brand-green-dark">
       <div className="flex items-center justify-between border-b border-border bg-surface-alt px-4 py-2">
         <span className="flex items-center gap-1.5 text-xs font-bold tracking-wide text-brand-green-dark">
-          <Lock className="h-3.5 w-3.5" aria-hidden="true" /> VERBATIM · read exactly
+          <Lock className="h-3.5 w-3.5" aria-hidden="true" /> READ EXACTLY AS WRITTEN
         </span>
         <Button variant="ghost" size="sm" onClick={copy}>
           {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
           {copied ? "Copied" : "Copy"}
         </Button>
       </div>
-      <p className="select-all px-4 py-4 text-xl leading-relaxed">{text}</p>
+      <p aria-readonly="true" className="select-all px-4 py-4 text-xl leading-relaxed">{text}</p>
     </div>
   );
 }
@@ -49,7 +61,21 @@ function NextStep({ text }: { text: string }) {
   );
 }
 
-function Body({ part, compact }: { part: Part; compact: boolean }) {
+function Choices({ choices, onChoose }: { choices: Choice[]; onChoose?: ((c: Choice) => void) | undefined }) {
+  return (
+    <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Choose one">
+      {choices.map((c) => (
+        <Button key={c.label} type="button" variant="outline" size="sm" className="rounded-full border-outcome-clarify" onClick={() => onChoose?.(c)} disabled={!onChoose}>
+          {c.label}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+type Hooks = { onCite?: ((c: Citation) => void) | undefined; onChoose?: ((c: Choice) => void) | undefined };
+
+function Body({ part, compact, onCite, onChoose }: { part: Part; compact: boolean } & Hooks) {
   const c0 = part.citations[0];
   switch (part.outcome) {
     case "answer":
@@ -62,14 +88,18 @@ function Body({ part, compact }: { part: Part; compact: boolean }) {
           ) : (
             <p className="text-xl leading-relaxed">{part.text}</p>
           )}
-          {c0 && <CitationLine c={c0} />}
+          {c0 && <CitationLine c={c0} onCite={onCite} />}
         </>
       );
     case "needs_clarification":
       return (
         <>
           <p className="text-xl font-semibold">{part.message}</p>
-          <p className="mt-2 text-sm text-outcome-clarify">Pick the state and ask again.</p>
+          {part.choices && part.choices.length > 0 ? (
+            <Choices choices={part.choices} onChoose={onChoose} />
+          ) : (
+            <p className="mt-2 text-sm text-outcome-clarify">Pick the state and ask again.</p>
+          )}
         </>
       );
     case "insufficient_evidence":
@@ -94,7 +124,7 @@ function Body({ part, compact }: { part: Part; compact: boolean }) {
           <div className="mt-3 grid gap-4 md:grid-cols-2">
             {part.citations.map((c) => (
               <div key={c.unit_id} className="rounded-md border border-border p-4">
-                <p className="font-semibold">{c.title}</p>
+                {onCite ? <CitationLine c={c} onCite={onCite} /> : <p className="font-semibold">{c.title}</p>}
                 <p className="text-sm text-ink-muted">
                   {c.owner} · v{c.version} · effective {c.effective_date} · <span className="whitespace-nowrap">{c.unit_id}</span>
                 </p>
@@ -114,7 +144,7 @@ function Body({ part, compact }: { part: Part; compact: boolean }) {
             {part.text}
           </p>
           <p className="mt-2 text-sm">{part.message}</p>
-          {c0 && <CitationLine c={c0} />}
+          {c0 && <CitationLine c={c0} onCite={onCite} />}
         </>
       );
     case "not_authorized":
@@ -148,7 +178,11 @@ export function OutcomeCard({
   speechSupported = true,
   onRead,
   onStop,
-}: {
+  onCite,
+  onChoose,
+  held = false,
+}: Hooks & {
+  held?: boolean;
   part: Part;
   channel: string;
   compact?: boolean;
@@ -163,14 +197,23 @@ export function OutcomeCard({
       className={`rounded-lg bg-surface ${compact ? "p-4 text-lg [&_p.text-xl]:text-lg [&_p.text-2xl]:text-lg" : "p-6"} ${safety ? "border-2 border-outcome-safety" : "border border-border"}`}
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <OutcomePill outcome={part.outcome} />
+        <span className="flex flex-wrap items-center gap-2">
+          <OutcomePill outcome={part.outcome} />
+          {part.trust && <TrustBadge trust={part.trust} />}
+        </span>
         <span className="rounded-full border border-border bg-surface-alt px-2 py-1 text-xs text-ink-muted">
           Channel · {CHANNELS.find((c) => c.id === channel)?.label ?? channel}
         </span>
       </div>
-      <Body part={part} compact={compact} />
-      {part.next_step && <NextStep text={part.next_step} />}
-      {onRead && (
+      {held ? (
+        <div role="status" className="rounded-md border-2 border-dashed border-outcome-clarify bg-outcome-clarify/10 px-4 py-3 font-semibold text-outcome-clarify">
+          Held until the disclosure is read
+        </div>
+      ) : (
+        <Body part={part} compact={compact} onCite={onCite} onChoose={onChoose} />
+      )}
+      {part.next_step && part.outcome !== "answer" && <NextStep text={part.next_step} />}
+      {onRead && !held && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Button
             variant="ghost"

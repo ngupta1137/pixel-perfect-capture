@@ -1,4 +1,4 @@
-import type { Citation, Outcome, SearchRequest, SearchResponse } from "./verity";
+import type { Choice, Citation, Outcome, SearchRequest, SearchResponse } from "./verity";
 
 const ENTITLEMENTS: Record<string, string> = {
   pharmacy_advocate: "KB-PHARM, KB-SHARED",
@@ -13,6 +13,8 @@ interface Fixture {
   owner_team?: string | null;
   citations?: Citation[];
   intent: string;
+  next_step?: string;
+  choices?: Choice[];
 }
 
 const cite = (
@@ -32,9 +34,40 @@ const GAP: Fixture = {
   intent: "unknown",
 };
 
+export const NEXT_STEPS: Partial<Record<Outcome, string>> = {
+  needs_clarification: "Ask the member, then pick the answer below. Verity will check again.",
+  insufficient_evidence: "Say: \u201cLet me check that and follow up with you.\u201d Do not answer from memory.",
+  conflict: "Say: \u201cLet me confirm the exact supply for your plan.\u201d Do not quote either number until the owners resolve it.",
+  stale: "Do not quote this as current. Say you will confirm and follow up.",
+  safety_escalation: "Stay on the line and connect the member to a person now.",
+};
+
+/** Unit facts shown in the Unit drawer. */
+export interface UnitMeta { kb: string; verifier: string; review_date: string; applies_to: string; channels: string[]; read_before_benefits?: boolean }
+export const UNIT_META: Record<string, UnitMeta> = {
+  "U-PH-003": { kb: "KB-PHARM", verifier: "Rita (Legal)", review_date: "2027-01-15", applies_to: "All Rx plans, all states", channels: ["advocate_view", "member_chat", "voice"], read_before_benefits: true },
+  "U-SH-002": { kb: "KB-SHARED", verifier: "Rita (Legal)", review_date: "2027-01-15", applies_to: "All plans, all states", channels: ["advocate_view", "voice"] },
+  "U-PH-006": { kb: "KB-PHARM", verifier: "Owen (Knowledge owner)", review_date: "2026-12-31", applies_to: "Mail order, plan year 2026", channels: ["advocate_view", "member_chat", "voice"] },
+  "U-PH-206": { kb: "KB-PHARM", verifier: "Owen (Knowledge owner)", review_date: "2027-12-31", applies_to: "Mail order, plan year 2027", channels: ["advocate_view", "member_chat", "voice"] },
+  "U-PH-007": { kb: "KB-PHARM", verifier: "Owen (Knowledge owner)", review_date: "2026-12-31", applies_to: "Mail order, plan year 2026", channels: ["advocate_view", "member_chat", "voice"] },
+  "U-PH-107": { kb: "KB-PHARM", verifier: "Owen (Knowledge owner)", review_date: "2026-11-01", applies_to: "Mail order, legacy", channels: ["advocate_view"] },
+  "U-PH-207": { kb: "KB-PHARM", verifier: "Owen (Knowledge owner)", review_date: "2027-12-31", applies_to: "Mail order, plan year 2027", channels: ["advocate_view", "member_chat", "voice"] },
+  "U-PH-008": { kb: "KB-PHARM", verifier: "Owen (Knowledge owner)", review_date: "2026-06-30", applies_to: "Mail order", channels: ["advocate_view"] },
+  "U-PH-010": { kb: "KB-PHARM", verifier: "Owen (Knowledge owner)", review_date: "2026-12-31", applies_to: "Kentucky only", channels: ["advocate_view"] },
+  "U-PH-020": { kb: "KB-PHARM", verifier: "Owen (Knowledge owner)", review_date: "2026-12-31", applies_to: "Formulary, all states", channels: ["advocate_view"] },
+};
+
+const YEAR_CHOICES = [
+  { label: "2026", set: { plan_year: "2026" } },
+  { label: "2027", set: { plan_year: "2027" } },
+];
+const STATE_CHOICES = ["KY", "FL", "OH"].map((s) => ({ label: s, set: { state: s } }));
+
 function match(req: SearchRequest): Fixture {
   const q = req.query.toLowerCase();
   const has = (s: string) => q.includes(s);
+  // undefined = caller did not send a year (older callers): plan year 2026. null = cleared.
+  const year = req.plan_year === undefined ? "2026" : req.plan_year;
 
   if (has("chest pain") || has("can't breathe") || has("can’t breathe")) {
     return {
@@ -51,6 +84,7 @@ function match(req: SearchRequest): Fixture {
         message: "This is owned by Compliance (KB-PHARM). Transfer or ask that team.",
         text: null,
         owner_team: "Compliance",
+        next_step: "Transfer to Pharmacy",
         intent: "pricing_disclaimer",
       };
     }
@@ -71,7 +105,17 @@ function match(req: SearchRequest): Fixture {
       intent: "call_closing",
     };
   }
-  if (has("days supply") || has("90")) {
+  if (has("days supply") || has("how many days") || has("90")) {
+    if (!year) return { outcome: "needs_clarification", message: "Which plan year: 2026 or 2027?", text: null, choices: YEAR_CHOICES, intent: "days_supply" };
+    if (year === "2027") {
+      return {
+        outcome: "answer",
+        message: "Days supply by mail (2027) · Pharmacy Ops · v1 · effective 2027-01-01",
+        text: "Maintenance supply by mail is 84 days.",
+        citations: [cite("U-PH-207", 1, "Days supply by mail (2027)", "Pharmacy Ops", "2027-01-01", false)],
+        intent: "days_supply",
+      };
+    }
     return {
       outcome: "conflict",
       message: "Two approved sources disagree. Both shown; routed to owners.",
@@ -86,9 +130,18 @@ function match(req: SearchRequest): Fixture {
       intent: "days_supply",
     };
   }
+  if (has("luminexa")) {
+    return {
+      outcome: "insufficient_evidence",
+      message: "The approved unit gives the tier but does not state a copay.",
+      text: null,
+      citations: [cite("U-PH-020", 1, "Luminexa formulary tier", "Pharmacy Ops", "2026-01-15", false)],
+      intent: "drug_copay",
+    };
+  }
   if (has("copay")) {
     if (!req.state) {
-      return { outcome: "needs_clarification", message: "Which state is the member's plan in?", text: null, intent: "copay_assistance" };
+      return { outcome: "needs_clarification", message: "Which state is the member's plan in?", text: null, choices: STATE_CHOICES, intent: "copay_assistance" };
     }
     if (req.state === "KY") {
       return {
@@ -115,11 +168,21 @@ function match(req: SearchRequest): Fixture {
       intent: "shipping_cost",
     };
   }
-  if (has("how long") && has("mail")) {
+  if (has("mail order delivery") || (has("how long") && has("mail"))) {
+    if (!year) return { outcome: "needs_clarification", message: "Which plan year: 2026 or 2027?", text: null, choices: YEAR_CHOICES, intent: "mail_delivery_time" };
+    if (year === "2027") {
+      return {
+        outcome: "answer",
+        message: "Mail order delivery time (2027) · Pharmacy Ops · v1 · effective 2027-01-01",
+        text: "6 to 9 business days after the prescription is received.",
+        citations: [cite("U-PH-206", 1, "Mail order delivery time (2027)", "Pharmacy Ops", "2027-01-01", false)],
+        intent: "mail_delivery_time",
+      };
+    }
     return {
       outcome: "answer",
       message: "Mail order delivery time · Pharmacy Ops · v1 · effective 2026-01-15",
-      text: "Mail order prescriptions typically arrive within 7 to 10 business days after the prescription is received from the doctor.",
+      text: "7 to 10 business days after the prescription is received.",
       citations: [cite("U-PH-006", 1, "Mail order delivery time", "Pharmacy Ops", "2026-01-15", false)],
       intent: "mail_delivery_time",
     };
@@ -140,11 +203,13 @@ function buildTrace(req: SearchRequest, f: Fixture, requestId: string): string[]
   return [
     ...trace,
     `4. Query understanding [P]: intent=${f.intent}`,
-    `5. Hard partitions [D]: lob=${req.lob ?? "unknown"}, state=${req.state ?? "unknown"}, channel=${req.channel}`,
+    `5. Hard partitions [D]: lob=${req.lob ?? "unknown"}, state=${req.state ?? "unknown"}, plan_year=${req.plan_year === undefined ? "2026" : (req.plan_year ?? "unknown")}, channel=${req.channel}`,
     `6. Search [D]: ${n} candidate unit(s)`,
     `7. Eligibility [D]: ${f.outcome === "not_authorized" ? "blocked by entitlements" : "eligible"}`,
     `8. Applicability [D]: ${f.outcome === "needs_clarification" ? "missing state" : "checked"}`,
-    `9. Authority and recency [D]: ${f.outcome === "stale" ? "past review date" : f.outcome === "conflict" ? "sources disagree" : "ok"}`,
+    f.outcome === "stale" || f.outcome === "conflict"
+      ? `9. Authority and recency [H]: ${f.outcome === "stale" ? "past review date, owner notified" : "sources disagree, routed to owners"}`
+      : "9. Authority and recency [D]: ok",
     `10. Compose [D]: ${f.text ? (f.citations?.[0]?.verbatim ? "verbatim" : "grounded") : "no text"}`,
     "11. Verify [D+P]: passed",
     `12. Return outcome per part [D]: ${f.outcome}`,
@@ -166,6 +231,9 @@ export function mockSearch(req: SearchRequest): SearchResponse {
         text: f.text,
         owner_team: f.owner_team ?? null,
         citations: f.citations ?? [],
+        next_step: f.next_step ?? NEXT_STEPS[f.outcome] ?? null,
+        choices: f.choices ?? [],
+        trust: f.outcome === "answer" ? "approved" : f.outcome === "stale" ? "stale" : f.outcome === "conflict" ? "conflict" : null,
       },
     ],
     trace: buildTrace(req, f, request_id),
@@ -187,6 +255,7 @@ export function seedDemoState(): DemoState {
   return {
     epoch: 0,
     requests: [],
+    readEvents: [],
     drafts: [],
     units: [
       unit("U-PH-003", "Pricing disclaimer (Rx)", "Compliance", true, "approved", [
@@ -200,13 +269,22 @@ export function seedDemoState(): DemoState {
       ]),
       unit("U-PH-006", "Mail order delivery time", "Pharmacy Ops", false, "approved", [
         { version: 1, effective_date: "2026-01-15", approver: "Owen (Knowledge owner)",
-          text: "Mail order prescriptions typically arrive within 7 to 10 business days after the prescription is received from the doctor." },
+          text: "7 to 10 business days after the prescription is received." },
       ]),
       unit("U-PH-007", "Days supply by mail (90-day)", "Pharmacy Ops", false, "approved", [
         { version: 1, effective_date: "2026-01-15", approver: "Owen (Knowledge owner)", text: "A 90-day supply is available by mail for most maintenance medications." },
       ]),
       unit("U-PH-107", "Days supply by mail (100-day, legacy)", "Outbound Pharmacy", false, "conflict", [
         { version: 3, effective_date: "2025-11-01", approver: "Owen (Knowledge owner)", text: "Members can get up to a 100-day supply of maintenance medications by mail." },
+      ]),
+      unit("U-PH-206", "Mail order delivery time (2027)", "Pharmacy Ops", false, "approved", [
+        { version: 1, effective_date: "2027-01-01", approver: "Owen (Knowledge owner)", text: "6 to 9 business days after the prescription is received." },
+      ]),
+      unit("U-PH-207", "Days supply by mail (2027)", "Pharmacy Ops", false, "approved", [
+        { version: 1, effective_date: "2027-01-01", approver: "Owen (Knowledge owner)", text: "Maintenance supply by mail is 84 days." },
+      ]),
+      unit("U-PH-020", "Luminexa formulary tier", "Pharmacy Ops", false, "approved", [
+        { version: 1, effective_date: "2026-01-15", approver: "Owen (Knowledge owner)", text: "Luminexa is a Tier 3 preferred brand drug." },
       ]),
       unit("U-PH-008", "Mail order shipping cost", "Pharmacy Ops", false, "stale", [
         { version: 1, effective_date: "2025-06-30", approver: "Owen (Knowledge owner)", text: "Standard shipping for mail order is at no extra cost." },

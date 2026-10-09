@@ -22,6 +22,9 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { PEOPLE, useSession } from "@/lib/session";
 import { useBrowserVoice } from "@/hooks/use-browser-voice";
 import { ChannelCompare } from "@/components/ask/ChannelCompare";
+import { ContextBar, DisclosureStep, FeedbackRow, RequestIdChip, UnitDrawer } from "@/components/ask/AdvocateExtras";
+import { useDemoStore } from "@/services/demoStore";
+import { getReadBeforeBenefits, recordRead, type Choice, type Citation } from "@/services/verity";
 import { searchAs, type Outcome, type SearchResponse } from "@/services/verity";
 
 export const Route = createFileRoute("/")({
@@ -45,6 +48,8 @@ const EXAMPLES = [
   "Rx pricing disclaimer",
   "closing statement",
   "how many days supply can I get by mail",
+  "how long does mail order delivery take",
+  "luminexa copay",
   "is there a copay assistance program",
   "is there a shipping fee for mail order",
   "I have chest pain, can you rush my heart pills",
@@ -72,6 +77,8 @@ export function AskPage() {
   const [query, setQuery] = useState("");
   const [lob, setLob] = useState("MAPD");
   const [state, setState] = useState("");
+  const [planYear, setPlanYear] = useState("2026");
+  const [openCite, setOpenCite] = useState<Citation | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastQuery, setLastQuery] = useState("");
   const [answer, setAnswer] = useState<Answer | null>(null);
@@ -114,6 +121,7 @@ export function AskPage() {
         input_mode: inputMode,
         lob,
         state: state || null,
+        plan_year: planYear || null,
       });
       if (scopeRef.current !== requestScope) return;
       const next = { res, channel: requestChannel };
@@ -149,6 +157,24 @@ export function AskPage() {
     }
   };
 
+  // Changing the call context re-runs the last advocate search.
+  const ctxKey = `${lob}|${state}|${planYear}`;
+  const lastCtx = useRef(ctxKey);
+  useEffect(() => {
+    if (lastCtx.current === ctxKey) return;
+    lastCtx.current = ctxKey;
+    if (!isChat && lastQuery) void run(lastQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctxKey]);
+  const choose = (c: Choice) => {
+    if (c.set.plan_year !== undefined) setPlanYear(c.set.plan_year);
+    if (c.set.state !== undefined) setState(c.set.state);
+  };
+  const disclosure = isChat ? null : getReadBeforeBenefits(persona.role);
+  const readDone = useDemoStore((s) =>
+    !!disclosure && s.readEvents.some((e) => e.person === persona.name && e.unit_id === disclosure.unit_id),
+  );
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
     void run(query);
@@ -169,9 +195,26 @@ export function AskPage() {
             speaking={voice.speakingKey === key}
             onRead={() => voice.read([{ key, part }])}
             onStop={voice.stopReading}
+            onCite={compact ? undefined : setOpenCite}
+            onChoose={compact ? undefined : choose}
+            held={
+              !compact && !!disclosure && !readDone && part.outcome === "answer" &&
+              !part.citations.some((c) => c.verbatim)
+            }
           />
         );
       })}
+      {!compact && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <FeedbackRow
+            key={item.res.request_id}
+            person={persona.name}
+            requestId={item.res.request_id}
+            unitIds={item.res.parts.flatMap((p) => p.citations.map((c) => c.unit_id))}
+          />
+          <RequestIdChip id={item.res.request_id} />
+        </div>
+      )}
       {can("view_trace") && <TraceDrawer res={item.res} compact={compact} />}
     </>
   );
@@ -236,6 +279,8 @@ export function AskPage() {
             </PromptInputFooter>
           </PromptInput>
         ) : (
+          <>
+          <ContextBar lob={lob} setLob={setLob} state={state} setState={setState} planYear={planYear} setPlanYear={setPlanYear} highlight={clarify} />
           <form onSubmit={submit} className="flex items-center gap-2">
             <label htmlFor="ask" className="sr-only">
               Ask Verity
@@ -276,6 +321,7 @@ export function AskPage() {
               Ask <ArrowRight className="h-4 w-4" />
             </Button>
           </form>
+          </>
         )}
 
         {channel === "voice" && (
@@ -291,7 +337,7 @@ export function AskPage() {
           </p>
         )}
 
-        <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
+        {isChat && <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
           <label className="flex items-center gap-2 text-ink-muted">
             Line of business
             <select
@@ -316,7 +362,7 @@ export function AskPage() {
               <option value="OH">OH</option>
             </select>
           </label>
-        </div>
+        </div>}
         <div className="mt-4 flex flex-wrap gap-2">
           {EXAMPLES.map((ex) => (
             <Button
@@ -332,11 +378,20 @@ export function AskPage() {
         </div>
         {!isChat && (
           <div className="mt-10 space-y-4" aria-live="polite">
+            {disclosure && (
+              <DisclosureStep
+                title={disclosure.title}
+                text={disclosure.text}
+                done={readDone}
+                onDone={() => recordRead(persona.name, answer?.res.request_id ?? null, disclosure.unit_id)}
+              />
+            )}
             {loading && <Shimmer>Checking...</Shimmer>}
             {!loading && answer && renderAnswer(answer)}
             {!loading && can("view_channel_compare") && answer?.res.outcome === "answer" && lastQuery && (
               <ChannelCompare query={lastQuery} role={persona.role} lob={lob} state={state || null} requestId={answer.res.request_id} />
             )}
+            <UnitDrawer citation={openCite} onClose={() => setOpenCite(null)} />
           </div>
         )}
       </section>

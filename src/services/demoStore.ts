@@ -10,7 +10,7 @@ export interface DemoRequest {
   at: string;
   query: string;
   person: string;
-  context: { role: string; channel: string; lob: string | null; state: string | null; input_mode: string };
+  context: { role: string; channel: string; lob: string | null; state: string | null; plan_year?: string | null; input_mode: string };
   outcome: Outcome;
   trace: string[];
   cited: CitedUnit[];
@@ -19,13 +19,15 @@ export interface DemoUnitVersion { version: number; text: string; effective_date
 export interface DemoUnit { unit_id: string; title: string; owner: string; verbatim: boolean; status: string; versions: DemoUnitVersion[] }
 export interface DemoDraft { draft_id: string; unit_id: string; title: string; status: string; proposed_by: string; decided_by: string | null }
 export interface DemoAudit { at: string; actor: string; action: string; target: string; detail: string }
-export interface DemoReviewTask { id: string; kind: string; unit_ids: string[]; owner: string; status: string }
+export interface DemoReviewTask { id: string; kind: string; unit_ids: string[]; owner: string; status: string; request_id?: string; reason?: string; by?: string }
+export interface DemoReadEvent { at: string; person: string; request_id: string | null; unit_id: string }
 export interface DemoFeedback { at: string; request_id: string; person: string; rating: "up" | "down" | "flag"; note: string | null }
 
 export interface DemoState {
   /** Increments on every reset so screens can reload. */
   epoch: number;
   requests: DemoRequest[];
+  readEvents: DemoReadEvent[];
   drafts: DemoDraft[];
   units: DemoUnit[];
   audit: DemoAudit[];
