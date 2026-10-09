@@ -50,14 +50,14 @@ export const canView = (p: Person, v: ViewKey) => VIEWS[v].some((c) => can(p, c)
 /** Pages and the views that open them. A page opens if the person can use any listed view. */
 export const PAGES = [
   { to: "/", label: "Ask", views: ["ask"] },
+  { to: "/work", label: "My work", views: ["author_ingest"] },
+  { to: "/legal", label: "Legal queue", views: ["author_queue"] },
+  { to: "/review", label: "Needs my review", views: ["needs_review"] },
   {
     to: "/author",
     label: "Author",
     views: ["author_ingest", "author_queue", "author_owner", "author_gaps", "author_insights", "author_access", "author_audit"],
   },
-  { to: "/work", label: "My work", views: ["author_ingest"] },
-  { to: "/legal", label: "Legal queue", views: ["author_queue"] },
-  { to: "/review", label: "Needs my review", views: ["needs_review"] },
   { to: "/evals", label: "Evals", views: ["evals"] },
   { to: "/agents", label: "Agents", views: ["agents"] },
   { to: "/audit", label: "Audit", views: ["audit_replay"] },
