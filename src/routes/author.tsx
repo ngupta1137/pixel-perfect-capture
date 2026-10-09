@@ -9,8 +9,10 @@ import type { Outcome } from "@/services/verity";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  accessFn, claimGapFn, claimReviewFn, decideFn, getAuthoring, ingestSourceFn, proposeFn, proposeGapFn, resetDemoFn,
-} from "@/services/authoring.functions";
+  changeAccess, claimGap, claimReview, decideDraft, extractSource, getAuthoringState, proposeDraft, proposeGapDraft,
+} from "@/services/verity";
+import { useSession } from "@/lib/session";
+import { useDemoStore } from "@/services/demoStore";
 import type {
   ActionResult, ApproverRole, AuthoringState, CandidateView, DraftView, GapCluster, ReviewItemView, IngestView, SuggestionView,
 } from "@/services/authoring";
@@ -29,10 +31,6 @@ export const Route = createFileRoute("/author")({
   component: GuardedAuthorPage,
 });
 
-const PEOPLE: { name: string; role: ApproverRole; label: string }[] = [
-  { name: "Dana (Knowledge author)", role: "author", label: "Dana, Knowledge author" },
-  { name: "Rita (Legal)", role: "legal", label: "Rita, Legal" },
-];
 
 const BADGE = {
   conflict: { label: "In conflict", cls: "border-outcome-conflict text-outcome-conflict bg-outcome-conflict/10" },
@@ -76,17 +74,24 @@ function RouteChip({ to }: { to: string }) {
 
 function AuthorPage() {
   const [state, setState] = useState<AuthoringState | null>(null);
-  const [personIdx, setPersonIdx] = useState(0);
   const [tab, setTab] = useState("ingest");
   const [flash, setFlash] = useState<{ ok: boolean; text: string } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const person = PEOPLE[personIdx] ?? PEOPLE[0]!;
+  const session = useSession();
+  // Approver role comes from capabilities, never from who the person is.
+  const person: { name: string; role: ApproverRole; label: string } = {
+    name: `${session.person.name} (${session.person.label})`,
+    role: session.can("approve_legal") ? "legal" : "author",
+    label: `${session.person.name}, ${session.person.label}`,
+  };
+  // Re-read after "Reset demo" in the footer.
+  const resetMark = useDemoStore((s) => s.feedback === s.feedback && s.requests.length === 0 && s.drafts);
 
   useEffect(() => {
-    getAuthoring()
+    getAuthoringState()
       .then(setState)
       .catch((e: Error) => setLoadError(e.message));
-  }, []);
+  }, [resetMark]);
 
   function apply(r: ActionResult) {
     setState(r.state);
@@ -101,22 +106,6 @@ function AuthorPage() {
         <div>
           <h1 className="text-2xl font-semibold">Author</h1>
           <p className="text-sm text-ink-muted">Source document to approved unit. AI proposes; a named person approves; Legal owns verbatim.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="sr-only" htmlFor="author-person">Acting as</label>
-          <select
-            id="author-person"
-            className="rounded-md border border-border bg-surface px-3 py-2 text-sm"
-            value={personIdx}
-            onChange={(e) => setPersonIdx(Number(e.target.value))}
-          >
-            {PEOPLE.map((p, i) => (
-              <option key={p.name} value={i}>{p.label}</option>
-            ))}
-          </select>
-          <Button variant="outline" size="sm" onClick={() => resetDemoFn().then(apply)} title="Reset to seed data">
-            <RotateCcw className="h-4 w-4" /> Reset demo
-          </Button>
         </div>
       </div>
 
@@ -203,7 +192,7 @@ function IngestPanel({ state, onQueued }: { state: AuthoringState | null; onQueu
     setBusy(true);
     setError(null);
     try {
-      const r = await ingestSourceFn({ data: { text: t } });
+      const r = await extractSource(person.name, t);
       setResult(r);
       setChosen(new Set(r.candidates.filter((c) => c.status !== "unchanged").map((c) => c.cid)));
     } catch (e) {
@@ -287,7 +276,7 @@ function IngestPanel({ state, onQueued }: { state: AuthoringState | null; onQueu
           )}
           <Button
             disabled={busy || chosen.size === 0}
-            onClick={async () => onQueued(await proposeFn({ data: { text, cids: [...chosen] } }))}
+            onClick={async () => onQueued(await proposeDraft(person.name, text, [...chosen]))}
           >
             <Inbox className="h-4 w-4" /> Send {chosen.size} to the review queue
           </Button>
@@ -393,8 +382,7 @@ function DraftCard({ d, person, onResult }: { d: DraftView; person: { name: stri
   async function decide(action: "approve" | "reject" | "merge" | "split") {
     setBusy(true);
     try {
-      onResult(await decideFn({
-        data: {
+      onResult(await decideDraft({
           draft_id: d.draft_id,
           action,
           target_unit_id: action === "merge" && merge ? merge.unit_id : null,
@@ -509,7 +497,7 @@ function OwnerItems({ items, person, onResult }: { items: ReviewItemView[]; pers
             {i.claimed_by ? (
               <span className="text-xs font-semibold text-brand-green-dark">Claimed by {i.claimed_by}</span>
             ) : (
-              <Button size="sm" variant="outline" onClick={async () => onResult(await claimReviewFn({ data: { item_id: i.item_id, by: person.name } }))}>Claim</Button>
+              <Button size="sm" variant="outline" onClick={async () => onResult(await claimReview(i.item_id, person.name))}>Claim</Button>
             )}
           </li>
         ))}
@@ -549,7 +537,7 @@ function GapCard({ g, onResult }: { g: GapCluster; onResult: (r: ActionResult) =
       <p className="text-xs text-ink-muted">
         {g.age_days !== null ? `Open ${g.age_days} days (first asked ${g.first_seen})` : "Age unknown"} · suggested owner {g.suggested_owner}
         {g.claimed_by ? <span className="ml-2 font-semibold text-brand-green-dark">Claimed by {g.claimed_by}</span> : (
-          <Button size="sm" variant="outline" className="ml-2" onClick={async () => onResult(await claimGapFn({ data: { cluster_id: g.cluster_id, by: "Dana (Knowledge author)" } }))}>Claim</Button>
+          <Button size="sm" variant="outline" className="ml-2" onClick={async () => onResult(await claimGap(g.cluster_id, by))}>Claim</Button>
         )}
       </p>
       <ul className="list-disc pl-5 text-sm">
@@ -582,7 +570,7 @@ function GapCard({ g, onResult }: { g: GapCluster; onResult: (r: ActionResult) =
             onClick={async () => {
               setBusy(true);
               try {
-                onResult(await proposeGapFn({ data: { cluster_id: g.cluster_id, title, body } }));
+                onResult(await proposeGapDraft(by, { cluster_id: g.cluster_id, title, body }));
               } finally {
                 setBusy(false);
               }
@@ -750,7 +738,7 @@ function AccessPanel({ state, onResult }: { state: AuthoringState | null; onResu
   async function toggle(role: string, kb: string, grant: boolean) {
     setBusy(true);
     try {
-      onResult(await accessFn({ data: { role, knowledge_base: kb, grant, admin, reason } }));
+      onResult(await changeAccess({ role, knowledge_base: kb, grant, admin, reason }));
     } finally {
       setBusy(false);
     }

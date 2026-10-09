@@ -334,7 +334,7 @@ export function AskPage() {
           <div className="mt-10 space-y-4" aria-live="polite">
             {loading && <Shimmer>Checking...</Shimmer>}
             {!loading && answer && renderAnswer(answer)}
-            {!loading && answer?.res.outcome === "answer" && lastQuery && (
+            {!loading && can("view_channel_compare") && answer?.res.outcome === "answer" && lastQuery && (
               <ChannelCompare query={lastQuery} role={persona.role} lob={lob} state={state || null} requestId={answer.res.request_id} />
             )}
           </div>
