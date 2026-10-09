@@ -34,8 +34,11 @@ export const guide = {
   setCollapsed: (collapsed: boolean) => set({ collapsed }),
   goto: (step: number) => set({ step: Math.max(0, Math.min(GUIDE_STEPS.length - 1, step)) }),
   issue: (c: Omit<AskCommand, "id">) => set({ command: { ...c, id: Date.now() } }),
+  /** Returns true once per command, so a command never runs twice. */
   consume: (id: number) => {
-    if (state.command?.id === id) set({ command: null });
+    if (state.command?.id !== id) return false;
+    set({ command: null });
+    return true;
   },
   record: (key: string, requestId: string) => set({ recorded: { ...state.recorded, [key]: requestId } }),
   subscribe: (l: () => void) => {

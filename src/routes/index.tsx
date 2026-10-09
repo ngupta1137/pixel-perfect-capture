@@ -178,7 +178,7 @@ export function AskPage() {
   const command = useGuide((s) => s.command);
   useEffect(() => {
     if (!command || command.personId !== persona.id) return;
-    guide.consume(command.id);
+    if (!guide.consume(command.id)) return;
     const ctx = {
       lob: command.context?.lob ?? lob,
       state: command.context?.state ?? state,
