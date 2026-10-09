@@ -220,8 +220,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           className={`workspace-content mx-auto w-full max-w-[1440px] flex-1 px-4 py-7 lg:px-8 ${pathname === "/" ? "bg-surface" : ""}`}
         >
           {can("search") && (
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-              <span className="flex items-center gap-2 text-xs text-ink-muted">
+            <div className={pathname === "/" ? "mb-4 sm:hidden" : "mb-6 flex flex-wrap items-center justify-between gap-3"}>
+              <span className={pathname === "/" ? "hidden" : "flex items-center gap-2 text-xs text-ink-muted"}>
                 <ShieldCheck className="h-4 w-4 text-primary" />
                 Plan-approved knowledge<span className="text-border">/</span>Synthetic workspace
               </span>
@@ -229,7 +229,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 Channel
                 <select
                   aria-label="Channel"
-                  id="channel"
+                  id={pathname === "/" ? "channel-mobile" : "channel"}
                   className="field-select"
                   value={channel}
                   onChange={(e) => setChannel(e.target.value)}
