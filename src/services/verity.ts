@@ -88,8 +88,8 @@ const audit = (e: Omit<DemoAudit, "at">) => updateDemoState((s) => ({ ...s, audi
 
 /** Ask a question as a named person; the request is recorded in the store. */
 export async function searchAs(person: string, req: SearchRequest): Promise<SearchResponse> {
-  const res = await search(req);
   const units = getDemoState().units;
+  const res = withPublishedVersions(await search(req), units);
   const record: DemoRequest = {
     id: res.request_id,
     at: now(),
@@ -234,4 +234,173 @@ export function getReadBeforeBenefits(role: string): { unit_id: string; title: s
   const part = mockSearch({ query: "pricing disclaimer", role, channel: "advocate_view" }).parts[0];
   if (part?.outcome !== "answer" || part.citations[0]?.unit_id !== id || !part.text) return null;
   return { unit_id: id, title: part.citations[0].title, text: part.text };
+}
+
+// ---------------------------------------------------------------------------
+// Published versions: an answer citing a unit uses its latest approved version
+// from the store, text copied unchanged.
+function withPublishedVersions(res: SearchResponse, units: DemoUnit[]): SearchResponse {
+  const parts = res.parts.map((part) => {
+    if (part.outcome !== "answer" || part.citations.length !== 1) return part;
+    const c = part.citations[0]!;
+    const u = units.find((x) => x.unit_id === c.unit_id);
+    const latest = u?.versions[u.versions.length - 1];
+    if (!u || !latest || latest.version <= c.version) return part;
+    return {
+      ...part,
+      text: latest.text,
+      message: `${c.title} · ${c.owner} · v${latest.version} · effective ${latest.effective_date}`,
+      citations: [{ ...c, version: latest.version, effective_date: latest.effective_date }],
+    };
+  });
+  return { ...res, parts };
+}
+
+// ---------------------------------------------------------------------------
+// Authoring chain: Dana extracts and proposes, Rita decides, Owen re-verifies.
+import { AEP_CANDIDATES, AEP_READINESS, AEP_SAMPLE, CHANGE_NOTICES, REVIEW_DEMAND, type Candidate } from "./mockData";
+import type { ChainDraft, DemoState } from "./demoStore";
+export type { Candidate };
+export { AEP_SAMPLE };
+
+/** Extract candidates from the sample source (fixtures) or from pasted text. */
+export async function extractCandidates(person: string, text: string): Promise<Candidate[]> {
+  await new Promise((r) => setTimeout(r, 500));
+  const sample = text.trim() === "" || text.trim() === AEP_SAMPLE.text.trim();
+  audit({ actor: person, action: "extract", target: sample ? AEP_SAMPLE.id : "pasted text", detail: "Model extraction; people decide" });
+  if (sample) return AEP_CANDIDATES;
+  const units = getDemoState().units;
+  return text.split(/\n\s*\n/).map((t) => t.trim()).filter(Boolean).map((t, i): Candidate => {
+    const exact = units.find((u) => u.versions[u.versions.length - 1]?.text === t);
+    if (/^\[.*\]$/.test(t)) return { cid: `P${i}`, title: `Paragraph ${i + 1}`, text: t, status: "skipped", skip_reason: "Bracketed note, not knowledge." };
+    if (exact) return { cid: `P${i}`, title: exact.title, text: t, status: "unchanged", match: { unit_id: exact.unit_id, version: exact.versions.length, text: t, exact: true }, verbatim: exact.verbatim };
+    return { cid: `P${i}`, title: `New unit ${i + 1}`, text: t, status: "new", route: "owner", owner_team: "Pharmacy Ops", effective_date: "2027-01-01", gate: { checked: 27, blocking: [] } };
+  });
+}
+
+export const canPropose = (c: Candidate) => c.status === "changed" || c.status === "changed_flagged" || c.status === "new";
+
+/** Create drafts for selected candidates. Drafts are never approved here. */
+export function proposeCandidates(person: string, cands: Candidate[]): ChainDraft[] {
+  const units = getDemoState().units;
+  const at = now();
+  const drafts = cands.filter(canPropose).map((c, i): ChainDraft => {
+    const u = c.target_unit_id ? units.find((x) => x.unit_id === c.target_unit_id) : undefined;
+    return {
+      id: `D-${Date.now()}-${i}`,
+      cid: c.cid,
+      unit_id: c.target_unit_id ?? `U-NEW-${Date.now() % 10000}-${i}`,
+      title: c.title,
+      current_text: u?.versions[u.versions.length - 1]?.text ?? null,
+      proposed_text: c.text,
+      verbatim: !!c.verbatim,
+      route: c.route ?? "owner",
+      owner_team: c.owner_team ?? "Pharmacy Ops",
+      effective_date: c.effective_date ?? "2027-01-01",
+      tags: c.tags ?? [],
+      proposed_by: person,
+      status: "proposed",
+      gate: c.gate ?? { checked: 27, blocking: [] },
+      reason: null,
+      decided_by: null,
+      history: [{ status: "proposed", at, by: person }],
+    };
+  });
+  updateDemoState((s) => ({ ...s, chainDrafts: [...drafts, ...s.chainDrafts] }));
+  drafts.forEach((d) => audit({ actor: person, action: "propose", target: d.unit_id, detail: `${d.title} → ${d.route === "legal" ? "Legal" : d.owner_team}` }));
+  return drafts;
+}
+
+const patchDraft = (id: string, fn: (d: ChainDraft) => ChainDraft) =>
+  updateDemoState((s) => ({ ...s, chainDrafts: s.chainDrafts.map((d) => (d.id === id ? fn(d) : d)) }));
+
+/** Open a draft for review: runs the publication gate. */
+export function startReview(person: string, id: string) {
+  patchDraft(id, (d) => d.status !== "proposed" ? d : { ...d, status: "in_review", history: [...d.history, { status: "in_review", at: now(), by: person, note: d.gate?.blocked_reason ?? `Gate: checked ${d.gate?.checked ?? 0} cases, ${d.gate?.blocking.length ?? 0} blocking` }] });
+}
+
+export function editDraftWording(person: string, id: string, text: string) {
+  patchDraft(id, (d) => ({ ...d, proposed_text: text, history: [...d.history, { status: "edited", at: now(), by: person }] }));
+  audit({ actor: person, action: "edit_wording", target: id, detail: text });
+}
+
+/** Why a person may not decide a draft, or null when they may. */
+export function decideBlocker(person: { name: string; capabilities: readonly string[] }, d: ChainDraft): string | null {
+  if (d.proposed_by === person.name) return "You proposed this: a second person must decide";
+  if ((d.route === "legal" || d.verbatim) && !person.capabilities.includes("approve_legal")) return "Needs Legal: verbatim wording";
+  if (!person.capabilities.includes("approve_standard") && !person.capabilities.includes("approve_legal")) return "Your role cannot approve";
+  return null;
+}
+
+export function decideChainDraft(person: { name: string; capabilities: readonly string[] }, id: string, decision: "approve" | "reject", reason = "") {
+  const d = getDemoState().chainDrafts.find((x) => x.id === id);
+  if (!d) return { ok: false, message: "Draft not found" };
+  const blocker = decideBlocker(person, d);
+  if (blocker) return { ok: false, message: blocker };
+  if (decision === "reject") {
+    if (!reason.trim()) return { ok: false, message: "A reason is required to reject" };
+    patchDraft(id, (x) => ({ ...x, status: "rejected", reason, decided_by: person.name, history: [...x.history, { status: "rejected", at: now(), by: person.name, note: reason }] }));
+    audit({ actor: person.name, action: "reject", target: d.unit_id, detail: reason });
+    return { ok: true, message: "Rejected" };
+  }
+  if (d.gate?.blocking.length) return { ok: false, message: d.gate.blocked_reason ?? "Blocked by the publication gate" };
+  let version = 1;
+  updateDemoState((s) => {
+    const existing = s.units.find((u) => u.unit_id === d.unit_id);
+    version = existing ? existing.versions[existing.versions.length - 1]!.version + 1 : 1;
+    const v = { version, text: d.proposed_text, effective_date: d.effective_date, approver: person.name };
+    const units = existing
+      ? s.units.map((u) => (u.unit_id === d.unit_id ? { ...u, status: "approved", versions: [...u.versions, v] } : u))
+      : [...s.units, { unit_id: d.unit_id, title: d.title, owner: d.owner_team, verbatim: d.verbatim, status: "approved", versions: [v] }];
+    return { ...s, units };
+  });
+  patchDraft(id, (x) => ({ ...x, status: "approved", decided_by: person.name, history: [...x.history, { status: "approved", at: now(), by: person.name, note: `Published v${version}, effective ${d.effective_date}` }] }));
+  audit({ actor: person.name, action: "approve_publish", target: d.unit_id, detail: `v${version} · effective ${d.effective_date}` });
+  return { ok: true, message: `Published ${d.unit_id} v${version}` };
+}
+
+export const waitingOn = (d: ChainDraft) =>
+  d.status === "approved" || d.status === "rejected" ? null : d.route === "legal" || d.verbatim ? "Legal" : d.owner_team;
+
+// Review queue for knowledge owners.
+export type ReviewKind = "Stale" | "Conflict" | "Flagged" | "Gap" | "AEP 2027 pending" | "Change notice";
+export interface ReviewItem { key: string; kind: ReviewKind; title: string; unit_id: string | null; demand: number; due: string; verifier: string; done: boolean }
+const KIND_RANK: ReviewKind[] = ["Stale", "Conflict", "Flagged", "Gap", "AEP 2027 pending", "Change notice"];
+
+export function reviewQueue(s: DemoState): ReviewItem[] {
+  const isDone = (unitId: string | null) => !!unitId && s.reverified.some((r) => r.unit_id === unitId);
+  const meta = (id: string) => REVIEW_DEMAND[id] ?? { demand: 0, due: "2026-10-31" };
+  const verifier = (id: string | null) => (id && UNIT_META_LOCAL[id]?.verifier) || "Owen (Knowledge owner)";
+  const items: ReviewItem[] = [];
+  s.units.filter((u) => u.status === "stale" || u.status === "conflict").forEach((u) =>
+    items.push({ key: `u-${u.unit_id}`, kind: u.status === "stale" ? "Stale" : "Conflict", title: u.title, unit_id: u.unit_id, ...meta(u.unit_id), verifier: verifier(u.unit_id), done: isDone(u.unit_id) }));
+  items.push({ key: "c-enroll", kind: "Conflict", title: "Enrollment fragments A and B disagree", unit_id: "U-SH-011", ...meta("U-SH-011"), verifier: "Rita (Legal)", done: isDone("U-SH-011") });
+  s.reviewTasks.filter((t) => t.kind === "flag").forEach((t) =>
+    items.push({ key: t.id, kind: "Flagged", title: `${t.unit_ids.join(", ")}: ${t.reason ?? "flagged"} (by ${t.by ?? "?"})`, unit_id: t.unit_ids[0] ?? null, demand: 1, due: "2026-10-16", verifier: verifier(t.unit_ids[0] ?? null), done: t.status !== "open" }));
+  const gaps = new Map<string, number>();
+  s.requests.filter((r) => r.outcome === "insufficient_evidence").forEach((r) => gaps.set(r.query.toLowerCase(), (gaps.get(r.query.toLowerCase()) ?? 0) + 1));
+  gaps.forEach((n, q) => items.push({ key: `g-${q}`, kind: "Gap", title: `"${q}"`, unit_id: null, demand: n, due: "2026-10-20", verifier: "Unassigned", done: false }));
+  s.chainDrafts.filter((d) => d.effective_date.startsWith("2027") && (d.status === "proposed" || d.status === "in_review")).forEach((d) =>
+    items.push({ key: `a-${d.id}`, kind: "AEP 2027 pending", title: `${d.title} (waiting on ${waitingOn(d)})`, unit_id: d.unit_id, ...meta(d.unit_id), verifier: verifier(d.unit_id), done: false }));
+  CHANGE_NOTICES.forEach((c) => items.push({ key: c.id, kind: "Change notice", title: `${c.id}: ${c.title}`, unit_id: c.unit_id, demand: c.demand, due: c.due, verifier: verifier(c.unit_id), done: isDone(c.unit_id) }));
+  return items.sort((a, b) => Number(a.done) - Number(b.done) || KIND_RANK.indexOf(a.kind) - KIND_RANK.indexOf(b.kind) || b.demand - a.demand);
+}
+
+export function reverifyUnit(person: string, unitId: string) {
+  updateDemoState((s) => ({
+    ...s,
+    reverified: [{ unit_id: unitId, by: person, at: now() }, ...s.reverified],
+    reviewTasks: s.reviewTasks.map((t) => (t.unit_ids.includes(unitId) ? { ...t, status: "done" } : t)),
+  }));
+  audit({ actor: person, action: "reverify", target: unitId, detail: "Re-verified" });
+}
+
+export function aepReadiness(s: DemoState) {
+  const items = AEP_READINESS.map((r) => {
+    const u = s.units.find((x) => x.unit_id === r.unit_id);
+    const latest = u?.versions[u.versions.length - 1]?.version ?? 0;
+    const done = "reverify" in r ? s.reverified.some((x) => x.unit_id === r.unit_id) : latest >= r.min_version;
+    return { label: r.label, done };
+  });
+  return { items, done: items.filter((i) => i.done).length, total: items.length };
 }

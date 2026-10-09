@@ -23,6 +23,30 @@ export interface DemoReviewTask { id: string; kind: string; unit_ids: string[]; 
 export interface DemoReadEvent { at: string; person: string; request_id: string | null; unit_id: string }
 export interface DemoFeedback { at: string; request_id: string; person: string; rating: "up" | "down" | "flag"; note: string | null }
 
+/** Authoring chain (Dana → Rita → Owen). */
+export type ChainStatus = "proposed" | "in_review" | "approved" | "rejected";
+export interface GateCase { case: string; was: string; now: string }
+export interface GateResult { checked: number; blocking: GateCase[]; blocked_reason?: string }
+export interface ChainDraft {
+  id: string;
+  cid: string;
+  unit_id: string;
+  title: string;
+  current_text: string | null;
+  proposed_text: string;
+  verbatim: boolean;
+  route: "legal" | "owner";
+  owner_team: string;
+  effective_date: string;
+  tags: string[];
+  proposed_by: string;
+  status: ChainStatus;
+  gate: GateResult | null;
+  reason: string | null;
+  decided_by: string | null;
+  history: { status: ChainStatus | "edited"; at: string; by: string; note?: string }[];
+}
+
 export interface DemoState {
   /** Increments on every reset so screens can reload. */
   epoch: number;
@@ -33,6 +57,8 @@ export interface DemoState {
   audit: DemoAudit[];
   reviewTasks: DemoReviewTask[];
   feedback: DemoFeedback[];
+  chainDrafts: ChainDraft[];
+  reverified: { unit_id: string; by: string; at: string }[];
 }
 
 let state: DemoState = seedDemoState();

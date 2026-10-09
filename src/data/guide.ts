@@ -42,7 +42,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     title: "How truth is made",
     say: "A model extracts, people decide, a gate checks regressions.",
     actions: [
-      { label: "Go: Dana", person: "Dana", to: "/work", hint: "Choose the source \"AEP script 2027\", then Extract." },
+      { label: "Go: Dana", person: "Dana", to: "/work", hint: "Pick \"AEP contact-center script 2027\", Extract, select the changes, then Propose selected." },
       { label: "Then: Rita", person: "Rita", to: "/legal" },
     ],
   },

@@ -15,8 +15,8 @@ describe("rights from personas.json", () => {
     expect(homeRoute(p("priya"))).toBe("/");
     expect(canOpen(p("priya"), "/author")).toBe(false);
   });
-  it("Rita lands on Author and has no Ask", () => {
-    expect(homeRoute(p("rita"))).toBe("/author");
+  it("Rita lands on the Legal queue and has no Ask", () => {
+    expect(homeRoute(p("rita"))).toBe("/legal");
     expect(navFor(p("rita")).map((n) => n.to)).not.toContain("/");
   });
   it("Lee only reaches Rights", () => {

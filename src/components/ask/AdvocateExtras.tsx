@@ -113,6 +113,7 @@ export function UnitDrawer({ citation, onClose }: { citation: Citation | null; o
     ["Unit", citation.unit_id],
     ["Version", `v${citation.version}`],
     ["Effective", citation.effective_date],
+    ["Approved", (() => { const v = unit?.versions.find((x) => x.version === citation.version); return v ? `v${v.version} · approved by ${v.approver} · effective ${v.effective_date}` : "Not recorded"; })()],
     ["Owner", citation.owner],
     ["Verifier", meta?.verifier ?? "Not recorded"],
     ["Review date", meta?.review_date ?? "Not recorded"],
