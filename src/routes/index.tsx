@@ -426,26 +426,25 @@ export function AskPage() {
                   />
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  {channel === "voice" && (
-                    <Button
-                      type="button"
-                      size="icon"
-                      aria-label={voice.listening ? "Stop listening" : "Start voice input"}
-                      title={voice.listening ? "Stop listening" : "Start voice input"}
-                      aria-pressed={voice.listening}
-                      disabled={!voice.supported || loading}
-                      onClick={() =>
-                        voice.listening
-                          ? voice.stopListening()
-                          : voice.startListening(setQuery, (text) => {
-                              void run(text, persona, "voice");
-                            })
-                      }
-                      className={`h-12 w-12 shrink-0 rounded-full ${voice.listening ? "bg-destructive text-destructive-foreground motion-safe:animate-pulse" : ""}`}
-                    >
-                      {voice.listening ? <Square /> : <Mic />}
-                    </Button>
-                  )}
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    aria-label={voice.listening ? "Stop listening" : "Start voice input"}
+                    title={voice.supported ? (voice.listening ? "Stop listening" : "Start voice input") : "Voice input needs Chrome"}
+                    aria-pressed={voice.listening}
+                    disabled={!voice.supported || loading}
+                    onClick={() =>
+                      voice.listening
+                        ? voice.stopListening()
+                        : voice.startListening(setQuery, (text) => {
+                            void run(text, persona, "voice");
+                          })
+                    }
+                    className={`h-12 w-12 shrink-0 rounded-full ${voice.listening ? "bg-destructive text-destructive-foreground motion-safe:animate-pulse" : ""}`}
+                  >
+                    {voice.listening ? <Square /> : <Mic />}
+                  </Button>
                   <Button
                     type="submit"
                     className="h-12 px-4 sm:px-5"
@@ -468,7 +467,7 @@ export function AskPage() {
           </>
         )}
 
-        {(channel === "voice" || isChat) && (
+        {(channel === "voice" || isChat || voice.listening || voice.transcript) && (
           <div role="status" className="mt-3 text-sm text-ink-muted">
             {!voice.supported && <p>Voice input needs Chrome</p>}
             {voice.listening && <p className="font-semibold text-outcome-safety">Listening...</p>}
