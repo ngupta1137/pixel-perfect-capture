@@ -1,36 +1,49 @@
 import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { RotateCcw } from "lucide-react";
 import { VerityLogo } from "./VerityLogo";
-import { PERSONAS, useSession } from "@/lib/session";
+import { Button } from "@/components/ui/button";
+import { PersonaPicker } from "@/components/shell/PersonaPicker";
+import { ActingAsBar } from "@/components/shell/ActingAsBar";
+import { useSession } from "@/lib/session";
+import { navFor } from "@/lib/rights";
+import { resetDemo } from "@/services/verity";
 
-const NAV = [
-  { to: "/", label: "Ask" },
-  { to: "/author", label: "Author" },
-  { to: "/evals", label: "Evals" },
-  { to: "/agents", label: "Agents" },
-] as const;
-
-function Switchers() {
-  const { persona, channel, setPersona, setChannel, allowedChannels } = useSession();
+function ChannelSwitch() {
+  const { channel, setChannel, allowedChannels, can } = useSession();
+  if (!can("search")) return null;
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <label className="sr-only" htmlFor="persona">Persona</label>
-      <select id="persona" className="field-select" value={persona.id} onChange={(e) => setPersona(e.target.value)}>
-        {PERSONAS.map((p) => (
-          <option key={p.id} value={p.id}>{p.name}, {p.label}</option>
-        ))}
-      </select>
+    <>
       <label className="sr-only" htmlFor="channel">Channel</label>
       <select id="channel" className="field-select" value={channel} onChange={(e) => setChannel(e.target.value)}>
         {allowedChannels.map((c) => (
           <option key={c.id} value={c.id}>{c.label}</option>
         ))}
       </select>
-    </div>
+    </>
+  );
+}
+
+function ResetDemo() {
+  const [busy, setBusy] = useState(false);
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        await resetDemo();
+        setBusy(false);
+      }}
+    >
+      <RotateCcw className="h-4 w-4" /> {busy ? "Resetting…" : "Reset demo"}
+    </Button>
   );
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const { person } = useSession();
   return (
     <div className="flex min-h-screen flex-col bg-surface text-ink">
       <header className="border-b border-border">
@@ -39,10 +52,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             <VerityLogo />
             <span className="text-xl font-semibold tracking-tight">Verity</span>
           </Link>
-          <Switchers />
+          <div className="flex flex-wrap items-center gap-2">
+            <PersonaPicker />
+            <ChannelSwitch />
+          </div>
         </div>
         <nav className="mx-auto flex max-w-6xl gap-6 px-6">
-          {NAV.map((n) => (
+          {navFor(person).map((n) => (
             <Link
               key={n.to}
               to={n.to}
@@ -55,11 +71,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
       </header>
+      <ActingAsBar />
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">{children}</main>
       <footer className="border-t border-border bg-surface-alt">
-        <p className="mx-auto max-w-6xl px-6 py-4 text-sm text-ink-muted">
-          Concept prototype by Nitin Gupta · Synthetic data · Not a Humana product
-        </p>
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
+          <p className="text-sm text-ink-muted">Concept prototype by Nitin Gupta · Synthetic data · Not a Humana product</p>
+          <ResetDemo />
+        </div>
       </footer>
     </div>
   );
