@@ -291,7 +291,7 @@ export function AskPage() {
         )}
 
         {isChat ? (
-          <PromptInput onSubmit={() => run(query)} className="mt-4">
+          <PromptInput onSubmit={() => { void run(query); }} className="mt-4">
             <PromptInputTextarea
               aria-label="Ask Verity"
               value={query}
