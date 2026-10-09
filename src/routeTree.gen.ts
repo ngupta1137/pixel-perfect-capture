@@ -14,7 +14,9 @@ import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as AuthorRouteImport } from './routes/author'
 import { Route as EvalsRouteImport } from './routes/evals'
+import { Route as LegalRouteImport } from './routes/legal'
 import { Route as PlatformRouteImport } from './routes/platform'
+import { Route as ReviewRouteImport } from './routes/review'
 import { Route as RightsRouteImport } from './routes/rights'
 import { Route as StoryRouteImport } from './routes/story'
 import { Route as WorkRouteImport } from './routes/work'
@@ -44,9 +46,19 @@ const EvalsRoute = EvalsRouteImport.update({
   path: '/evals',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalRoute = LegalRouteImport.update({
+  id: '/legal',
+  path: '/legal',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlatformRoute = PlatformRouteImport.update({
   id: '/platform',
   path: '/platform',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReviewRoute = ReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RightsRoute = RightsRouteImport.update({
@@ -71,7 +83,9 @@ export interface FileRoutesByFullPath {
   '/audit': typeof AuditRoute
   '/author': typeof AuthorRoute
   '/evals': typeof EvalsRoute
+  '/legal': typeof LegalRoute
   '/platform': typeof PlatformRoute
+  '/review': typeof ReviewRoute
   '/rights': typeof RightsRoute
   '/story': typeof StoryRoute
   '/work': typeof WorkRoute
@@ -82,7 +96,9 @@ export interface FileRoutesByTo {
   '/audit': typeof AuditRoute
   '/author': typeof AuthorRoute
   '/evals': typeof EvalsRoute
+  '/legal': typeof LegalRoute
   '/platform': typeof PlatformRoute
+  '/review': typeof ReviewRoute
   '/rights': typeof RightsRoute
   '/story': typeof StoryRoute
   '/work': typeof WorkRoute
@@ -94,7 +110,9 @@ export interface FileRoutesById {
   '/audit': typeof AuditRoute
   '/author': typeof AuthorRoute
   '/evals': typeof EvalsRoute
+  '/legal': typeof LegalRoute
   '/platform': typeof PlatformRoute
+  '/review': typeof ReviewRoute
   '/rights': typeof RightsRoute
   '/story': typeof StoryRoute
   '/work': typeof WorkRoute
@@ -107,7 +125,9 @@ export interface FileRouteTypes {
     | '/audit'
     | '/author'
     | '/evals'
+    | '/legal'
     | '/platform'
+    | '/review'
     | '/rights'
     | '/story'
     | '/work'
@@ -118,7 +138,9 @@ export interface FileRouteTypes {
     | '/audit'
     | '/author'
     | '/evals'
+    | '/legal'
     | '/platform'
+    | '/review'
     | '/rights'
     | '/story'
     | '/work'
@@ -129,7 +151,9 @@ export interface FileRouteTypes {
     | '/audit'
     | '/author'
     | '/evals'
+    | '/legal'
     | '/platform'
+    | '/review'
     | '/rights'
     | '/story'
     | '/work'
@@ -141,7 +165,9 @@ export interface RootRouteChildren {
   AuditRoute: typeof AuditRoute
   AuthorRoute: typeof AuthorRoute
   EvalsRoute: typeof EvalsRoute
+  LegalRoute: typeof LegalRoute
   PlatformRoute: typeof PlatformRoute
+  ReviewRoute: typeof ReviewRoute
   RightsRoute: typeof RightsRoute
   StoryRoute: typeof StoryRoute
   WorkRoute: typeof WorkRoute
@@ -184,11 +210,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EvalsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal': {
+      id: '/legal'
+      path: '/legal'
+      fullPath: '/legal'
+      preLoaderRoute: typeof LegalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/platform': {
       id: '/platform'
       path: '/platform'
       fullPath: '/platform'
       preLoaderRoute: typeof PlatformRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/review': {
+      id: '/review'
+      path: '/review'
+      fullPath: '/review'
+      preLoaderRoute: typeof ReviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rights': {
@@ -221,7 +261,9 @@ const rootRouteChildren: RootRouteChildren = {
   AuditRoute: AuditRoute,
   AuthorRoute: AuthorRoute,
   EvalsRoute: EvalsRoute,
+  LegalRoute: LegalRoute,
   PlatformRoute: PlatformRoute,
+  ReviewRoute: ReviewRoute,
   RightsRoute: RightsRoute,
   StoryRoute: StoryRoute,
   WorkRoute: WorkRoute,
