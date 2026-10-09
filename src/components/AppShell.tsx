@@ -58,6 +58,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       ? customCrumbs
       : pathname === "/work"
       ? ["Workspace", "Ingest", "New source"]
+      : pathname === "/review"
+      ? ["Workspace", "Review queue"]
       : [pageTitle];
 
 
