@@ -536,6 +536,7 @@ function GapsPanel({ state, onResult }: { state: AuthoringState | null; onResult
 }
 
 function GapCard({ g, onResult }: { g: GapCluster; onResult: (r: ActionResult) => void }) {
+  const actor = useActor();
   const [title, setTitle] = useState(g.suggested_title);
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
