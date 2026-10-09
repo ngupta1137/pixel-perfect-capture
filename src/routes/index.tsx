@@ -68,7 +68,7 @@ interface ChatTurn {
 }
 
 export function AskPage() {
-  const { persona, channel, setPersona } = useSession();
+  const { persona, channel, setPersona, can } = useSession();
   const [query, setQuery] = useState("");
   const [lob, setLob] = useState("MAPD");
   const [state, setState] = useState("");
@@ -172,7 +172,7 @@ export function AskPage() {
           />
         );
       })}
-      <TraceDrawer res={item.res} compact={compact} />
+      {can("view_trace") && <TraceDrawer res={item.res} compact={compact} />}
     </>
   );
 
@@ -185,7 +185,7 @@ export function AskPage() {
           <>
             <div className="mb-4 flex items-baseline justify-between border-b border-border pb-3">
               <h1 className="text-2xl font-semibold">Verity</h1>
-              <span className="text-sm text-ink-muted">Member chat · Eleanor</span>
+              <span className="text-sm text-ink-muted">Member chat · {persona.name}</span>
             </div>
             <Conversation className="h-[28rem] max-h-[55vh] min-h-48">
               <ConversationContent className="gap-5 px-0 py-3">
