@@ -6,9 +6,9 @@ export interface AskCommand {
   id: number;
   personId: string;
   query: string;
-  context?: GuideAction["context"];
-  thenPlanYear?: string;
-  record?: string;
+  context?: GuideAction["context"] | undefined;
+  thenPlanYear?: string | undefined;
+  record?: string | undefined;
 }
 
 interface GuideState {
