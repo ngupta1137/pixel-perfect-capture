@@ -23,6 +23,8 @@ export interface DemoReviewTask { id: string; kind: string; unit_ids: string[]; 
 export interface DemoFeedback { at: string; request_id: string; person: string; rating: "up" | "down" | "flag"; note: string | null }
 
 export interface DemoState {
+  /** Increments on every reset so screens can reload. */
+  epoch: number;
   requests: DemoRequest[];
   drafts: DemoDraft[];
   units: DemoUnit[];
@@ -40,7 +42,7 @@ export function updateDemoState(fn: (s: DemoState) => DemoState) {
   listeners.forEach((l) => l());
 }
 export function resetDemoStore() {
-  updateDemoState(() => seedDemoState());
+  updateDemoState((s) => ({ ...seedDemoState(), epoch: s.epoch + 1 }));
 }
 export function subscribeDemoStore(l: () => void) {
   listeners.add(l);

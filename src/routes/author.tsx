@@ -85,7 +85,7 @@ function AuthorPage() {
     label: `${session.person.name}, ${session.person.label}`,
   };
   // Re-read after "Reset demo" in the footer.
-  const resetMark = useDemoStore((s) => s.feedback === s.feedback && s.requests.length === 0 && s.drafts);
+  const resetMark = useDemoStore((s) => s.epoch);
 
   useEffect(() => {
     getAuthoringState()
@@ -390,7 +390,6 @@ function DraftCard({ d, person, onResult }: { d: DraftView; person: { name: stri
           body: action === "approve" && editing ? body : null,
           reason: action === "reject" ? reason : null,
           accept_tags: action === "approve" && acceptTags,
-        },
       }));
     } finally {
       setBusy(false);
@@ -507,6 +506,8 @@ function OwnerItems({ items, person, onResult }: { items: ReviewItemView[]; pers
 }
 
 function GapsPanel({ state, onResult }: { state: AuthoringState | null; onResult: (r: ActionResult) => void }) {
+  const { person: me } = useSession();
+  const by = `${me.name} (${me.label})`;
   return (
     <div className="space-y-3">
       <p className="text-sm text-ink-muted">
@@ -730,7 +731,7 @@ function InsightsPanel({ state, onDraft }: { state: AuthoringState | null; onDra
 }
 
 function AccessPanel({ state, onResult }: { state: AuthoringState | null; onResult: (r: ActionResult) => void }) {
-  const [admin, setAdmin] = useState("Sam (Access admin)");
+  const [admin, setAdmin] = useState(`${useSession().person.name} (${useSession().person.label})`);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const acc = state?.access;

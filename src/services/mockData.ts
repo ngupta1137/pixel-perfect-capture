@@ -185,6 +185,7 @@ const unit = (
 
 export function seedDemoState(): DemoState {
   return {
+    epoch: 0,
     requests: [],
     drafts: [],
     units: [
