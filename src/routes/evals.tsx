@@ -1,3 +1,5 @@
+import { RequireView } from "@/components/shell/Denied";
+import { routeCaps } from "@/lib/rights";
 import { createFileRoute } from "@tanstack/react-router";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import { CheckCircle2, Circle } from "lucide-react";
@@ -14,7 +16,7 @@ export const Route = createFileRoute("/evals")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: EvalsPage,
+  component: GuardedEvalsPage,
 });
 
 function EvalsPage() {
@@ -114,5 +116,13 @@ function EvalsPage() {
         </table>
       </div>
     </section>
+  );
+}
+
+function GuardedEvalsPage() {
+  return (
+    <RequireView caps={routeCaps("/evals")}>
+      <EvalsPage />
+    </RequireView>
   );
 }

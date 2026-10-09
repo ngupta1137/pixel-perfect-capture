@@ -1,7 +1,12 @@
-import type { Citation, Outcome, SearchRequest, SearchResponse } from "./verity";
+import type { Citation, Outcome, Part as WirePart, SearchRequest, SearchResponse } from "./verity";
+import type {
+  AepStatus, AsOfResult, DraftRow, Escalation, FlagReceipt, Health, Part, ReadEvent,
+  ReplayRecord, ReviewTask, Trust, UnitRecord,
+} from "./contracts";
 
 const ENTITLEMENTS: Record<string, string> = {
   pharmacy_advocate: "KB-PHARM, KB-SHARED",
+  pharmacy_supervisor: "KB-PHARM, KB-SHARED",
   insurance_advocate: "KB-INS, KB-SHARED",
   member_chat: "KB-PHARM (member-safe), KB-SHARED",
 };
@@ -69,6 +74,33 @@ function match(req: SearchRequest): Fixture {
       text: "Your decision today has no impact on your plan membership. Is there anything else I can help you with today?",
       citations: [cite("U-SH-002", 2, "Call closing: no impact on membership", "Compliance", "2026-01-15", true)],
       intent: "call_closing",
+    };
+  }
+  if (has("id card")) {
+    if (req.role === "pharmacy_advocate" || req.role === "pharmacy_supervisor") {
+      return {
+        outcome: "not_authorized",
+        message: "This is owned by Member Services (KB-INS). Transfer or ask that team.",
+        text: null,
+        owner_team: "Member Services",
+        intent: "id_card_replacement",
+      };
+    }
+    return {
+      outcome: "answer",
+      message: "ID card replacement · Member Services · v2 · effective 2026-01-15",
+      text: "Members can request a replacement ID card online, in the app, or by calling Member Services. A new card arrives by mail in 7 to 10 days.",
+      citations: [cite("U-IN-002", 2, "ID card replacement", "Member Services", "2026-01-15", false)],
+      intent: "id_card_replacement",
+    };
+  }
+  if ((has("days supply") || has("90")) && req.plan_year === 2027) {
+    return {
+      outcome: "answer",
+      message: "Days supply by mail (plan year 2027) · Pharmacy Ops · v2 · effective 2027-01-01",
+      text: "For plan year 2027, a 100-day supply is available by mail for most maintenance medications.",
+      citations: [cite("U-PH-007", 2, "Days supply by mail", "Pharmacy Ops", "2027-01-01", false)],
+      intent: "days_supply",
     };
   }
   if (has("days supply") || has("90")) {
@@ -140,7 +172,7 @@ function buildTrace(req: SearchRequest, f: Fixture, requestId: string): string[]
   return [
     ...trace,
     `4. Query understanding [P]: intent=${f.intent}`,
-    `5. Hard partitions [D]: lob=${req.lob ?? "unknown"}, state=${req.state ?? "unknown"}, channel=${req.channel}`,
+    `5. Hard partitions [D]: lob=${req.lob ?? "unknown"}, state=${req.state ?? "unknown"}, plan_year=${req.plan_year ?? 2026}, channel=${req.channel}`,
     `6. Search [D]: ${n} candidate unit(s)`,
     `7. Eligibility [D]: ${f.outcome === "not_authorized" ? "blocked by entitlements" : "eligible"}`,
     `8. Applicability [D]: ${f.outcome === "needs_clarification" ? "missing state" : "checked"}`,
@@ -172,3 +204,207 @@ export function mockSearch(req: SearchRequest): SearchResponse {
     engine: "mock-0.1",
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* UI fixtures (UI_SPEC section 3). Synthetic; numbers are illustrative. */
+/* ------------------------------------------------------------------ */
+
+export const UNITS: UnitRecord[] = [
+  {
+    unitId: "U-PH-003", version: 1, kb: "KB-PHARM", category: "Disclosures", title: "Pricing disclaimer (Rx)",
+    owner: "Compliance", approver: "Rita (Legal)", effectiveDate: "2026-01-15", reviewDate: "2027-01-15", planYear: 2026,
+    verbatim: true, mustReadBeforeBenefits: true, trust: "approved", spanish: "Translation out of date",
+    text: "The prices I share today are estimates based on your current plan and may change. Your final cost will be confirmed when your prescription is processed.",
+    history: [{ version: 1, effectiveDate: "2026-01-15", approver: "Rita (Legal)" }],
+  },
+  {
+    unitId: "U-SH-002", version: 2, kb: "KB-SHARED", category: "Call handling", title: "Call closing: no impact on membership",
+    owner: "Compliance", approver: "Rita (Legal)", effectiveDate: "2026-01-15", reviewDate: "2027-01-15", planYear: 2026,
+    verbatim: true, mustReadBeforeBenefits: false, trust: "approved", spanish: "Current",
+    text: "Your decision today has no impact on your plan membership. Is there anything else I can help you with today?",
+    history: [
+      { version: 1, effectiveDate: "2025-01-15", approver: "Rita (Legal)" },
+      { version: 2, effectiveDate: "2026-01-15", approver: "Rita (Legal)" },
+    ],
+  },
+  {
+    unitId: "U-PH-006", version: 1, kb: "KB-PHARM", category: "Mail order", title: "Mail order delivery time",
+    owner: "Pharmacy Ops", approver: "Owen (Pharmacy Ops)", effectiveDate: "2026-01-15", reviewDate: "2027-01-15", planYear: 2026,
+    verbatim: false, mustReadBeforeBenefits: false, trust: "approved", spanish: "Current",
+    text: "Mail order prescriptions typically arrive within 7 to 10 business days after the prescription is received from the doctor.",
+    history: [{ version: 1, effectiveDate: "2026-01-15", approver: "Owen (Pharmacy Ops)" }],
+  },
+  {
+    unitId: "U-PH-007", version: 1, kb: "KB-PHARM", category: "Mail order", title: "Days supply by mail (90-day)",
+    owner: "Pharmacy Ops", approver: "Owen (Pharmacy Ops)", effectiveDate: "2026-01-15", reviewDate: "2026-12-31", planYear: 2026,
+    verbatim: false, mustReadBeforeBenefits: false, trust: "conflict", spanish: "None",
+    text: "A 90-day supply is available by mail for most maintenance medications.",
+    history: [{ version: 1, effectiveDate: "2026-01-15", approver: "Owen (Pharmacy Ops)" }],
+  },
+  {
+    unitId: "U-PH-007", version: 2, kb: "KB-PHARM", category: "Mail order", title: "Days supply by mail",
+    owner: "Pharmacy Ops", approver: "Owen (Pharmacy Ops)", effectiveDate: "2027-01-01", reviewDate: "2027-12-31", planYear: 2027,
+    verbatim: false, mustReadBeforeBenefits: false, trust: "approved", spanish: "None",
+    text: "For plan year 2027, a 100-day supply is available by mail for most maintenance medications.",
+    history: [
+      { version: 1, effectiveDate: "2026-01-15", approver: "Owen (Pharmacy Ops)" },
+      { version: 2, effectiveDate: "2027-01-01", approver: "Owen (Pharmacy Ops)" },
+    ],
+  },
+  {
+    unitId: "U-PH-107", version: 3, kb: "KB-PHARM", category: "Mail order", title: "Days supply by mail (100-day, legacy)",
+    owner: "Outbound Pharmacy", approver: "Owen (Pharmacy Ops)", effectiveDate: "2025-11-01", reviewDate: "2026-11-01", planYear: 2026,
+    verbatim: false, mustReadBeforeBenefits: false, trust: "conflict", spanish: "None",
+    text: "Members can get up to a 100-day supply of maintenance medications by mail.",
+    history: [{ version: 3, effectiveDate: "2025-11-01", approver: "Owen (Pharmacy Ops)" }],
+  },
+  {
+    unitId: "U-PH-008", version: 1, kb: "KB-PHARM", category: "Mail order", title: "Mail order shipping cost",
+    owner: "Pharmacy Ops", approver: "Owen (Pharmacy Ops)", effectiveDate: "2025-06-30", reviewDate: "2026-06-30", planYear: 2026,
+    verbatim: false, mustReadBeforeBenefits: false, trust: "stale", spanish: "None",
+    text: "Standard shipping for mail order is at no extra cost.",
+    history: [{ version: 1, effectiveDate: "2025-06-30", approver: "Owen (Pharmacy Ops)" }],
+  },
+  {
+    unitId: "U-PH-010", version: 1, kb: "KB-PHARM", category: "Cost help", title: "Copay assistance program (Kentucky pilot)",
+    owner: "Pharmacy Ops", approver: "Owen (Pharmacy Ops)", effectiveDate: "2026-03-01", reviewDate: "2027-03-01", planYear: 2026,
+    verbatim: false, mustReadBeforeBenefits: false, trust: "approved", spanish: "None",
+    text: "Members in Kentucky can enroll in the Rx copay assistance pilot through an advocate. Eligibility is confirmed in the pharmacy system before enrollment.",
+    history: [{ version: 1, effectiveDate: "2026-03-01", approver: "Owen (Pharmacy Ops)" }],
+  },
+  {
+    unitId: "U-IN-002", version: 2, kb: "KB-INS", category: "ID cards", title: "ID card replacement",
+    owner: "Member Services", approver: "Olivia (Member Services)", effectiveDate: "2026-01-15", reviewDate: "2027-01-15", planYear: 2026,
+    verbatim: false, mustReadBeforeBenefits: false, trust: "approved", spanish: "Current",
+    text: "Members can request a replacement ID card online, in the app, or by calling Member Services. A new card arrives by mail in 7 to 10 days.",
+    history: [
+      { version: 1, effectiveDate: "2025-01-15", approver: "Olivia (Member Services)" },
+      { version: 2, effectiveDate: "2026-01-15", approver: "Olivia (Member Services)" },
+    ],
+  },
+  {
+    unitId: "U-IN-005", version: 1, kb: "KB-INS", category: "Eligibility", title: "Special enrollment period basics",
+    owner: "Member Services", approver: "Olivia (Member Services)", effectiveDate: "2026-01-15", reviewDate: "2027-01-15", planYear: 2026,
+    verbatim: false, mustReadBeforeBenefits: false, trust: "approved", spanish: "None",
+    text: "Some life events, such as moving out of the plan's service area, allow a member to change plans outside the annual election period.",
+    history: [{ version: 1, effectiveDate: "2026-01-15", approver: "Olivia (Member Services)" }],
+  },
+];
+
+/** Latest unit version for a plan year (falls back to any version). */
+export function findUnit(unitId: string, version?: number): UnitRecord | undefined {
+  const all = UNITS.filter((u) => u.unitId === unitId);
+  return (version ? all.find((u) => u.version === version) : undefined) ?? all.at(-1);
+}
+
+/** Units visible in a scope, one row per unit id, for the given plan year. */
+export function unitsInScope(scope: string[], planYear: 2026 | 2027): UnitRecord[] {
+  const byId = new Map<string, UnitRecord>();
+  for (const u of UNITS) {
+    if (!scope.includes(u.kb)) continue;
+    const cur = byId.get(u.unitId);
+    if (u.planYear <= planYear && (!cur || u.version > cur.version)) byId.set(u.unitId, u);
+  }
+  return [...byId.values()];
+}
+
+/** Next steps written for advocates when Verity cannot answer (fixture wording). */
+const NEXT_STEPS: Partial<Record<Outcome, (p: WirePart) => string>> = {
+  insufficient_evidence: () =>
+    "Tell the member you will confirm and call back. Do not answer from memory. Ask your supervisor if the member needs an answer now.",
+  not_authorized: (p) =>
+    `Transfer to ${p.owner_team ?? "the owning team"}. Say: "Let me connect you with the team that handles this."`,
+  stale: () =>
+    "Do not read this as current. Tell the member you are confirming the latest information, then ask your supervisor.",
+  conflict: () =>
+    "Do not pick a version. Tell the member you are confirming the correct amount, then ask your supervisor.",
+  safety_escalation: () => "Stay on the line and transfer to the nurse line or 911 now.",
+};
+
+const TRUST_BY_OUTCOME: Partial<Record<Outcome, Trust>> = { answer: "approved", stale: "stale", conflict: "conflict" };
+
+/** Wire part (engine shape) to the section 3 UI part. */
+export function toViewPart(p: WirePart): Part {
+  const trust = TRUST_BY_OUTCOME[p.outcome] ?? "approved";
+  return {
+    part: p.part,
+    outcome: p.outcome,
+    text: p.text,
+    message: p.message,
+    nextStep: p.next_step ?? NEXT_STEPS[p.outcome]?.(p) ?? null,
+    ownerTeam: p.owner_team,
+    mustReadBeforeBenefits: p.citations.some((c) => findUnit(c.unit_id, c.version)?.mustReadBeforeBenefits ?? false),
+    citations: p.citations.map((c) => ({
+      unitId: c.unit_id,
+      version: c.version,
+      title: c.title,
+      effectiveDate: c.effective_date,
+      owner: c.owner,
+      verbatim: c.verbatim,
+      trust,
+    })),
+  };
+}
+
+export const AEP_STATUS: AepStatus = { opensOn: "Oct 15, 2026", planYear: 2027, approved: 38, total: 51 };
+
+export const ESCALATIONS: Escalation[] = [
+  { id: "esc-1", advocate: "Priya", query: "how many days supply can I get by mail", kind: "flagged", at: "09:42" },
+  { id: "esc-2", advocate: "Priya", query: "is there a shipping fee for mail order", kind: "unanswered", at: "10:15" },
+  { id: "esc-3", advocate: "Jordan", query: "does my plan cover a shingles vaccine at the pharmacy", kind: "unanswered", at: "11:03" },
+];
+
+export function recordReadEvent(unitId: string, version: number, person: string): ReadEvent {
+  return { unitId, version, person, at: new Date().toISOString() };
+}
+
+export function flagAnswer(unitId: string | null, reason: string): FlagReceipt {
+  return { unitId, owner: (unitId && findUnit(unitId)?.owner) || "Knowledge Ops", reason };
+}
+
+export const REVIEW_TASKS: ReviewTask[] = [
+  { id: "T-1", kind: "conflict", unitId: "U-PH-007", title: "Days supply by mail", owner: "Pharmacy Ops", demand: 41, due: "2026-10-12", verifier: "Owen", status: "open" },
+  { id: "T-2", kind: "stale", unitId: "U-PH-008", title: "Mail order shipping cost", owner: "Pharmacy Ops", demand: 23, due: "2026-10-09", verifier: "Owen", status: "open" },
+  { id: "T-3", kind: "aep_2027", unitId: "U-IN-005", title: "Special enrollment period basics", owner: "Member Services", demand: 12, due: "2026-10-14", verifier: "Olivia", status: "claimed" },
+  { id: "T-4", kind: "flagged", unitId: "U-PH-006", title: "Mail order delivery time", owner: "Pharmacy Ops", demand: 7, due: "2026-10-20", verifier: "Owen", status: "open" },
+];
+
+export const DRAFTS: DraftRow[] = [
+  {
+    draftId: "D-101", unitId: "U-PH-003", title: "Pricing disclaimer (Rx)", kind: "verbatim change", routeTo: "Legal",
+    proposedBy: "Dana", status: "In review with Legal", canDecide: false, whyNot: "Needs Legal: verbatim wording",
+    diff: ["The prices I share today are estimates", "-may change", "+will not change"],
+    impact: { allowed: false, checked: 24, blocking: [{ caseId: "G-007", query: "Rx pricing disclaimer", was: "may change", now: "will not change" }] },
+  },
+  {
+    draftId: "D-102", unitId: "U-PH-006", title: "Mail order delivery time", kind: "standard change", routeTo: "Author",
+    proposedBy: "Owen", status: "In review with Owner", canDecide: false, whyNot: "You proposed this: a second person must decide",
+    diff: ["Mail order prescriptions typically arrive within", "-7 to 10", "+5 to 8", "business days"],
+    impact: { allowed: true, checked: 24, blocking: [] },
+  },
+];
+
+export const REPLAYS: ReplayRecord[] = [
+  {
+    requestId: "req-1760001000000", query: "Rx pricing disclaimer", persona: "pharmacy_advocate",
+    context: { lob: "MAPD", state: "KY", planYear: 2026 },
+    trace: mockSearch({ query: "Rx pricing disclaimer", role: "pharmacy_advocate", channel: "advocate_view", lob: "MAPD", state: "KY" }).trace,
+    units: [{ unitId: "U-PH-003", version: 1, approver: "Rita (Legal)", effective: "2026-01-15" }], outcome: "answer",
+  },
+];
+
+export const AS_OF: AsOfResult[] = [
+  { unitId: "U-PH-007", asOf: "2026-06-01", version: 1, approver: "Owen (Pharmacy Ops)", effectiveFrom: "2026-01-15", effectiveTo: "2026-12-31" },
+  { unitId: "U-PH-007", asOf: "2027-02-01", version: 2, approver: "Owen (Pharmacy Ops)", effectiveFrom: "2027-01-01", effectiveTo: null },
+];
+
+export const AUDIT_EVENTS = [
+  { id: "A-1", at: "2026-10-08T14:02:00Z", actor: "Dana", action: "propose", unitId: "U-PH-003", detail: "Draft D-101" },
+  { id: "A-2", at: "2026-10-08T14:20:00Z", actor: "Marcus", action: "denied", unitId: "U-PH-003", capability: "get_unit", reason: "KB-PHARM is outside scope" },
+];
+
+export const HEALTH: Health = {
+  verbatimCompliance: 0.97, consistency: 0.99,
+  aepReady: { done: 38, needed: 51, byOwner: [{ owner: "Pharmacy Ops", done: 17, needed: 22 }, { owner: "Member Services", done: 14, needed: 19 }, { owner: "Compliance", done: 7, needed: 10 }] },
+  oldestGapDays: 19, reviewHoursPerUnit: 3.5, unansweredRate: 0.06,
+};

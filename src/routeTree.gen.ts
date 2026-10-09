@@ -10,18 +10,35 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AccessRouteImport } from './routes/access'
 import { Route as AgentsRouteImport } from './routes/agents'
+import { Route as AuditRouteImport } from './routes/audit'
 import { Route as AuthorRouteImport } from './routes/author'
 import { Route as EvalsRouteImport } from './routes/evals'
+import { Route as HealthRouteImport } from './routes/health'
+import { Route as LegalRouteImport } from './routes/legal'
+import { Route as ReviewRouteImport } from './routes/review'
+import { Route as RightsRouteImport } from './routes/rights'
+import { Route as WorkRouteImport } from './routes/work'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccessRoute = AccessRouteImport.update({
+  id: '/access',
+  path: '/access',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AgentsRoute = AgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuditRoute = AuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthorRoute = AuthorRouteImport.update({
@@ -34,39 +51,126 @@ const EvalsRoute = EvalsRouteImport.update({
   path: '/evals',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HealthRoute = HealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalRoute = LegalRouteImport.update({
+  id: '/legal',
+  path: '/legal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReviewRoute = ReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RightsRoute = RightsRouteImport.update({
+  id: '/rights',
+  path: '/rights',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkRoute = WorkRouteImport.update({
+  id: '/work',
+  path: '/work',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/access': typeof AccessRoute
   '/agents': typeof AgentsRoute
+  '/audit': typeof AuditRoute
   '/author': typeof AuthorRoute
   '/evals': typeof EvalsRoute
+  '/health': typeof HealthRoute
+  '/legal': typeof LegalRoute
+  '/review': typeof ReviewRoute
+  '/rights': typeof RightsRoute
+  '/work': typeof WorkRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/access': typeof AccessRoute
   '/agents': typeof AgentsRoute
+  '/audit': typeof AuditRoute
   '/author': typeof AuthorRoute
   '/evals': typeof EvalsRoute
+  '/health': typeof HealthRoute
+  '/legal': typeof LegalRoute
+  '/review': typeof ReviewRoute
+  '/rights': typeof RightsRoute
+  '/work': typeof WorkRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/access': typeof AccessRoute
   '/agents': typeof AgentsRoute
+  '/audit': typeof AuditRoute
   '/author': typeof AuthorRoute
   '/evals': typeof EvalsRoute
+  '/health': typeof HealthRoute
+  '/legal': typeof LegalRoute
+  '/review': typeof ReviewRoute
+  '/rights': typeof RightsRoute
+  '/work': typeof WorkRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/agents' | '/author' | '/evals'
+  fullPaths:
+    | '/'
+    | '/access'
+    | '/agents'
+    | '/audit'
+    | '/author'
+    | '/evals'
+    | '/health'
+    | '/legal'
+    | '/review'
+    | '/rights'
+    | '/work'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/agents' | '/author' | '/evals'
-  id: '__root__' | '/' | '/agents' | '/author' | '/evals'
+  to:
+    | '/'
+    | '/access'
+    | '/agents'
+    | '/audit'
+    | '/author'
+    | '/evals'
+    | '/health'
+    | '/legal'
+    | '/review'
+    | '/rights'
+    | '/work'
+  id:
+    | '__root__'
+    | '/'
+    | '/access'
+    | '/agents'
+    | '/audit'
+    | '/author'
+    | '/evals'
+    | '/health'
+    | '/legal'
+    | '/review'
+    | '/rights'
+    | '/work'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccessRoute: typeof AccessRoute
   AgentsRoute: typeof AgentsRoute
+  AuditRoute: typeof AuditRoute
   AuthorRoute: typeof AuthorRoute
   EvalsRoute: typeof EvalsRoute
+  HealthRoute: typeof HealthRoute
+  LegalRoute: typeof LegalRoute
+  ReviewRoute: typeof ReviewRoute
+  RightsRoute: typeof RightsRoute
+  WorkRoute: typeof WorkRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -78,11 +182,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/access': {
+      id: '/access'
+      path: '/access'
+      fullPath: '/access'
+      preLoaderRoute: typeof AccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/agents': {
       id: '/agents'
       path: '/agents'
       fullPath: '/agents'
       preLoaderRoute: typeof AgentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/audit': {
+      id: '/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AuditRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/author': {
@@ -99,14 +217,56 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EvalsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/health': {
+      id: '/health'
+      path: '/health'
+      fullPath: '/health'
+      preLoaderRoute: typeof HealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal': {
+      id: '/legal'
+      path: '/legal'
+      fullPath: '/legal'
+      preLoaderRoute: typeof LegalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/review': {
+      id: '/review'
+      path: '/review'
+      fullPath: '/review'
+      preLoaderRoute: typeof ReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rights': {
+      id: '/rights'
+      path: '/rights'
+      fullPath: '/rights'
+      preLoaderRoute: typeof RightsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/work': {
+      id: '/work'
+      path: '/work'
+      fullPath: '/work'
+      preLoaderRoute: typeof WorkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccessRoute: AccessRoute,
   AgentsRoute: AgentsRoute,
+  AuditRoute: AuditRoute,
   AuthorRoute: AuthorRoute,
   EvalsRoute: EvalsRoute,
+  HealthRoute: HealthRoute,
+  LegalRoute: LegalRoute,
+  ReviewRoute: ReviewRoute,
+  RightsRoute: RightsRoute,
+  WorkRoute: WorkRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

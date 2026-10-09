@@ -44,6 +44,7 @@ export interface SearchRequest {
   input_mode?: "typed" | "voice";
   lob?: string | null;
   state?: string | null;
+  plan_year?: 2026 | 2027;
 }
 
 /**
@@ -65,4 +66,30 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
     const r = mockSearch(req);
     return { ...r, engine: "fixtures (engine unavailable)" };
   }
+}
+
+/* Fixture-backed UI services. Screens call these, never mockData directly. */
+export async function getAepStatus() {
+  const { AEP_STATUS } = await import("./mockData");
+  return AEP_STATUS;
+}
+export async function getEscalations() {
+  const { ESCALATIONS } = await import("./mockData");
+  return ESCALATIONS;
+}
+export async function browseUnits(scope: string[], planYear: 2026 | 2027) {
+  const { unitsInScope } = await import("./mockData");
+  return unitsInScope(scope, planYear);
+}
+export async function getUnit(unitId: string, version?: number) {
+  const { findUnit } = await import("./mockData");
+  return findUnit(unitId, version) ?? null;
+}
+export async function recordRead(unitId: string, version: number, person: string) {
+  const { recordReadEvent } = await import("./mockData");
+  return recordReadEvent(unitId, version, person);
+}
+export async function flagAnswer(unitId: string | null, reason: string) {
+  const m = await import("./mockData");
+  return m.flagAnswer(unitId, reason);
 }
