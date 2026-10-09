@@ -1,0 +1,33 @@
+{
+  "note": "Call-type rules as data. Synthetic prototype. Legal and Compliance own this file; wording of regulations was checked against eCFR on 2026-10-08 (see docs/HUMANA_CONTEXT.md) and must be re-checked by Compliance before any real use.",
+  "call_types": {
+    "tpmo_sales": {
+      "label": "Sales or marketing call by a third-party marketing organization (TPMO)",
+      "source": "42 CFR 422.2267(e)(41) and 423.2267(e)(41); recording: 422.2274(g)(2)(ii)",
+      "read_one_of": [
+        "U-SH-401",
+        "U-SH-402"
+      ],
+      "gate_benefits_until_read": true,
+      "recording": "All marketing and sales calls recorded and kept 6 years: audio in years 1 to 3, audio or a complete transcript in years 4 to 6."
+    },
+    "telephonic_enrollment": {
+      "label": "Telephonic enrollment by the plan",
+      "source": "42 CFR 422.2267(e)(4), (e)(5)",
+      "read_one_of": [],
+      "gate_benefits_until_read": false,
+      "required_steps": [
+        "Review the Pre-Enrollment Checklist contents before completing enrollment",
+        "Say where the Summary of Benefits can be accessed"
+      ],
+      "recording": "Check plan enrollment guidance; not assumed to follow the TPMO rule."
+    },
+    "member_service": {
+      "label": "Ordinary plan member-service call",
+      "source": "42 CFR 422.111(h), 423.128(d)",
+      "read_one_of": [],
+      "gate_benefits_until_read": false,
+      "recording": "No blanket recording rule found; the call may create regulated records (grievance, appeal, coverage determination). Keep recording and business-record retention separate."
+    }
+  }
+}
