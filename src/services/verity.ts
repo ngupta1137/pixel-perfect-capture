@@ -226,3 +226,12 @@ export async function resetDemo(): Promise<void> {
     console.error("Engine reset unavailable", err);
   }
 }
+
+/** The read-before-benefits unit this role may receive, if any (checked through the same fixtures). */
+export function getReadBeforeBenefits(role: string): { unit_id: string; title: string; text: string } | null {
+  const id = Object.entries(UNIT_META_LOCAL).find(([, m]) => m.read_before_benefits)?.[0];
+  if (!id) return null;
+  const part = mockSearch({ query: "pricing disclaimer", role, channel: "advocate_view" }).parts[0];
+  if (part?.outcome !== "answer" || part.citations[0]?.unit_id !== id || !part.text) return null;
+  return { unit_id: id, title: part.citations[0].title, text: part.text };
+}
