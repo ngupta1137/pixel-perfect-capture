@@ -26,6 +26,7 @@ export type MatchStatus =
 
 export interface CandidateUnit {
   cid: string;
+  annotated_id?: string;
   title: string;
   type: CandidateType;
   body: string;
@@ -47,6 +48,10 @@ export interface CandidateUnit {
   route_to: string;
   extractor: string;
   suggestions: Suggestion[];
+  revision?: string;
+  plan_scope?: string;
+  allowed_roles?: string[];
+  classification?: string;
 }
 
 /**
@@ -77,6 +82,10 @@ export interface ExtractionResult {
   skipped: SkippedLine[];
   lifecycle_notes: string[];
   extractor: string;
+  revision?: string;
+  plan_scope?: string;
+  allowed_roles?: string[];
+  classification?: string;
 }
 
 const STOP = new Set(['the', 'a', 'an', 'and', 'or', 'of', 'to', 'for', 'in', 'on', 'by', 'is', 'are', 'be', 'with', 'your', 'this', 'that', 'can', 'may', 'will', 'it', 'as', 'at', 'from', 'any', 'their', 'members', 'member']);
@@ -94,6 +103,34 @@ function plusOneYear(iso: string): string {
 function titleCase(s: string): string {
   const t = s.replace(/[\[\]*:]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
   return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+function parseDateRange(s: string | undefined): { start: string | null; end: string | null } {
+  if (!s) return { start: null, end: null };
+  const mRangeUs = s.match(/(\d{1,2}\/\d{1,2}\/\d{4})\s*(?:-|through|to)\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  if (mRangeUs) {
+    return { start: isoFromUs(mRangeUs[1]), end: isoFromUs(mRangeUs[2]) };
+  }
+  const mRangeText = s.match(/([A-Za-z]+\s+\d{1,2},\s*\d{4})\s*(?:-|through|to)\s*([A-Za-z]+\s+\d{1,2},\s*\d{4})/i);
+  if (mRangeText) {
+    const d1 = new Date(mRangeText[1]);
+    const d2 = new Date(mRangeText[2]);
+    const sIso = !isNaN(d1.getTime()) ? d1.toISOString().slice(0, 10) : null;
+    const eIso = !isNaN(d2.getTime()) ? d2.toISOString().slice(0, 10) : null;
+    return { start: sIso, end: eIso };
+  }
+  const single = isoFromUs(s);
+  return { start: single, end: null };
+}
+
+function cleanTitle(s: string): string {
+  return s
+    .replace(/^#{1,6}\s+/, '')
+    .replace(/^\[[A-Z0-9_-]+\]\s*/i, '')
+    .replace(/^\*\*|\*\*$/g, '')
+    .replace(/:$/, '')
+    .replace(/\(SYNTHETIC.*$/i, '')
+    .trim();
 }
 
 /** "[EDUCATION] Pricing disclaimer" -> "Pricing disclaimer"; "[OPENING]" -> "Opening". */
@@ -134,6 +171,66 @@ interface Raw {
   section: string;
   review?: string | null;
   labeled?: boolean;
+  annotated_id?: string;
+}
+
+const META_KEYS = new Set([
+  'doc id',
+  'doc_id',
+  'source id',
+  'source_id',
+  'revision',
+  'source revision',
+  'rev',
+  'plan scope',
+  'plan_scope',
+  'scope',
+  'owner',
+  'owner team',
+  'author',
+  'effective',
+  'effective period',
+  'effective date',
+  'effective dates',
+  'last edited',
+  'classification',
+  'allowed role',
+  'allowed roles',
+  'role',
+  'roles',
+  'audience',
+  'annotated unit id',
+  'unit id',
+]);
+
+function isMetaLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (/^---/.test(trimmed)) return true;
+  if (/^(?:doc id|source id|revision|plan scope|owner|effective|classification|allowed role|last edited|scope):/i.test(trimmed)) return true;
+  if (trimmed.includes('|')) {
+    const parts = trimmed.split('|');
+    return parts.some((p) => {
+      const idx = p.indexOf(':');
+      if (idx <= 0) return false;
+      const k = p.slice(0, idx).trim().toLowerCase();
+      return META_KEYS.has(k);
+    });
+  }
+  return false;
+}
+
+function parseMetaLine(line: string, header: Record<string, string>): void {
+  const parts = line.split('|');
+  for (const part of parts) {
+    const idx = part.indexOf(':');
+    if (idx > 0) {
+      const k = part.slice(0, idx).trim().toLowerCase();
+      const v = part.slice(idx + 1).trim();
+      if (k && v) {
+        header[k] = v;
+      }
+    }
+  }
 }
 
 /** Split a messy source document into raw candidates. Deterministic. */
@@ -143,7 +240,108 @@ function segment(text: string): { header: Record<string, string>; title: string;
   const raws: Raw[] = [];
   const skipped: SkippedLine[] = [];
   const notes: string[] = [];
-  const title = titleCase((lines[0] ?? '').replace(/\(SYNTHETIC.*$/i, ''));
+
+  // 1. Identify title line
+  let titleIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i]!.trim();
+    if (l && !l.startsWith('---') && !isMetaLine(l)) {
+      titleIndex = i;
+      break;
+    }
+  }
+
+  const rawTitle = titleIndex >= 0 ? lines[titleIndex]!.trim() : (lines[0] ?? '');
+  const title = cleanTitle(rawTitle);
+
+  // Check if document uses structured Markdown headings (## or ###)
+  const hasMarkdownHeadings = lines.some((l, idx) => idx > titleIndex && /^#{2,6}\s+/.test(l.trim()));
+
+  if (hasMarkdownHeadings) {
+    // ---------------------------------------------------------------------------
+    // Markdown Document Strategy: Header metadata + Heading section boundaries
+    // ---------------------------------------------------------------------------
+    let currentHeading: { title: string; section: string; annotated_id?: string } | null = null;
+    let sectionLines: string[] = [];
+
+    const flushMarkdownSection = () => {
+      if (!currentHeading || sectionLines.length === 0) {
+        currentHeading = null;
+        sectionLines = [];
+        return;
+      }
+
+      const bodyText = sectionLines.join('\n').trim();
+      if (bodyText) {
+        raws.push({
+          title: currentHeading.title,
+          type: 'fact',
+          body: bodyText,
+          verbatim: false,
+          section: currentHeading.section,
+          annotated_id: currentHeading.annotated_id,
+        });
+      }
+
+      currentHeading = null;
+      sectionLines = [];
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+      if (i === titleIndex) continue;
+      const rawLine = lines[i]!;
+      const line = rawLine.trim();
+      if (!line) {
+        if (currentHeading && sectionLines.length > 0) {
+          sectionLines.push('');
+        }
+        continue;
+      }
+
+      // Metadata lines before or outside sections
+      if (!currentHeading && isMetaLine(line)) {
+        parseMetaLine(line, header);
+        continue;
+      }
+
+      // Check for Markdown heading
+      const headingMatch = line.match(/^(#{2,6})\s+(.+)$/);
+      if (headingMatch) {
+        flushMarkdownSection();
+        const fullHeading = headingMatch[2]!.trim();
+        const annotatedMatch = fullHeading.match(/\[([A-Z0-9_-]+)\]/);
+        const annotatedId = annotatedMatch ? annotatedMatch[1] : undefined;
+        const headingClean = cleanTitle(fullHeading);
+
+        currentHeading = {
+          title: headingClean,
+          section: annotatedId ? `[${annotatedId}] ${headingClean}` : headingClean,
+          annotated_id: annotatedId,
+        };
+        continue;
+      }
+
+      if (currentHeading) {
+        if (/^(tip|fyi)\b/i.test(line)) {
+          skipped.push({ text: line, reason: 'coaching tip, not knowledge' });
+          continue;
+        }
+        if (/retired|do not use/i.test(line)) {
+          skipped.push({ text: line, reason: 'lifecycle note: routed to the owner as a possible retirement' });
+          notes.push(`Possible retirement: "${line}"`);
+          continue;
+        }
+        sectionLines.push(rawLine);
+      }
+    }
+    flushMarkdownSection();
+
+    return { header, title, raws, skipped, notes };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Baseline / Legacy Strategy: bracket sections, verbatim tags, colon labels
+  // ---------------------------------------------------------------------------
   let section = 'Document';
   let list: { title: string; items: string[]; numbered: boolean; section: string } | null = null;
   let prevWasPlain = false;
@@ -158,18 +356,18 @@ function segment(text: string): { header: Record<string, string>; title: string;
     list = null;
   };
 
-  for (const rawLine of lines.slice(1)) {
+  const startLine = titleIndex >= 0 ? titleIndex + 1 : 1;
+  for (const rawLine of lines.slice(startLine)) {
     const line = rawLine.trim();
     if (!line) { prevWasPlain = false; continue; }
     const wasPlain = prevWasPlain;
     prevWasPlain = false;
-    if (/^doc id:/i.test(line)) {
-      for (const part of line.split('|')) {
-        const [k, ...v] = part.split(':');
-        if (k && v.length) header[k.trim().toLowerCase()] = v.join(':').trim();
-      }
+
+    if (isMetaLine(line)) {
+      parseMetaLine(line, header);
       continue;
     }
+
     const sec = line.match(/^\[([^\]]+)\]/) ?? line.match(/^\*\*(.+)\*\*$/);
     if (sec) {
       flush();
@@ -178,6 +376,7 @@ function segment(text: string): { header: Record<string, string>; title: string;
       if (aka) notes.push(`Synonym in source: "${aka[1]}" for ${section}`);
       continue;
     }
+
     // Verbatim: a quoted passage marked for exact reading.
     const vb = line.match(/^(.*?)(?:verbatim\s*\(legal\)|\(read as written\))\s*:?\s*[-:]?\s*"(.+)"\s*$/i);
     if (vb) {
@@ -187,8 +386,10 @@ function segment(text: string): { header: Record<string, string>; title: string;
       raws.push({ title: `${titleCase(name || section)} (verbatim)`, type: 'verbatim', body: vb[2]!.trim(), verbatim: true, section: label ? `${section} ${label}`.trim() : section });
       continue;
     }
+
     if (/^(tip|fyi)\b/i.test(line)) { skipped.push({ text: line, reason: 'coaching tip, not knowledge' }); continue; }
     if (/retired|do not use/i.test(line)) { skipped.push({ text: line, reason: 'lifecycle note: routed to the owner as a possible retirement' }); notes.push(`Possible retirement: "${line}"`); continue; }
+
     const num = line.match(/^(\d+)[.)]\s+(.+)$/);
     const bul = line.match(/^[-*•]\s+(.+)$/);
     if (num || bul) {
@@ -200,9 +401,11 @@ function segment(text: string): { header: Record<string, string>; title: string;
       list.items.push((num ? num[2] : bul![1])!.trim());
       continue;
     }
+
     // A heading line ending in a colon starts a list section.
     if (/:$/.test(line)) { flush(); section = line.replace(/:$/, ''); continue; }
     flush();
+
     // "Label: text" or a plain sentence.
     const lab = line.match(/^([A-Z][A-Za-z -]{2,40}):\s+(.+)$/);
     const reviewDue = isoFromUs(line.match(/next review due ([\d/]+)/i)?.[1]);
@@ -230,9 +433,16 @@ function segment(text: string): { header: Record<string, string>; title: string;
  */
 export function extract(text: string, approved: KnowledgeUnit[], previous?: CandidateUnit[], fallbackDocId = 'DOC-UPLOAD', lexicon: Record<string, string> = {}): ExtractionResult {
   const { header, title, raws, skipped, notes } = segment(text);
-  const docId = header['doc id'] ?? fallbackDocId;
+  const docId = header['doc id'] ?? header['source id'] ?? fallbackDocId;
   const owner = (header['owner'] ?? 'Unassigned').replace(/ Knowledge Team$| Team$/, '');
-  const effective = isoFromUs(header['effective']) ?? isoFromUs(header['last edited']) ?? '2026-01-01';
+  const dateRange = parseDateRange(header['effective'] ?? header['effective period'] ?? header['effective dates'] ?? header['last edited']);
+  const effective = dateRange.start ?? '2026-01-01';
+  const headerReviewDate = dateRange.end;
+  const revision = header['revision'] ?? header['source revision'] ?? undefined;
+  const planScope = header['plan scope'] ?? header['scope'] ?? undefined;
+  const classification = header['classification'] ?? undefined;
+  const allowedRolesRaw = header['allowed role'] ?? header['allowed roles'] ?? header['role'];
+  const allowedRoles = allowedRolesRaw ? allowedRolesRaw.split(/[,|]/).map((r) => r.trim()).filter(Boolean) : undefined;
   const live = approved.filter((u) => u.status === 'approved');
 
   const candidates = raws.map((r, i): CandidateUnit => {
@@ -240,13 +450,15 @@ export function extract(text: string, approved: KnowledgeUnit[], previous?: Cand
     // ingested. Unchanged text means nothing to review, whatever the unit says.
     const prev = previous?.find((p) => p.source_section === r.section && p.verbatim === r.verbatim);
     const prevUnit = prev?.match.unit_id ? live.find((u) => u.unit_id === prev.match.unit_id) : undefined;
+    const cid = r.annotated_id || `${docId}#${i + 1}`;
+
     if (prev && normalizeForHash(prev.body) === normalizeForHash(r.body)) {
-      return { ...prev, cid: `${docId}#${i + 1}`, match: { ...prev.match, status: 'unchanged', drift: null }, route_to: 'none', suggestions: [] };
+      return { ...prev, cid, match: { ...prev.match, status: 'unchanged', drift: null }, route_to: 'none', suggestions: [] };
     }
     if (prev && prevUnit) {
       const drift = checkChange(prev.body, r.body, prevUnit.verbatim);
       return {
-        ...prev, cid: `${docId}#${i + 1}`, body: r.body, title: prev.title,
+        ...prev, cid, body: r.body, title: prev.title,
         match: { status: 'changed', unit_id: prevUnit.unit_id, unit_title: prevUnit.title, similarity: drift.similarity, drift },
         route_to: drift.route_to,
         suggestions: [],
@@ -268,8 +480,10 @@ export function extract(text: string, approved: KnowledgeUnit[], previous?: Cand
     const kb = kbFor(docId, r.verbatim, r.section);
     const route = status === 'unchanged' ? 'none' : drift ? drift.route_to : r.verbatim ? 'Legal (verbatim)' : 'Author';
     const synonyms = [...new Set(contentWords(r.title).slice(0, 3))];
+
     return {
-      cid: `${docId}#${i + 1}`,
+      cid,
+      annotated_id: r.annotated_id,
       title: r.title,
       type: r.type,
       body: r.body,
@@ -279,7 +493,7 @@ export function extract(text: string, approved: KnowledgeUnit[], previous?: Cand
       source_doc: docId,
       source_section: r.section,
       effective_date: effective,
-      review_date: r.review ?? plusOneYear(effective),
+      review_date: r.review ?? headerReviewDate ?? plusOneYear(effective),
       suggested_synonyms: synonyms,
       match: {
         status,
@@ -291,11 +505,28 @@ export function extract(text: string, approved: KnowledgeUnit[], previous?: Cand
       route_to: route,
       extractor: EXTRACTOR_VERSION,
       suggestions: [],
+      revision,
+      plan_scope: planScope,
+      allowed_roles: allowedRoles,
+      classification,
     };
   });
 
   for (const c of candidates) c.suggestions = c.match.status === 'unchanged' ? [] : suggest(c, live, lexicon);
-  return { doc_id: docId, title, owner, effective_date: effective, candidates, skipped, lifecycle_notes: notes, extractor: EXTRACTOR_VERSION };
+  return {
+    doc_id: docId,
+    title,
+    owner,
+    effective_date: effective,
+    candidates,
+    skipped,
+    lifecycle_notes: notes,
+    extractor: EXTRACTOR_VERSION,
+    revision,
+    plan_scope: planScope,
+    allowed_roles: allowedRoles,
+    classification,
+  };
 }
 
 // Merge: overlap below the "changed" threshold but clearly the same topic,

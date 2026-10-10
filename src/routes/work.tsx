@@ -9,6 +9,9 @@ import { useDemoStore } from "@/services/demoStore";
 import {
   AEP_SAMPLE,
   extractCandidates,
+  uploadAndIngestSource,
+  listRecentUploads,
+  fetchMyDrafts,
   type Candidate,
 } from "@/services/verity";
 import { IngestSidebarGuide } from "@/components/ingest/IngestSidebarGuide";
@@ -17,7 +20,12 @@ import { CandidateReviewView } from "@/components/ingest/CandidateReviewView";
 import { ReviewExtractWorkspace } from "@/components/ingest/ReviewExtractWorkspace";
 import { KnowledgeGapsView } from "@/components/gaps/KnowledgeGapsView";
 import { setBreadcrumbs } from "@/lib/breadcrumbs";
-import { MEMBER_SERVICES_GUIDE_UNITS, type ExtractedUnit } from "@/types/ingest";
+import {
+  MEMBER_SERVICES_GUIDE_UNITS,
+  type ExtractedUnit,
+  type IngestSourceExtractPayload,
+  type RecentUpload,
+} from "@/types/ingest";
 
 export const Route = createFileRoute("/work")({
   head: () => ({
@@ -76,6 +84,44 @@ function WorkPage() {
   const [extractedCandidates, setExtractedCandidates] = useState<Candidate[] | null>(null);
   const [activeSourceTitle, setActiveSourceTitle] = useState("Member Services Guide v3.pdf");
   const [extractedUnits, setExtractedUnits] = useState<ExtractedUnit[]>(MEMBER_SERVICES_GUIDE_UNITS);
+  const [currentDocId, setCurrentDocId] = useState<string | null>(null);
+  const [extractedParsedText, setExtractedParsedText] = useState<string>("");
+  const [serverRecentUploads, setServerRecentUploads] = useState<RecentUpload[]>([]);
+
+  // Fetch recent persistent uploads from database
+  const fetchUploads = () => {
+    listRecentUploads()
+      .then((serverUploads) => {
+        const mapped: RecentUpload[] = (serverUploads || []).map((u: any) => ({
+          id: u.id,
+          title: u.title || u.filename,
+          format: (u.filename?.endsWith(".pdf")
+            ? "pdf"
+            : u.filename?.endsWith(".docx")
+            ? "docx"
+            : u.filename?.endsWith(".md")
+            ? "md"
+            : "txt") as any,
+          source_type: u.source_type || "Policy",
+          lob: u.lob || "MAPD",
+          uploaded_on: u.uploaded_on || new Date(u.created_at || Date.now()).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          }),
+          status: u.status || (u.job_status === "completed" ? "Extracted" : u.job_status === "failed" ? "Error" : "Processing"),
+          snippet: u.snippet || `Extracted units from source`,
+        }));
+        setServerRecentUploads(mapped);
+      })
+      .catch(() => {
+        setServerRecentUploads([]);
+      });
+  };
+
+  useEffect(() => {
+    fetchUploads();
+  }, []);
 
   // Set top breadcrumbs based on state
   useEffect(() => {
@@ -98,35 +144,88 @@ function WorkPage() {
     return () => setBreadcrumbs([]);
   }, [tab, ingestStep]);
 
-  const handleExtract = async (sourceTitle: string, sourceText: string) => {
+  const handleExtract = async (
+    sourceTitle: string,
+    sourceText: string,
+    payload?: IngestSourceExtractPayload
+  ) => {
     setIsExtracting(true);
     setExtractionError("");
     try {
-      const candidates = await extractCandidates(person.name, sourceText);
-      setExtractedCandidates(candidates);
-      setActiveSourceTitle(sourceTitle || "Member Services Guide v3.pdf");
-      
-      // If extracting sample or custom text, convert to ExtractedUnit format
+      let result;
+      if (payload && payload.fileBase64) {
+        result = await uploadAndIngestSource({
+          filename: payload.fileName,
+          mime_type: payload.fileName.endsWith(".pdf")
+            ? "application/pdf"
+            : payload.fileName.endsWith(".docx")
+            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            : payload.fileName.endsWith(".md")
+            ? "text/markdown"
+            : "text/plain",
+          file_base64: payload.fileBase64,
+          source_title: sourceTitle || payload.title,
+          scope: "DEMO-RX-2026",
+          uploaded_by: person.name,
+        });
+      } else {
+        result = await uploadAndIngestSource({
+          filename: `${(sourceTitle || "pasted-source").toLowerCase().replace(/[^a-z0-9]/g, "-")}.txt`,
+          mime_type: "text/plain",
+          content_text: sourceText,
+          source_title: sourceTitle || "Pasted Source Document",
+          scope: "DEMO-RX-2026",
+          uploaded_by: person.name,
+        });
+      }
+
+      setActiveSourceTitle(sourceTitle || result.filename || "Member Services Guide v3.pdf");
+      setCurrentDocId(result.doc_id || null);
+
       if (sourceTitle && sourceTitle.includes("Member Services")) {
         setExtractedUnits(MEMBER_SERVICES_GUIDE_UNITS);
+        setExtractedParsedText("");
       } else {
-        setExtractedUnits(
-          candidates.map((c, i) => ({
-            id: `UNIT-EXT-${i + 1}`,
-            cid: c.cid,
-            title: c.title,
-            type: c.status === "changed_flagged" ? "Policy" : "Procedure",
-            content: c.text,
-            key_points: c.note ? [c.note] : ["Extracted key statement from source document."],
-            source_reference: `${sourceTitle || "Source Document"} • Section 1.${i + 1}`,
-            suggested_effective_date: c.effective_date || "2024-01-01",
-            selected: i === 0,
-          }))
-        );
+        setExtractedParsedText(result.extracted_text || "");
+        if (result.units && result.units.length > 0) {
+          setExtractedUnits(
+            result.units.map((u, i) => ({
+              id: u.id || `UNIT-EXT-${i + 1}`,
+              cid: u.cid,
+              title: u.title,
+              type: (u.type as any) || "Procedure",
+              content: u.content,
+              key_points: u.key_points?.length ? u.key_points : ["Extracted statement from document."],
+              source_reference: u.source_reference || `${result.filename} • Section 1.${i + 1}`,
+              suggested_effective_date: u.suggested_effective_date || "2024-01-01",
+              match_status: u.match_status,
+              similarity: u.similarity,
+              route_to: u.route_to,
+              selected: i === 0 || u.match_status === "new",
+            }))
+          );
+        }
       }
+
+      setExtractedCandidates(
+        result.units.map((u) => ({
+          cid: u.cid,
+          title: u.title,
+          text: u.content,
+          status: u.match_status === "changed" ? "changed_flagged" : "new",
+          route: u.route_to === "legal" ? "legal" : "owner",
+          owner_team: "Pharmacy Ops",
+          effective_date: u.suggested_effective_date,
+          tags: [u.type.toLowerCase()],
+          gate: { checked: 27, blocking: [] },
+          note: u.key_points?.[0],
+        }))
+      );
+
       setIngestStep("review_extract");
-    } catch {
-      setExtractionError("Candidate extraction could not be completed. Please verify the source document.");
+      fetchUploads();
+    } catch (err: any) {
+      setExtractionError(err?.message || "Candidate extraction could not be completed. Please verify the source document.");
     } finally {
       setIsExtracting(false);
     }
@@ -214,6 +313,8 @@ function WorkPage() {
               lob="MAPD"
               uploadedOn="12 Jan 2024"
               initialUnits={extractedUnits}
+              extractedText={extractedParsedText}
+              sourceDocId={currentDocId ?? undefined}
               onBackToIngest={handleResetToSource}
               onReplaceDocument={handleResetToSource}
               onSubmitForReview={() => handleProposed()}
@@ -233,6 +334,7 @@ function WorkPage() {
                   onExtract={handleExtract}
                   isExtracting={isExtracting}
                   error={extractionError}
+                  recentUploads={serverRecentUploads}
                 />
               </div>
 
@@ -268,8 +370,81 @@ function WorkPage() {
 
 function MyDrafts() {
   const { person } = useSession();
-  const allDrafts = useDemoStore((s) => s.chainDrafts);
-  const drafts = allDrafts.filter((d) => d.proposed_by === person.name);
+  const [drafts, setDrafts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchMyDrafts(person.name)
+      .then((serverDrafts) => {
+        if (!mounted) return;
+        if (serverDrafts && serverDrafts.length > 0) {
+          const mapped = serverDrafts.map((d) => {
+            let hist: any[] = [];
+            try {
+              hist = JSON.parse(d.history_json || "[]");
+            } catch {}
+            let tags: string[] = [];
+            try {
+              tags = JSON.parse(d.tags_json || "[]");
+            } catch {}
+
+            return {
+              id: d.draft_id,
+              cid: d.candidate_id || d.draft_id,
+              unit_id: d.unit_id,
+              title: d.title,
+              current_text: d.current_text,
+              proposed_text: d.proposed_text,
+              verbatim: Boolean(d.verbatim),
+              route: d.route_to,
+              owner_team: d.owner_team,
+              effective_date: d.effective_date,
+              tags,
+              proposed_by: d.proposed_by,
+              status: (d.status === "requested_changes" ? "in_review" : d.status) as any,
+              raw_status: d.status,
+              gate: null,
+              reason: d.reason,
+              decided_by: d.decided_by,
+              history: hist.map((h: any) => ({
+                status: (h.action?.toLowerCase().includes("approved")
+                  ? "approved"
+                  : h.action?.toLowerCase().includes("rejected")
+                  ? "rejected"
+                  : h.action?.toLowerCase().includes("changes")
+                  ? "in_review"
+                  : "proposed") as any,
+                at: h.at || new Date().toISOString(),
+                by: h.by || d.proposed_by,
+                note: h.note,
+              })),
+            };
+          });
+          setDrafts(mapped);
+        } else {
+          setDrafts([]);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load drafts from server:", err);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [person.name]);
+
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-border bg-surface p-12 text-center text-xs text-ink-muted">
+        <p>Loading your active draft proposals...</p>
+      </div>
+    );
+  }
 
   if (!drafts.length) {
     return (
@@ -289,7 +464,7 @@ function MyDrafts() {
         <div>
           <h2 className="text-sm font-semibold text-ink">My active draft proposals ({drafts.length})</h2>
           <p className="text-xs text-ink-muted">
-            Track draft governance states, approvals, and publication status.
+            Track draft governance states, approvals, and publication status from the shared persistent repository.
           </p>
         </div>
       </div>
@@ -304,10 +479,30 @@ function MyDrafts() {
                   <span className="font-mono text-[11px] text-ink-muted bg-[#F3F4F6] px-1.5 py-0.5 rounded">
                     {d.unit_id}
                   </span>
+                  {d.raw_status === "requested_changes" && (
+                    <span className="inline-flex rounded-full bg-sky-50 px-2.5 py-0.5 text-[10.5px] font-medium text-sky-700 border border-sky-200">
+                      Changes requested
+                    </span>
+                  )}
+                  {d.raw_status === "approved" && (
+                    <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10.5px] font-medium text-emerald-700 border border-emerald-200">
+                      Approved & Published
+                    </span>
+                  )}
+                  {d.raw_status === "rejected" && (
+                    <span className="inline-flex rounded-full bg-rose-50 px-2.5 py-0.5 text-[10.5px] font-medium text-rose-700 border border-rose-200">
+                      Rejected
+                    </span>
+                  )}
                 </div>
                 <p className="mt-2 text-xs text-ink/80 leading-relaxed rounded bg-[#F9FAFB] p-2.5 border border-border/60">
                   {d.proposed_text}
                 </p>
+                {d.reason && (
+                  <div className="mt-2 text-xs rounded bg-amber-50/70 p-2 border border-amber-200/60 text-amber-900">
+                    <span className="font-semibold">Reviewer note:</span> {d.reason}
+                  </div>
+                )}
               </div>
             </div>
 

@@ -144,16 +144,18 @@ describe("Verity Review Queue Redesign", () => {
     expect(screen.queryByText("Eligibility criteria for copay assistance")).not.toBeInTheDocument();
   });
 
-  it("approves a pending unit when authorized and updates status", () => {
+  it("approves a pending unit when authorized and updates status", async () => {
     renderReviewQueue("owen");
 
     const approveBtn = screen.getByRole("button", { name: /^Approve$/i });
     fireEvent.click(approveBtn);
 
-    expect(screen.getByText(/Successfully approved/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Successfully approved/i)).toBeInTheDocument();
+    }, { timeout: 3500 });
   });
 
-  it("rejects a unit with required reason note", () => {
+  it("rejects a unit with required reason note", async () => {
     renderReviewQueue("owen");
 
     // Attempt reject without note
@@ -167,10 +169,12 @@ describe("Verity Review Queue Redesign", () => {
     fireEvent.change(notesInput, { target: { value: "Duplicate policy version" } });
     fireEvent.click(rejectBtn);
 
-    expect(screen.getByText(/rejected and archived/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/rejected and archived/i)).toBeInTheDocument();
+    }, { timeout: 3500 });
   });
 
-  it("requests changes with feedback note", () => {
+  it("requests changes with feedback note", async () => {
     renderReviewQueue("owen");
 
     const requestBtn = screen.getByRole("button", { name: /^Request changes$/i });
@@ -178,7 +182,9 @@ describe("Verity Review Queue Redesign", () => {
     fireEvent.change(notesInput, { target: { value: "Needs updated 2024 tier table" } });
     fireEvent.click(requestBtn);
 
-    expect(screen.getByText(/Changes requested for/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Changes requested for/i)).toBeInTheDocument();
+    }, { timeout: 3500 });
   });
 
   it("switches details panel sub-tabs to Context, Source, and History", () => {

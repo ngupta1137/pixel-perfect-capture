@@ -24,7 +24,7 @@ export function IngestSidebarGuide() {
             </span>
             <div>
               <p className="font-semibold text-ink">Upload or paste a document</p>
-              <p className="text-[11px] text-ink-muted">PDF, DOCX, TXT or PPTX. Max size 50 MB.</p>
+              <p className="text-[11px] text-ink-muted">PDF, DOCX, MD, or TXT. Max size 15 MB.</p>
             </div>
           </div>
 

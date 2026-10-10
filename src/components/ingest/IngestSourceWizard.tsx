@@ -32,16 +32,37 @@ import {
 import { INITIAL_RECENT_UPLOADS, type RecentUpload } from "@/types/ingest";
 import { AEP_SAMPLE } from "@/services/verity";
 
+export interface IngestSourceExtractPayload {
+  fileName: string;
+  fileBase64: string;
+  title: string;
+  sourceType: string;
+  lob: string;
+  stateCode: string;
+  description: string;
+  rawTextFallback: string;
+}
+
 interface IngestSourceWizardProps {
-  onExtract: (sourceTitle: string, sourceText: string) => Promise<void>;
+  onExtract: (
+    sourceTitle: string,
+    sourceText: string,
+    payload?: IngestSourceExtractPayload
+  ) => Promise<void>;
   isExtracting: boolean;
   error?: string;
+  recentUploads?: RecentUpload[];
+  onSelectRecent?: (upload: RecentUpload) => void;
+  onDeleteRecent?: (id: string) => void;
 }
 
 export function IngestSourceWizard({
   onExtract,
   isExtracting,
   error,
+  recentUploads: controlledRecentUploads,
+  onSelectRecent,
+  onDeleteRecent,
 }: IngestSourceWizardProps) {
   const [inputMode, setInputMode] = useState<"upload" | "paste" | "url">("upload");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -57,7 +78,14 @@ export function IngestSourceWizard({
   const [description, setDescription] = useState("");
 
   // Recent Uploads List State
-  const [recentUploads, setRecentUploads] = useState<RecentUpload[]>(INITIAL_RECENT_UPLOADS);
+  const [showDemoFixtures, setShowDemoFixtures] = useState(true);
+  const [localRecentUploads, setLocalRecentUploads] = useState<RecentUpload[]>(INITIAL_RECENT_UPLOADS);
+  const isViewingDemo = controlledRecentUploads !== undefined 
+    ? (controlledRecentUploads.length === 0 && showDemoFixtures)
+    : showDemoFixtures;
+  const recentUploads = controlledRecentUploads !== undefined 
+    ? (controlledRecentUploads.length > 0 ? controlledRecentUploads : (showDemoFixtures ? INITIAL_RECENT_UPLOADS : []))
+    : (showDemoFixtures ? localRecentUploads : []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (file: File) => {
@@ -68,38 +96,92 @@ export function IngestSourceWizard({
       setTitle(baseTitle);
     }
 
-    if (fileName.endsWith(".txt") || fileName.endsWith(".md")) {
+    const ext = fileName.split(".").pop()?.toLowerCase();
+    const sizeKb = (file.size / 1024).toFixed(1);
+
+    if (file.size > 15 * 1024 * 1024) {
+      setFileNotice(
+        `Error: File "${fileName}" (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds maximum allowed size of 15 MB.`
+      );
+      return;
+    }
+
+    const supportedExts = ["pdf", "docx", "txt", "md"];
+    if (!supportedExts.includes(ext || "")) {
+      setFileNotice(
+        `File format ".${ext}" is not supported. Supported formats are PDF, DOCX, Markdown (.md), and Plain Text (.txt).`
+      );
+      return;
+    }
+
+    if (ext === "txt" || ext === "md") {
       const text = await file.text();
       setPastedText(text);
-      setFileNotice(`Loaded "${fileName}" text contents directly for candidate extraction.`);
-    } else if (fileName.endsWith(".pdf") || fileName.endsWith(".docx") || fileName.endsWith(".pptx")) {
-      // In browser demo environment, provide clear notice and preload standard policy sample
+      setFileNotice(`Loaded "${fileName}" text contents directly (${sizeKb} KB).`);
+    } else if (ext === "pdf" || ext === "docx") {
       setFileNotice(
-        `File "${fileName}" uploaded. Since native binary (${fileName.split(".").pop()?.toUpperCase()}) extraction runs server-side in production, the document preview is loaded using standard policy text.`
+        `File "${fileName}" (${sizeKb} KB) loaded. Verity will parse pages, extract sections, and verify hashes on the server.`
       );
-      setPastedText(AEP_SAMPLE.text);
     }
   };
 
   const handleExtractClick = async () => {
     const finalTitle = title.trim() || (inputMode === "upload" && selectedFile ? selectedFile.name : AEP_SAMPLE.title);
-    const finalText = inputMode === "url" 
+    const textContent = inputMode === "url" 
       ? `Web source from: ${urlInput}\n\n` + pastedText 
       : pastedText;
     
-    await onExtract(finalTitle, finalText);
+    let fileBase64 = "";
+    let fileName = selectedFile?.name || `${finalTitle.replace(/[^a-zA-Z0-9_-]/g, "_")}.md`;
+
+    if (inputMode === "upload" && selectedFile) {
+      fileName = selectedFile.name;
+      fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const res = reader.result as string;
+          resolve(res.includes(",") ? res.split(",")[1]! : res);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(selectedFile);
+      });
+    } else {
+      fileBase64 = btoa(unescape(encodeURIComponent(textContent)));
+    }
+
+    const payload: IngestSourceExtractPayload = {
+      fileName,
+      fileBase64,
+      title: finalTitle,
+      sourceType,
+      lob,
+      stateCode,
+      description,
+      rawTextFallback: textContent,
+    };
+    
+    await onExtract(finalTitle, textContent, payload);
   };
 
   const handleDeleteUpload = (id: string) => {
-    setRecentUploads((prev) => prev.filter((item) => item.id !== id));
+    if (onDeleteRecent) {
+      onDeleteRecent(id);
+    } else {
+      setLocalRecentUploads((prev) => prev.filter((item) => item.id !== id));
+    }
   };
 
   const handleSelectRecent = (upload: RecentUpload) => {
-    setTitle(upload.title);
-    setSourceType(upload.source_type || "Policy / Guidance");
-    setLob(upload.lob || "MAPD");
-    setPastedText(upload.snippet ? upload.snippet + "\n\n" + AEP_SAMPLE.text : AEP_SAMPLE.text);
+    if (onSelectRecent) {
+      onSelectRecent(upload);
+    } else {
+      setTitle(upload.title);
+      setSourceType(upload.source_type || "Policy / Guidance");
+      setLob(upload.lob || "MAPD");
+      setPastedText(upload.snippet ? upload.snippet + "\n\n" + AEP_SAMPLE.text : AEP_SAMPLE.text);
+    }
   };
+
 
   return (
     <div className="space-y-8">
@@ -203,7 +285,7 @@ export function IngestSourceWizard({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf,.docx,.txt,.pptx,.md"
+                  accept=".pdf,.docx,.txt,.md"
                   className="sr-only"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -216,16 +298,16 @@ export function IngestSourceWizard({
                   variant="outline"
                   size="sm"
                   onClick={() => fileInputRef.current?.click()}
-                  className="rounded-lg border-[#1E5E2E] text-[#1E5E2E] hover:bg-[#EAF7EE] font-medium text-xs px-4"
+                  className="rounded-lg border-[#1E5E2E] text-[#1E5E2E] hover:bg-[#EAF7EE] font-medium text-xs px-4 cursor-pointer"
                 >
                   Choose file
                 </Button>
 
                 <p className="mt-4 text-[11px] text-ink-muted">
-                  Supported formats: PDF, DOCX, TXT, PPTX
+                  Supported formats: PDF, DOCX, Markdown (.md), Plain Text (.txt)
                 </p>
                 <p className="text-[11px] text-ink-muted">
-                  Max size: 50 MB
+                  Max size: 15 MB
                 </p>
               </div>
 
@@ -444,13 +526,31 @@ export function IngestSourceWizard({
       {/* Recent Uploads Table */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-ink">Recent uploads</h2>
-          <button
-            type="button"
-            className="text-xs font-semibold text-[#1E5E2E] hover:underline flex items-center gap-1 cursor-pointer"
-          >
-            View all <ArrowRight className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-ink">Recent uploads</h2>
+            {isViewingDemo && (
+              <span className="text-[10px] font-medium text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                Demo mode (Sample fixtures)
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {controlledRecentUploads !== undefined && controlledRecentUploads.length === 0 && (
+              <button
+                type="button"
+                onClick={() => setShowDemoFixtures(!showDemoFixtures)}
+                className="text-xs text-ink-muted hover:text-ink cursor-pointer underline"
+              >
+                {showDemoFixtures ? "Hide demo fixtures" : "Show demo fixtures"}
+              </button>
+            )}
+            <button
+              type="button"
+              className="text-xs font-semibold text-[#1E5E2E] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              View all <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-2xs">
@@ -467,88 +567,121 @@ export function IngestSourceWizard({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {recentUploads.map((item) => (
-                  <tr key={item.id} className="hover:bg-[#F9FAFB]/60 transition-colors">
-                    <td className="px-4 py-3 font-medium text-ink">
-                      <div className="flex items-center gap-2.5">
-                        {item.format === "pdf" && (
-                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-rose-50 border border-rose-200 text-rose-600 font-bold text-[9px]">
-                            PDF
-                          </div>
-                        )}
-                        {item.format === "docx" && (
-                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-blue-50 border border-blue-200 text-blue-600 font-bold text-[9px]">
-                            DOC
-                          </div>
-                        )}
-                        {item.format === "pptx" && (
-                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-amber-50 border border-amber-200 text-amber-600 font-bold text-[9px]">
-                            PPT
-                          </div>
-                        )}
-                        {item.format === "txt" && (
-                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-50 border border-slate-200 text-slate-600 font-bold text-[9px]">
-                            TXT
-                          </div>
-                        )}
-                        <span className="truncate max-w-[240px]">{item.title}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-ink-muted">{item.source_type}</td>
-                    <td className="px-4 py-3 text-ink-muted">{item.lob}</td>
-                    <td className="px-4 py-3 text-ink-muted">{item.uploaded_on}</td>
-                    <td className="px-4 py-3">
-                      {item.status === "Extracted" && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 border border-emerald-200">
-                          <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Extracted
-                        </span>
-                      )}
-                      {item.status === "Processing" && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-0.5 text-[11px] font-medium text-sky-700 border border-sky-200">
-                          <RefreshCw className="h-3 w-3 text-sky-600 animate-spin" /> Processing
-                        </span>
-                      )}
-                      {item.status === "Error" && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-medium text-rose-700 border border-rose-200">
-                          <AlertCircle className="h-3 w-3 text-rose-600" /> Error
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-ink-muted">
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Actions</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="text-xs">
-                          <DropdownMenuItem
-                            onClick={() => handleSelectRecent(item)}
-                            className="gap-2 cursor-pointer"
-                          >
-                            <Eye className="h-3.5 w-3.5" /> View source
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              handleSelectRecent(item);
-                              onExtract(item.title, item.snippet || AEP_SAMPLE.text);
-                            }}
-                            className="gap-2 cursor-pointer"
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" /> Extract units
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteUpload(item.id)}
-                            className="gap-2 text-destructive cursor-pointer"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                {recentUploads.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-ink-muted">
+                      <FileText className="h-6 w-6 mx-auto mb-2 text-ink-muted/50" />
+                      <p className="font-medium text-xs text-ink">No documents uploaded yet in database.</p>
+                      <p className="text-[11px] text-ink-muted mt-1">
+                        Upload a PDF, DOCX, Markdown, or Plain Text document above to begin candidate extraction.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowDemoFixtures(true)}
+                        className="mt-3 text-xs h-7 border-dashed text-ink-muted hover:text-ink cursor-pointer"
+                      >
+                        Preview sample demo fixtures
+                      </Button>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  recentUploads.map((item) => {
+                    const isDemo = INITIAL_RECENT_UPLOADS.some((d) => d.id === item.id);
+                    return (
+                      <tr key={item.id} className="hover:bg-[#F9FAFB]/60 transition-colors">
+                        <td className="px-4 py-3 font-medium text-ink">
+                          <div className="flex items-center gap-2.5">
+                            {item.format === "pdf" && (
+                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-rose-50 border border-rose-200 text-rose-600 font-bold text-[9px]">
+                                PDF
+                              </div>
+                            )}
+                            {item.format === "docx" && (
+                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-blue-50 border border-blue-200 text-blue-600 font-bold text-[9px]">
+                                DOC
+                              </div>
+                            )}
+                            {(item.format === "txt" && item.title.endsWith(".md")) ? (
+                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[9px]">
+                                MD
+                              </div>
+                            ) : item.format === "txt" ? (
+                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-50 border border-slate-200 text-slate-600 font-bold text-[9px]">
+                                TXT
+                              </div>
+                            ) : null}
+                            {item.format === "pptx" && (
+                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-amber-50 border border-amber-200 text-amber-600 font-bold text-[9px]">
+                                PPT
+                              </div>
+                            )}
+                            <span className="truncate max-w-[240px]">{item.title}</span>
+                            {isDemo && (
+                              <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-medium">
+                                Demo fixture
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-ink-muted">{item.source_type}</td>
+                        <td className="px-4 py-3 text-ink-muted">{item.lob}</td>
+                        <td className="px-4 py-3 text-ink-muted">{item.uploaded_on}</td>
+                        <td className="px-4 py-3">
+                          {item.status === "Extracted" && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 border border-emerald-200">
+                              <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Extracted
+                            </span>
+                          )}
+                          {item.status === "Processing" && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-0.5 text-[11px] font-medium text-sky-700 border border-sky-200">
+                              <RefreshCw className="h-3 w-3 text-sky-600 animate-spin" /> Processing
+                            </span>
+                          )}
+                          {item.status === "Error" && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-medium text-rose-700 border border-rose-200">
+                              <AlertCircle className="h-3 w-3 text-rose-600" /> Error
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-ink-muted">
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Actions</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="text-xs">
+                              <DropdownMenuItem
+                                onClick={() => handleSelectRecent(item)}
+                                className="gap-2 cursor-pointer"
+                              >
+                                <Eye className="h-3.5 w-3.5" /> View source
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  handleSelectRecent(item);
+                                  onExtract(item.title, item.snippet || AEP_SAMPLE.text);
+                                }}
+                                className="gap-2 cursor-pointer"
+                              >
+                                <RefreshCw className="h-3.5 w-3.5" /> Extract units
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleDeleteUpload(item.id)}
+                                className="gap-2 text-destructive cursor-pointer"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

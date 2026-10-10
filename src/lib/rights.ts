@@ -56,7 +56,7 @@ export const PAGES = [
   { to: "/", label: "Ask", views: ["ask"] },
   { to: "/work", label: "My work", views: ["author_ingest"] },
   { to: "/legal", label: "Legal queue", views: ["author_queue"] },
-  { to: "/review", label: "Needs my review", views: ["needs_review"] },
+  { to: "/review", label: "Review queue", views: ["author_queue", "needs_review"] },
   {
     to: "/author",
     label: "Author",
@@ -97,7 +97,29 @@ export const pageCaps = (to: PagePath): Capability[] => [
   ...new Set(pageFor(to).views.flatMap((v) => VIEWS[v])),
 ];
 export const navFor = (p: Person) => PAGES.filter((pg) => canOpen(p, pg.to));
-export const homeRoute = (p: Person): PagePath => navFor(p)[0]?.to ?? "/rights";
+
+const ROLE_HOME_PREFERENCE: Record<string, PagePath[]> = {
+  compliance_auditor: ["/library", "/audit", "/review"],
+  knowledge_author: ["/work", "/review", "/library"],
+  knowledge_owner: ["/review", "/work", "/library"],
+  legal_approver: ["/legal", "/review", "/library"],
+  access_admin: ["/access", "/audit", "/rights"],
+  ai_product_owner: ["/evals", "/health", "/agents"],
+  leadership: ["/health", "/rights"],
+  pharmacy_advocate: ["/", "/library"],
+  insurance_advocate: ["/", "/library"],
+  advocate_supervisor: ["/", "/library"],
+  member_chat: ["/"],
+  ai_agent: ["/"],
+};
+
+export const homeRoute = (p: Person): PagePath => {
+  const prefs = ROLE_HOME_PREFERENCE[p.persona] || [];
+  for (const path of prefs) {
+    if (canOpen(p, path)) return path;
+  }
+  return navFor(p)[0]?.to ?? "/rights";
+};
 
 export const NEVER_TOGETHER = policy.never_together as [Capability, Capability][];
 export const personaDef = (key: string) => (policy.personas as Record<string, PersonaDef>)[key]!;

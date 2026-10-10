@@ -128,13 +128,15 @@ describe("Verity Demo Role-Selection Flow & Permission-Aware Navigation", () => 
 
       const nav = screen.getByRole("navigation", { name: "Workspace navigation" });
 
-      // Permitted for Dana (Authoring & Gaps)
+      // Permitted for Dana (Authoring, Gaps, and Review queue via view_review_queue)
       expect(within(nav).getByRole("link", { name: /^Knowledge library$/i })).toBeInTheDocument();
       expect(within(nav).getByRole("link", { name: /^Ingest$/i })).toBeInTheDocument();
       expect(within(nav).getByRole("link", { name: /Knowledge gaps/i })).toBeInTheDocument();
+      expect(within(nav).getByRole("link", { name: /Review queue/i })).toBeInTheDocument();
 
       // Unauthorized for Dana
-      expect(within(nav).queryByRole("link", { name: /Review queue/i })).not.toBeInTheDocument();
+      expect(within(nav).queryByRole("link", { name: /^Legal queue$/i })).not.toBeInTheDocument();
+      expect(within(nav).queryByRole("link", { name: /^Evaluations$/i })).not.toBeInTheDocument();
       expect(within(nav).queryByRole("link", { name: /^Analytics$/i })).not.toBeInTheDocument();
       expect(within(nav).queryByRole("link", { name: /Agents/i })).not.toBeInTheDocument();
       expect(within(nav).queryByRole("link", { name: /^Settings$/i })).not.toBeInTheDocument();

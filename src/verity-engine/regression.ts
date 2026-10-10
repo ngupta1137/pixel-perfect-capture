@@ -40,22 +40,37 @@ export interface RegressionReport {
   summary: string;
 }
 
-const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
+export const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
 
-function passes(c: RegressionCase, r: ServeResponse, engine: Verity): { ok: boolean; got: string } {
+export function passes(c: RegressionCase, r: ServeResponse, engine: Verity): { ok: boolean; got: string; reason?: string } {
   const gotIds = [...new Set(r.parts.flatMap((p) => p.unit_ids))];
   let ok: boolean;
+  let reason: string | undefined;
   if (c.expected_parts) {
     ok = c.expected_parts.every((ep, i) => r.parts[i]?.outcome === ep.outcome && sameSet(r.parts[i]!.unit_ids, ep.unit_ids));
+    if (!ok) {
+      reason = `Multi-part mismatch: expected parts [${c.expected_parts.map((p) => `${p.outcome}:${p.unit_ids.join(',')}`).join(' | ')}], got [${r.parts.map((p) => `${p.outcome}:${p.unit_ids.join(',')}`).join(' | ')}]`;
+    }
   } else {
     const needIds = ['answer', 'stale', 'conflict'].includes(c.expected_outcome);
-    ok = r.outcome === c.expected_outcome && (!needIds || sameSet(gotIds, c.expected_unit_ids));
+    const outcomeMatch = r.outcome === c.expected_outcome;
+    const idsMatch = !needIds || sameSet(gotIds, c.expected_unit_ids);
+    ok = outcomeMatch && idsMatch;
+    if (!outcomeMatch) {
+      reason = `Outcome mismatch: expected '${c.expected_outcome}', got '${r.outcome}'`;
+    } else if (!idsMatch) {
+      reason = `Unit IDs mismatch: expected [${c.expected_unit_ids.join(', ')}], got [${gotIds.join(', ')}]`;
+    }
   }
   if (ok && c.must_match_verbatim_exactly) {
     const exp = engine.unit(c.expected_unit_ids[0]!);
-    ok = r.outcome === 'answer' && !!exp && r.parts.some((p) => p.text === exp.body);
+    const verbatimMatch = r.outcome === 'answer' && !!exp && r.parts.some((p) => p.text === exp.body);
+    if (!verbatimMatch) {
+      ok = false;
+      reason = `Verbatim mismatch for unit ${c.expected_unit_ids[0]}`;
+    }
   }
-  return { ok, got: `${r.outcome}${gotIds.length ? ` [${gotIds.join(', ')}]` : ''}` };
+  return { ok, got: `${r.outcome}${gotIds.length ? ` [${gotIds.join(', ')}]` : ''}`, reason };
 }
 
 export function checkPublication(data: EngineData, before: KnowledgeUnit[], after: KnowledgeUnit[], cases: RegressionCase[]): RegressionReport {

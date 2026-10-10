@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search,
   SlidersHorizontal,
@@ -44,13 +44,22 @@ import {
 import { INITIAL_REVIEW_QUEUE, type ReviewQueueItem, type ReviewStatus } from "@/types/review";
 import { useSession } from "@/lib/session";
 import { useDemoStore } from "@/services/demoStore";
-import { aepReadiness, reverifyUnit, decideBlocker, type ChainDraft } from "@/services/verity";
+import {
+  aepReadiness,
+  reverifyUnit,
+  decideBlocker,
+  fetchReviewQueue,
+  submitReviewDecision,
+  type ChainDraft,
+} from "@/services/verity";
 
 export function ReviewQueueView() {
   const { person, can } = useSession();
   const demoStore = useDemoStore((s) => s);
   
   const [items, setItems] = useState<ReviewQueueItem[]>(INITIAL_REVIEW_QUEUE);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDeciding, setIsDeciding] = useState(false);
   const [selectedId, setSelectedId] = useState<string>("REV-001");
   const [activeTab, setActiveTab] = useState<"all" | "my_reviews" | "requested_changes" | "approved" | "rejected">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -160,10 +169,35 @@ export function ReviewQueueView() {
     setActionSuccess("");
   };
 
-  // Approval / Decision Actions
-  const handleApprove = () => {
-    if (!activeItem) return;
+  // Load persistent drafts from repository
+  const loadQueue = async () => {
+    try {
+      const serverItems = await fetchReviewQueue();
+      if (serverItems && serverItems.length > 0) {
+        setItems(serverItems);
+        setSelectedId((prev) => {
+          if (serverItems.some((it) => it.id === prev)) {
+            return prev;
+          }
+          return serverItems[0]!.id;
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch review queue from server:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadQueue();
+  }, []);
+
+  // Approval / Decision Actions (Server-side with maker-checker & regression gate)
+  const handleApprove = async () => {
+    if (!activeItem || isDeciding) return;
     setActionError("");
+    setActionSuccess("");
 
     // Check RBAC separation of duties
     const isApprover = can("approve_standard") || can("approve_legal");
@@ -172,89 +206,102 @@ export function ReviewQueueView() {
       return;
     }
 
-    setItems((prev) =>
-      prev.map((it) =>
-        it.id === activeItem.id
-          ? {
-              ...it,
-              status: "Approved",
-              history: [
-                ...(it.history || []),
-                {
-                  action: "Approved",
-                  by: `${person.name} (${person.label})`,
-                  at: new Date().toLocaleString(),
-                  note: reviewerNotes || "Approved for publication in knowledge library.",
-                },
-              ],
-            }
-          : it
-      )
-    );
+    setIsDeciding(true);
+    try {
+      const res = await submitReviewDecision({
+        draftId: activeItem.id,
+        action: "approve",
+        reviewerName: person.name,
+        reviewerLabel: person.label,
+        reviewerRole: person.persona,
+        reviewerCapabilities: person.capabilities,
+        notes: reviewerNotes,
+      });
 
-    setActionSuccess(`Successfully approved "${activeItem.title}"! Published as official governed knowledge.`);
+      if (!res.ok) {
+        setActionError(res.error || "Failed to approve draft.");
+        return;
+      }
+
+      setActionSuccess(res.message || `Successfully approved "${activeItem.title}"! Published as official governed knowledge.`);
+      await loadQueue();
+    } catch (err: any) {
+      setActionError(err.message || "An unexpected error occurred during approval.");
+    } finally {
+      setIsDeciding(false);
+    }
   };
 
-  const handleReject = () => {
-    if (!activeItem) return;
+  const handleReject = async () => {
+    if (!activeItem || isDeciding) return;
+    setActionError("");
+    setActionSuccess("");
+
     if (!reviewerNotes.trim()) {
       setActionError("A rejection reason or note is required to reject a knowledge unit.");
       return;
     }
 
-    setItems((prev) =>
-      prev.map((it) =>
-        it.id === activeItem.id
-          ? {
-              ...it,
-              status: "Rejected",
-              reviewer_notes: reviewerNotes,
-              history: [
-                ...(it.history || []),
-                {
-                  action: "Rejected",
-                  by: `${person.name} (${person.label})`,
-                  at: new Date().toLocaleString(),
-                  note: reviewerNotes,
-                },
-              ],
-            }
-          : it
-      )
-    );
+    setIsDeciding(true);
+    try {
+      const res = await submitReviewDecision({
+        draftId: activeItem.id,
+        action: "reject",
+        reviewerName: person.name,
+        reviewerLabel: person.label,
+        reviewerRole: person.persona,
+        reviewerCapabilities: person.capabilities,
+        notes: reviewerNotes,
+      });
 
-    setActionSuccess(`Unit "${activeItem.title}" rejected and archived.`);
+      if (!res.ok) {
+        setActionError(res.error || "Failed to reject draft.");
+        return;
+      }
+
+      setActionSuccess(res.message || `Unit "${activeItem.title}" rejected and archived.`);
+      await loadQueue();
+    } catch (err: any) {
+      setActionError(err.message || "An unexpected error occurred during rejection.");
+    } finally {
+      setIsDeciding(false);
+    }
   };
 
-  const handleRequestChanges = () => {
-    if (!activeItem) return;
+  const handleRequestChanges = async () => {
+    if (!activeItem || isDeciding) return;
+    setActionError("");
+    setActionSuccess("");
+
     if (!reviewerNotes.trim()) {
       setActionError("Please provide reviewer notes explaining the requested changes.");
       return;
     }
 
-    setItems((prev) =>
-      prev.map((it) =>
-        it.id === activeItem.id
-          ? {
-              ...it,
-              status: "Requested changes",
-              reviewer_notes: reviewerNotes,
-              history: [
-                ...(it.history || []),
-                {
-                  action: "Requested changes",
-                  by: `${person.name} (${person.label})`,
-                  at: new Date().toLocaleString(),
-                  note: reviewerNotes,
-                },
-              ],
-            }
-          : it
-      )
-    );
+    setIsDeciding(true);
+    try {
+      const res = await submitReviewDecision({
+        draftId: activeItem.id,
+        action: "request_changes",
+        reviewerName: person.name,
+        reviewerLabel: person.label,
+        reviewerRole: person.persona,
+        reviewerCapabilities: person.capabilities,
+        notes: reviewerNotes,
+      });
 
-    setActionSuccess(`Changes requested for "${activeItem.title}". Routed back to author queue.`);
+      if (!res.ok) {
+        setActionError(res.error || "Failed to request changes.");
+        return;
+      }
+
+      setActionSuccess(res.message || `Changes requested for "${activeItem.title}". Routed back to author queue.`);
+      await loadQueue();
+    } catch (err: any) {
+      setActionError(err.message || "An unexpected error occurred while requesting changes.");
+    } finally {
+      setIsDeciding(false);
+    }
   };
 
   const ready = aepReadiness(demoStore);
@@ -510,6 +557,11 @@ export function ReviewQueueView() {
                             <span className="font-semibold text-ink text-xs line-clamp-1">
                               {item.title}
                             </span>
+                            {item.unit_id && (
+                              <span className="font-mono text-[10px] text-ink-muted shrink-0">
+                                ({item.unit_id})
+                              </span>
+                            )}
                           </div>
                           <p className="text-[11px] text-ink-muted line-clamp-1">
                             {item.preview || item.content}
@@ -517,7 +569,18 @@ export function ReviewQueueView() {
                         </td>
                         <td className="px-3 py-3.5 text-[11px] text-ink space-y-0.5 max-w-[140px]">
                           <span className="truncate block font-medium">{item.source_doc}</span>
-                          <span className="text-ink-muted block text-[10px]">{item.section}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-ink-muted block text-[10px] truncate">{item.section}</span>
+                            {item.is_demo ? (
+                              <span className="inline-flex rounded px-1 py-0.2 text-[9px] font-medium bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                                Demo
+                              </span>
+                            ) : (
+                              <span className="inline-flex rounded px-1 py-0.2 text-[9px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                Live
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-3 py-3.5">
                           <span className="inline-flex rounded bg-[#F3F4F6] px-2 py-0.5 text-[10px] font-medium text-ink">
@@ -642,17 +705,28 @@ export function ReviewQueueView() {
               <div className="space-y-2 border-b border-border pb-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
-                    <h2 className="text-base font-bold text-ink leading-snug">
-                      {activeItem.title}
-                    </h2>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-base font-bold text-ink leading-snug">
+                        {activeItem.title}
+                      </h2>
+                      {activeItem.is_demo ? (
+                        <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                          Demo fixture
+                        </span>
+                      ) : (
+                        <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Live record
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 text-[11px] text-ink-muted">
                       <FileText className="h-3.5 w-3.5 text-ink-muted" />
                       <span>{activeItem.source_doc}</span>
                       <span>•</span>
                       <span>{activeItem.section}</span>
                     </div>
-                    <p className="text-[10px] text-ink-muted">
-                      Extracted on {activeItem.extracted_on}
+                    <p className="text-[10px] text-ink-muted font-mono">
+                      Draft: {activeItem.id} {activeItem.unit_id ? `• Unit: ${activeItem.unit_id}` : ""} • Extracted on {activeItem.extracted_on}
                     </p>
                   </div>
 
@@ -841,11 +915,14 @@ export function ReviewQueueView() {
                   <h3 className="font-bold text-ink text-xs">Source Document Information</h3>
                   <div className="rounded-lg border border-border bg-[#F9FAFB] p-3 space-y-2">
                     <p className="font-semibold text-ink">{activeItem.source_doc}</p>
-                    <p className="text-ink-muted text-[11px]">{activeItem.section}</p>
+                    {activeItem.source_id && (
+                      <p className="font-mono text-[11px] text-ink-muted">Source ID: {activeItem.source_id}</p>
+                    )}
+                    <p className="text-ink-muted text-[11px]">Section: {activeItem.section}</p>
                     <p className="text-ink-muted text-[10px]">Extracted on {activeItem.extracted_on}</p>
                   </div>
                   <div className="p-3 bg-muted/40 rounded border border-border text-[11px] text-ink leading-relaxed">
-                    Source text fragment verified against original PDF/Word repository file.
+                    Source text fragment verified against original document repository file.
                   </div>
                 </div>
               )}
@@ -893,25 +970,28 @@ export function ReviewQueueView() {
                 <Button
                   variant="outline"
                   size="sm"
+                  disabled={isDeciding}
                   onClick={handleReject}
-                  className="text-xs h-9 px-3 gap-1.5 text-rose-700 border-rose-200 hover:bg-rose-50 hover:text-rose-800"
+                  className="text-xs h-9 px-3 gap-1.5 text-rose-700 border-rose-200 hover:bg-rose-50 hover:text-rose-800 disabled:opacity-50"
                 >
                   <X className="h-3.5 w-3.5" /> Reject
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
+                  disabled={isDeciding}
                   onClick={handleRequestChanges}
-                  className="text-xs h-9 px-3 gap-1.5 text-sky-700 border-sky-200 hover:bg-sky-50 hover:text-sky-800"
+                  className="text-xs h-9 px-3 gap-1.5 text-sky-700 border-sky-200 hover:bg-sky-50 hover:text-sky-800 disabled:opacity-50"
                 >
                   <MessageSquare className="h-3.5 w-3.5" /> Request changes
                 </Button>
                 <Button
                   size="sm"
+                  disabled={isDeciding}
                   onClick={handleApprove}
-                  className="text-xs h-9 px-4 gap-1.5 bg-[#1E5E2E] hover:bg-[#184d25] text-white font-semibold"
+                  className="text-xs h-9 px-4 gap-1.5 bg-[#1E5E2E] hover:bg-[#184d25] text-white font-semibold disabled:opacity-50"
                 >
-                  <Check className="h-3.5 w-3.5" /> Approve
+                  <Check className="h-3.5 w-3.5" /> {isDeciding ? "Processing..." : "Approve"}
                 </Button>
               </div>
             </>

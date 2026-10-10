@@ -7,6 +7,8 @@ export type ReviewStatus =
 export interface ReviewQueueItem {
   id: string;
   unit_id?: string;
+  source_id?: string;
+  is_demo?: boolean;
   title: string;
   preview: string;
   content: string;

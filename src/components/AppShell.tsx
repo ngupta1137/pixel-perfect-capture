@@ -76,6 +76,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // Filter sidebar items according to centralized role permissions
   const permittedSidebarItems = SIDEBAR_ITEMS.filter((item) => {
+    if (item.to === "/legal" && !person.capabilities.includes("approve_legal")) {
+      return false;
+    }
+    if (item.views) {
+      return item.views.some((v) => canView(person, v));
+    }
     if (item.view) return canView(person, item.view);
     return canOpen(person, item.to);
   });

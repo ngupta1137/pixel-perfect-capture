@@ -22,6 +22,7 @@ export interface NavItemConfig {
   label: string;
   icon: typeof Home;
   view?: ViewKey;
+  views?: readonly ViewKey[];
   badge?: { count: number; color: "amber" | "red" | "emerald" };
 }
 
@@ -33,7 +34,7 @@ export const SIDEBAR_ITEMS: NavItemConfig[] = [
     to: "/review",
     label: "Review queue",
     icon: ClipboardCheck,
-    view: "needs_review",
+    views: ["author_queue", "needs_review"],
     badge: { count: 3, color: "amber" },
   },
   {
@@ -43,6 +44,9 @@ export const SIDEBAR_ITEMS: NavItemConfig[] = [
     view: "author_gaps",
     badge: { count: 5, color: "red" },
   },
+  { to: "/legal", label: "Legal queue", icon: ShieldCheck, view: "author_queue" },
+  { to: "/audit", label: "Audit log", icon: ScrollText, view: "author_audit" },
+  { to: "/evals", label: "Evaluations", icon: FlaskConical, view: "evals" },
   { to: "/health", label: "Analytics", icon: BarChart2, view: "analytics" },
   { to: "/agents", label: "Agents & tools", icon: Plug, view: "agents" },
   { to: "/access", label: "Settings", icon: Settings, view: "author_access" },

@@ -14,12 +14,15 @@ export interface ExtractedUnit {
   id: string;
   cid?: string;
   title: string;
-  type: "Policy" | "Procedure" | "Guidance" | "Benefit Details" | "FAQ";
+  type: "Policy" | "Procedure" | "Guidance" | "Benefit Details" | "FAQ" | "Legal";
   content: string;
   key_points: string[];
   source_reference: string;
   suggested_effective_date: string;
   selected?: boolean;
+  match_status?: "new" | "changed" | "unchanged";
+  similarity?: number;
+  route_to?: "owner" | "legal";
 }
 
 export const INITIAL_RECENT_UPLOADS: RecentUpload[] = [

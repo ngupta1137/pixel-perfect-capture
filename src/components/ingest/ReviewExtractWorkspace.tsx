@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { MEMBER_SERVICES_GUIDE_UNITS, type ExtractedUnit } from "@/types/ingest";
 import { useSession } from "@/lib/session";
-import { proposeCandidates, type Candidate } from "@/services/verity";
+import { proposeCandidates, submitProposedDrafts, type Candidate } from "@/services/verity";
 
 interface ReviewExtractWorkspaceProps {
   documentTitle?: string;
@@ -35,6 +35,8 @@ interface ReviewExtractWorkspaceProps {
   lob?: string;
   uploadedOn?: string;
   initialUnits?: ExtractedUnit[];
+  extractedText?: string;
+  sourceDocId?: string;
   onBackToIngest: () => void;
   onReplaceDocument: () => void;
   onSubmitForReview: (proposedUnits: ExtractedUnit[]) => void;
@@ -46,6 +48,8 @@ export function ReviewExtractWorkspace({
   lob = "MAPD",
   uploadedOn = "12 Jan 2024",
   initialUnits = MEMBER_SERVICES_GUIDE_UNITS,
+  extractedText,
+  sourceDocId,
   onBackToIngest,
   onReplaceDocument,
   onSubmitForReview,
@@ -55,6 +59,9 @@ export function ReviewExtractWorkspace({
   const [activeUnitId, setActiveUnitId] = useState<string>(initialUnits[0]?.id ?? "UNIT-MSG-001");
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
   
   // Document preview controls
   const [currentPage, setCurrentPage] = useState(1);
@@ -144,21 +151,39 @@ export function ReviewExtractWorkspace({
 
   const selectedUnits = units.filter((u) => u.selected);
 
-  const handleSubmit = () => {
-    const toPropose: Candidate[] = selectedUnits.map((u) => ({
-      cid: u.cid ?? u.id,
-      title: u.title,
-      text: u.content,
-      status: "new",
-      route: u.type === "Policy" ? "owner" : "owner",
-      owner_team: "Pharmacy Ops",
-      effective_date: u.suggested_effective_date,
-      tags: [u.type.toLowerCase()],
-      gate: { checked: 27, blocking: [] },
-    }));
+  const handleSubmit = async () => {
+    if (selectedUnits.length === 0) return;
+    setIsSubmitting(true);
+    setSubmitError("");
+    try {
+      if (sourceDocId) {
+        await submitProposedDrafts({
+          sourceDocId,
+          candidateIds: selectedUnits.map((u) => u.id),
+          proposerName: person.name,
+          proposerRole: person.role,
+        });
+      }
 
-    proposeCandidates(person.name, toPropose);
-    onSubmitForReview(selectedUnits);
+      const toPropose: Candidate[] = selectedUnits.map((u) => ({
+        cid: u.cid ?? u.id,
+        title: u.title,
+        text: u.content,
+        status: "new",
+        route: u.type === "Legal" ? "legal" : "owner",
+        owner_team: "Pharmacy Ops",
+        effective_date: u.suggested_effective_date,
+        tags: [u.type.toLowerCase()],
+        gate: { checked: 27, blocking: [] },
+      }));
+
+      proposeCandidates(person.name, toPropose);
+      onSubmitForReview(selectedUnits);
+    } catch (err: any) {
+      setSubmitError(err.message || "Failed to submit drafts for review.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -279,14 +304,33 @@ export function ReviewExtractWorkspace({
               className="rounded-md border border-border/80 bg-white p-5 shadow-sm space-y-4 text-ink transition-transform origin-top"
               style={{ transform: `scale(${zoomLevel / 100})` }}
             >
-              <div className="border-b border-border/60 pb-3">
-                <h3 className="font-bold text-sm text-ink leading-tight">
-                  Member Services Guide
-                </h3>
-                <p className="text-[10px] text-ink-muted mt-0.5">
-                  Version 3.0 • January 2024
-                </p>
+              <div className="border-b border-border/60 pb-3 flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-sm text-ink leading-tight">
+                    {documentTitle.includes("Member Services") ? "Member Services Guide" : documentTitle}
+                  </h3>
+                  <p className="text-[10px] text-ink-muted mt-0.5">
+                    {extractedText
+                      ? "Extracted Document Text Preview (Text representation of source document)"
+                      : "Page 4 of 24 • Section 4: Pharmacy Benefits"}
+                  </p>
+                </div>
+                <span className="text-[10px] font-mono rounded bg-muted px-2 py-0.5 text-ink-muted">
+                  {sourceType} • {lob}
+                </span>
               </div>
+
+              {extractedText && (
+                <div className="space-y-2 rounded-lg bg-slate-50 p-3 border border-border/70 text-xs">
+                  <div className="flex items-center justify-between border-b border-border/40 pb-1.5 mb-1.5">
+                    <span className="font-semibold text-ink text-[11px]">Parsed Document Contents</span>
+                    <span className="text-[10px] text-ink-muted font-mono">{extractedText.length} chars</span>
+                  </div>
+                  <div className="text-[11px] leading-relaxed text-ink/90 whitespace-pre-wrap font-sans max-h-[300px] overflow-y-auto">
+                    {extractedText}
+                  </div>
+                </div>
+              )}
 
               {/* Section 4.2 */}
               <div className="space-y-2">
@@ -590,12 +634,15 @@ export function ReviewExtractWorkspace({
             </div>
             <Button
               onClick={handleSubmit}
-              disabled={selectedUnits.length === 0}
+              disabled={selectedUnits.length === 0 || isSubmitting}
               className="w-full text-xs h-9 font-semibold gap-1.5 bg-[#1E5E2E] hover:bg-[#184d25] text-white"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              Propose selected ({selectedUnits.length})
+              {isSubmitting ? "Submitting for review..." : `Propose selected (${selectedUnits.length})`}
             </Button>
+            {submitError && (
+              <p className="text-[11px] text-destructive font-medium">{submitError}</p>
+            )}
           </div>
         </div>
       </div>

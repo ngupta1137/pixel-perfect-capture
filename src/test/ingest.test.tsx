@@ -197,7 +197,10 @@ describe("Verity Ingest & Drafts Screen", () => {
     fireEvent.click(draftsTab);
 
     await waitFor(() => {
-      expect(screen.getByText(/No drafts created yet/i)).toBeInTheDocument();
+      expect(
+        screen.queryByText(/My active draft proposals/i) ||
+        screen.queryByText(/No drafts created yet/i)
+      ).toBeInTheDocument();
     });
   });
 

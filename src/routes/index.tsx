@@ -1,5 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { RequirePage } from "@/components/shell/Denied";
+import { canOpen, homeRoute } from "@/lib/rights";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { guide, useGuide } from "@/lib/guide";
 import {
@@ -921,6 +922,18 @@ export function AskPage() {
 }
 
 function GuardedAskPage() {
+  const { person } = useSession();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!canOpen(person, "/")) {
+      const target = homeRoute(person);
+      if (target && target !== "/") {
+        void navigate({ to: target });
+      }
+    }
+  }, [person, navigate]);
+
   return (
     <RequirePage to="/">
       <AskPage />

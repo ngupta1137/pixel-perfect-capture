@@ -463,3 +463,115 @@ export function changeKbAccess(person: { name: string; capabilities: readonly st
   audit({ actor: person.name, action: grant ? "grant_access" : "revoke_access", target: `${role} → ${kb}`, detail: reason, reason });
   return { ok: true, message: `${grant ? "Granted" : "Revoked"} ${kb} for ${role}` };
 }
+
+// ---------------------------------------------------------------------------
+// Evaluation service client entry points.
+import type { EvalReport } from "@/verity-engine/evalRunner";
+
+/** Run an evaluation suite through the server function, falling back gracefully in direct test environments. */
+export async function executeEvaluation(suite: string): Promise<EvalReport> {
+  const { runEvaluationSuite, executeEvaluationHandler, validateEvaluationRequest } = await import("./evals.functions");
+  const validated = validateEvaluationRequest({ suite });
+  try {
+    return await runEvaluationSuite({ data: validated });
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message?.includes("No Start context found in AsyncLocalStorage")) {
+      return await executeEvaluationHandler(validated);
+    }
+    throw err;
+  }
+}
+
+/** Retrieve the latest executed evaluation report in this session. */
+export async function getLatestEvalRun(): Promise<EvalReport | null> {
+  const { getLatestEvaluationReport, executeGetLatestHandler } = await import("./evals.functions");
+  try {
+    return await getLatestEvaluationReport();
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message?.includes("No Start context found in AsyncLocalStorage")) {
+      return await executeGetLatestHandler();
+    }
+    throw err;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Document Ingestion client entry points.
+import type {
+  IngestUploadRequest,
+  IngestResponse,
+  ProposeDraftsRequest,
+  ProposeDraftsResponse,
+} from "./ingest.functions";
+import type { RecentUpload } from "@/types/ingest";
+
+export async function uploadAndIngestSource(
+  req: IngestUploadRequest
+): Promise<IngestResponse> {
+  try {
+    const { uploadAndIngestSourceFn } = await import("./ingest.functions");
+    return await uploadAndIngestSourceFn({ data: req });
+  } catch {
+    const { handleUploadAndIngest } = await import("./ingest.server");
+    return await handleUploadAndIngest(req);
+  }
+}
+
+export async function listRecentUploads(): Promise<RecentUpload[]> {
+  try {
+    const { listRecentUploadsFn } = await import("./ingest.functions");
+    return await listRecentUploadsFn();
+  } catch {
+    const { handleListRecentUploads } = await import("./ingest.server");
+    return await handleListRecentUploads();
+  }
+}
+
+export async function submitProposedDrafts(
+  req: ProposeDraftsRequest
+): Promise<ProposeDraftsResponse> {
+  try {
+    const { proposeDraftsFn } = await import("./ingest.functions");
+    return await proposeDraftsFn({ data: req });
+  } catch {
+    const { handleProposeDrafts } = await import("./ingest.server");
+    return await handleProposeDrafts(req);
+  }
+}
+
+export async function fetchReviewQueue(): Promise<import("../types/review").ReviewQueueItem[]> {
+  try {
+    const { listReviewQueueFn } = await import("./review.functions");
+    return await listReviewQueueFn();
+  } catch {
+    const { handleListReviewQueue } = await import("./review.server");
+    return await handleListReviewQueue();
+  }
+}
+
+export async function fetchMyDrafts(
+  proposerName?: string
+): Promise<import("../storage/schema").DraftTable[]> {
+  try {
+    const { listMyDraftsFn } = await import("./review.functions");
+    return await listMyDraftsFn({ data: { proposerName } });
+  } catch {
+    const { handleListMyDrafts } = await import("./review.server");
+    return await handleListMyDrafts(proposerName);
+  }
+}
+
+export async function submitReviewDecision(
+  req: import("./review.functions").ReviewDecisionRequest
+): Promise<import("./review.functions").ReviewDecisionResponse> {
+  try {
+    const { decideReviewItemFn } = await import("./review.functions");
+    return await decideReviewItemFn({ data: req });
+  } catch {
+    const { handleDecideReviewItem } = await import("./review.server");
+    return await handleDecideReviewItem(req);
+  }
+}
+
+
+
