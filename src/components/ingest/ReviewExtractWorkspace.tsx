@@ -36,7 +36,7 @@ interface ReviewExtractWorkspaceProps {
   uploadedOn?: string;
   initialUnits?: ExtractedUnit[];
   extractedText?: string;
-  sourceDocId?: string;
+  sourceDocId?: string | undefined;
   onBackToIngest: () => void;
   onReplaceDocument: () => void;
   onSubmitForReview: (proposedUnits: ExtractedUnit[]) => void;

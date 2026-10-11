@@ -84,7 +84,7 @@ export function executeCase(c: RegressionCase, engine: Verity): {
     context: {
       lob: c.context?.lob ?? null,
       state: c.context?.state ?? null,
-      plan_year: (c.context as { plan_year?: number })?.plan_year,
+      plan_year: (c.context as { plan_year?: number })?.plan_year as number,
     },
   };
 
@@ -258,7 +258,7 @@ export function runGoldenSuite(options: RunOptions = {}): EvalReport {
 
   const runId = `eval-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
-  return {
+  const report: EvalReport = {
     run_id: runId,
     suite: 'golden',
     started_at: startedAt,

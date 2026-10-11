@@ -137,9 +137,9 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
 
       expect(uploadRes.ok).toBe(true);
       expect(uploadRes.doc_id).toBe("SRC-RX-2026-005");
-      expect(uploadRes.units).toHaveLength(1);
+      expect(uploadRes.units!).toHaveLength(1);
 
-      const unit = uploadRes.units[0]!;
+      const unit = uploadRes.units![0]! as any;
       expect(unit.annotated_id).toBe("CAND-DUP-001");
       expect(unit.duplicate_of).toBe("CAND-DUP-001");
       expect(unit.is_duplicate_review).toBe(true);
@@ -204,7 +204,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
         repo
       );
 
-      const candidate = uploadRes.units[0]!;
+      const candidate = uploadRes.units![0]!;
       expect(candidate.version).toBe(2);
       expect(candidate.version_id).toBe("RX-006-v2");
       expect(candidate.supersedes).toBe("RX-006-v1");
@@ -221,8 +221,8 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
       );
 
       expect(draftRes.ok).toBe(true);
-      expect(draftRes.drafts).toHaveLength(1);
-      const draft = draftRes.drafts[0]!;
+      expect(draftRes.drafts!).toHaveLength(1);
+      const draft = draftRes.drafts![0]!;
 
       expect(draft.unit_id).toBe("RX-006");
       expect(draft.version).toBe(2);
@@ -280,7 +280,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
         repo
       );
 
-      const originalCand = uploadRes.units[0]!;
+      const originalCand = uploadRes.units![0]!;
       const candDbId = originalCand.id;
 
       // Update candidate unit
@@ -342,7 +342,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
         repo
       );
 
-      const draftId = draftRes.drafts[0]!.draft_id;
+      const draftId = draftRes.drafts![0]!.draft_id;
 
       // Gate 1: Maker-checker prevents author from approving their own draft
       const selfApproval = await handleDecideReviewItem(

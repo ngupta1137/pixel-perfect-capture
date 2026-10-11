@@ -319,7 +319,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
     // Dana views My Drafts
     const danaDrafts = await handleListMyDrafts("Dana", inMemoryRepo);
     expect(danaDrafts.length).toBe(1);
-    expect(danaDrafts[0].title).toBe(candidate.title);
+    expect(danaDrafts[0]!.title).toBe(candidate.title);
 
     // Owen loads review queue from same repo
     const owenQueue = await handleListReviewQueue(inMemoryRepo);

@@ -439,7 +439,7 @@ export async function handleDecideReviewItem(
     return {
       ok: true,
       success: true,
-      draft: updated,
+      ...(updated ? { draft: updated } : {}),
       message: `Draft "${draft.title}" rejected and archived.`,
     };
   }
@@ -480,7 +480,7 @@ export async function handleDecideReviewItem(
     return {
       ok: true,
       success: true,
-      draft: updated,
+      ...(updated ? { draft: updated } : {}),
       message: `Changes requested for "${draft.title}". Routed back to author queue.`,
     };
   }

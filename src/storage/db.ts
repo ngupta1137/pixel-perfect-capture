@@ -9,8 +9,8 @@ let dbInstance: Kysely<DatabaseSchema> | null = null;
 let migrationPromise: Promise<void> | null = null;
 
 export function getDatabasePath(): string {
-  if (process.env.VERITY_DB_URL) {
-    return process.env.VERITY_DB_URL;
+  if (process.env["VERITY_DB_URL"]) {
+    return process.env["VERITY_DB_URL"];
   }
   const defaultDir = path.resolve(process.cwd(), ".data");
   if (!fs.existsSync(defaultDir)) {

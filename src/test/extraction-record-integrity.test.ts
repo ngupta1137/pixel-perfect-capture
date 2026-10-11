@@ -131,9 +131,9 @@ describe("Phase 3C: Extraction Quality, Record Integrity, and Navigation Audit",
 
       expect(uploadRes.ok).toBe(true);
       expect(uploadRes.doc_id).toBe("SRC-BEN-2026-003");
-      expect(uploadRes.document.title).toBe("Benefits Education – Mail-Order Benefit Inquiries");
-      expect(uploadRes.document.owner_team).toBe("Benefits Education");
-      expect(uploadRes.document.lob).toBe("DEMO-RX-2026");
+      expect(uploadRes.document!.title).toBe("Benefits Education – Mail-Order Benefit Inquiries");
+      expect(uploadRes.document!.owner_team).toBe("Benefits Education");
+      expect(uploadRes.document!.lob).toBe("DEMO-RX-2026");
 
       // Verify candidate unit persisted in database
       const candidates = await repo.getCandidatesByDocId("SRC-BEN-2026-003");

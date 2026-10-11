@@ -213,7 +213,7 @@ function WorkPage() {
             suggested_effective_date: u.suggested_effective_date || "2024-01-01",
             match_status: u.match_status,
             similarity: u.similarity,
-            route_to: u.route_to,
+            route_to: u.route_to as "owner" | "legal" | undefined,
             selected: i === 0 || u.match_status === "new",
           }))
         );
