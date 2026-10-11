@@ -54,7 +54,7 @@ export interface Role {
 export interface RequestContext {
   lob: string | null;
   state: string | null;
-  plan_year?: number;
+  plan_year?: number | undefined;
 }
 
 export interface ServeRequest {

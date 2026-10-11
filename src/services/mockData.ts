@@ -61,6 +61,7 @@ export interface UnitMeta {
   approved_on?: string;
   summary?: string;
   key_points?: string[];
+  verbatim?: boolean;
   source_doc?: {
     title: string;
     doc_id: string;
@@ -1013,12 +1014,18 @@ export interface Candidate {
   verbatim?: boolean;
   tags?: string[];
   banner?: string;
-  note?: string;
+  note?: string | undefined;
   suggestion?: string;
   skip_reason?: string;
   target_unit_id?: string;
   effective_date?: string;
   gate?: GateResult;
+  annotated_id?: string | undefined;
+  version?: number | undefined;
+  version_id?: string | undefined;
+  supersedes?: string | undefined;
+  duplicate_of?: string | undefined;
+  is_duplicate_review?: boolean | undefined;
 }
 
 const P003 = "The prices I share today are estimates based on your current plan and may change. Your final cost will be confirmed when your prescription is processed.";

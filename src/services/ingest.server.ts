@@ -88,7 +88,7 @@ export async function handleUploadAndIngest(
         job_id: existingJob?.id || "",
         units: mappedUnits,
         document: existing,
-        job: existingJob,
+        ...(existingJob ? { job: existingJob } : {}),
         candidates: existingCandidates,
         parsedText: existing.raw_text,
         totalPages: 1,
@@ -434,7 +434,7 @@ export async function handleUpdateCandidateUnit(
 
     await repo.updateCandidateUnit(data.id, updates);
     const updated = await repo.getCandidateById(data.id);
-    return { ok: true, candidate: updated };
+    return updated ? { ok: true, candidate: updated } : { ok: true };
   } catch (err: any) {
     return { ok: false, error: err.message || "Failed to update candidate unit." };
   }

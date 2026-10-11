@@ -105,7 +105,7 @@ describe("AnswerDetailsView component", () => {
         ],
       },
     };
-    renderComponent(props);
+    renderComponent(props as any);
     expect(screen.getByText("A little more context is needed")).toBeInTheDocument();
     expect(screen.getAllByText("KY").length).toBeGreaterThan(0);
   });

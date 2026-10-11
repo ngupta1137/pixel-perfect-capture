@@ -191,7 +191,7 @@ export async function handleListMyDrafts(
   const targetFirst = proposerName.trim().toLowerCase().split(/[\s(]/)[0];
   return authorDrafts.filter((d) => {
     const propLower = (d.proposed_by || "").toLowerCase();
-    return propLower.includes(proposerName.toLowerCase()) || propLower.includes(targetFirst);
+    return propLower.includes(proposerName.toLowerCase()) || (targetFirst ? propLower.includes(targetFirst) : false);
   });
 }
 
@@ -391,7 +391,7 @@ export async function handleDecideReviewItem(
     return {
       ok: true,
       success: true,
-      draft: updated,
+      ...(updated ? { draft: updated } : {}),
       message: `Successfully approved "${draft.title}". Published as governed unit ${draft.unit_id}.`,
     };
   }
@@ -439,7 +439,7 @@ export async function handleDecideReviewItem(
     return {
       ok: true,
       success: true,
-      draft: updated,
+      ...(updated ? { draft: updated } : {}),
       message: `Draft "${draft.title}" rejected and archived.`,
     };
   }
@@ -480,7 +480,7 @@ export async function handleDecideReviewItem(
     return {
       ok: true,
       success: true,
-      draft: updated,
+      ...(updated ? { draft: updated } : {}),
       message: `Changes requested for "${draft.title}". Routed back to author queue.`,
     };
   }

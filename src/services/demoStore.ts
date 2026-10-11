@@ -15,7 +15,7 @@ export interface DemoRequest {
   trace: string[];
   cited: CitedUnit[];
 }
-export interface DemoUnitVersion { version: number; text: string; effective_date: string; approver: string }
+export interface DemoUnitVersion { version: number; text: string; effective_date: string; approver: string; supersedes?: string | undefined }
 export interface DemoUnit { unit_id: string; title: string; owner: string; verbatim: boolean; status: string; versions: DemoUnitVersion[] }
 export interface DemoDraft { draft_id: string; unit_id: string; title: string; status: string; proposed_by: string; decided_by: string | null }
 export interface DemoAudit { at: string; actor: string; action: string; target: string; detail: string; capability?: string; reason?: string }

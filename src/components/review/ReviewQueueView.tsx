@@ -52,8 +52,8 @@ import {
   decideBlocker,
   fetchReviewQueue,
   submitReviewDecision,
-  type ChainDraft,
 } from "@/services/verity";
+import type { ChainDraft } from "@/services/demoStore";
 
 export function ReviewQueueView() {
   const { person, can } = useSession();

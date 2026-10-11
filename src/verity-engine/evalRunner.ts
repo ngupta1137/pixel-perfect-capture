@@ -5,7 +5,8 @@
 import { getStore, AS_OF } from './server.ts';
 import goldenRaw from './data/golden_set.json';
 import { passes, type RegressionCase } from './regression.ts';
-import type { ServeRequest, ServeResponse, Verity } from './pipeline.ts';
+import type { ServeRequest, ServeResponse } from './types.ts';
+import type { Verity } from './pipeline.ts';
 
 export interface EvalCitation {
   unit_id: string;
@@ -21,7 +22,7 @@ export interface EvalCaseResult {
   query: string;
   role: string;
   channel: string;
-  input_mode?: 'typed' | 'voice';
+  input_mode?: 'typed' | 'voice' | undefined;
   expected_outcome: string;
   actual_outcome: string;
   expected_unit_ids: string[];
@@ -32,7 +33,7 @@ export interface EvalCaseResult {
   citations: EvalCitation[];
   trace: string[];
   latency_ms: number;
-  slices?: string[];
+  slices?: string[] | undefined;
 }
 
 export interface EvalMetrics {
@@ -83,7 +84,7 @@ export function executeCase(c: RegressionCase, engine: Verity): {
     context: {
       lob: c.context?.lob ?? null,
       state: c.context?.state ?? null,
-      plan_year: (c.context as { plan_year?: number })?.plan_year,
+      plan_year: (c.context as { plan_year?: number })?.plan_year as number,
     },
   };
 
@@ -257,7 +258,7 @@ export function runGoldenSuite(options: RunOptions = {}): EvalReport {
 
   const runId = `eval-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
-  return {
+  const report: EvalReport = {
     run_id: runId,
     suite: 'golden',
     started_at: startedAt,

@@ -42,7 +42,7 @@ export interface IngestionJobTable {
 export interface CandidateUnitTable {
   id: string;
   cid: string;
-  annotated_id?: string | null;
+  annotated_id?: string | null | undefined;
   job_id: string;
   source_doc_id: string;
   title: string;
@@ -63,11 +63,11 @@ export interface CandidateUnitTable {
   key_points_json: string;
   selected: number; // 0 or 1
   created_at: string;
-  version?: number | null;
-  version_id?: string | null;
-  supersedes?: string | null;
-  duplicate_of?: string | null;
-  annotations_json?: string | null;
+  version?: number | null | undefined;
+  version_id?: string | null | undefined;
+  supersedes?: string | null | undefined;
+  duplicate_of?: string | null | undefined;
+  annotations_json?: string | null | undefined;
 }
 
 export interface DraftTable {
@@ -93,11 +93,11 @@ export interface DraftTable {
   history_json: string;
   created_at: string;
   updated_at: string;
-  version?: number | null;
-  version_id?: string | null;
-  supersedes?: string | null;
-  duplicate_of?: string | null;
-  annotations_json?: string | null;
+  version?: number | null | undefined;
+  version_id?: string | null | undefined;
+  supersedes?: string | null | undefined;
+  duplicate_of?: string | null | undefined;
+  annotations_json?: string | null | undefined;
 }
 
 export interface DatabaseSchema {

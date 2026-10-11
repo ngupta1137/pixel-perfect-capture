@@ -578,7 +578,7 @@ export async function fetchMyDrafts(
 ): Promise<import("../storage/schema").DraftTable[]> {
   try {
     const { listMyDraftsFn } = await import("./review.functions");
-    return await listMyDraftsFn({ data: { proposerName } });
+    return await listMyDraftsFn({ data: { ...(proposerName ? { proposerName } : {}) } });
   } catch {
     const { handleListMyDrafts } = await import("./review.server");
     return await handleListMyDrafts(proposerName);

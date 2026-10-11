@@ -49,7 +49,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
     // Dana proposes the candidate draft
     const proposeRes = await handleProposeDrafts(
       {
-        sourceDocId: ingestRes.doc_id,
+        sourceDocId: ingestRes.doc_id!,
         candidateIds: [candidate.id],
         proposerName: "Dana (Knowledge author)",
         proposerRole: "knowledge_author",
@@ -103,7 +103,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
     // Dana attempts to self-approve
     const selfApproveRes = await handleDecideReviewItem(
       {
-        draftId: draft.draft_id,
+        draftId: draft!.draft_id,
         action: "approve",
         reviewerName: "Dana",
         reviewerLabel: "Knowledge author",
@@ -118,7 +118,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
     expect(selfApproveRes.error).toMatch(/Maker-checker violation.*cannot approve.*own proposed draft/i);
 
     // Verify draft remains in proposed state
-    const postDraft = await inMemoryRepo.getDraftById(draft.draft_id);
+    const postDraft = await inMemoryRepo.getDraftById(draft!.draft_id);
     expect(postDraft?.status).toBe("proposed");
   });
 
@@ -154,7 +154,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
     // Priya (advocate with no approve capabilities) attempts to approve
     const priyaApprove = await handleDecideReviewItem(
       {
-        draftId: draft.draft_id,
+        draftId: draft!.draft_id,
         action: "approve",
         reviewerName: "Priya",
         reviewerRole: "pharmacy_advocate",
@@ -199,7 +199,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
     // Owen (Knowledge owner) approves Dana's draft
     const approveRes = await handleDecideReviewItem(
       {
-        draftId: draft.draft_id,
+        draftId: draft!.draft_id,
         action: "approve",
         reviewerName: "Owen",
         reviewerLabel: "Knowledge owner",
@@ -214,7 +214,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
     expect(approveRes.message).toMatch(/Successfully approved/i);
 
     // Verify draft status updated in persistent repository
-    const updatedDraft = await inMemoryRepo.getDraftById(draft.draft_id);
+    const updatedDraft = await inMemoryRepo.getDraftById(draft!.draft_id);
     expect(updatedDraft?.status).toBe("approved");
     expect(updatedDraft?.decided_by).toBe("Owen");
 
@@ -258,7 +258,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
     // Rejection without reason fails
     const failReject = await handleDecideReviewItem(
       {
-        draftId: draft.draft_id,
+        draftId: draft!.draft_id,
         action: "reject",
         reviewerName: "Owen",
         reviewerRole: "knowledge_owner",
@@ -273,7 +273,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
     // Request changes with notes succeeds
     const changeRes = await handleDecideReviewItem(
       {
-        draftId: draft.draft_id,
+        draftId: draft!.draft_id,
         action: "request_changes",
         reviewerName: "Owen",
         reviewerLabel: "Knowledge owner",
@@ -285,15 +285,15 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
     );
     expect(changeRes.ok).toBe(true);
 
-    const changedDraft = await inMemoryRepo.getDraftById(draft.draft_id);
+    const changedDraft = await inMemoryRepo.getDraftById(draft!.draft_id);
     expect(changedDraft?.status).toBe("requested_changes");
     expect(changedDraft?.reason).toBe("Needs updated tier reference.");
 
     // Decision history is retained
     const history = JSON.parse(changedDraft?.history_json || "[]");
     expect(history.length).toBeGreaterThan(0);
-    expect(history[history.length - 1].action).toBe("Requested changes");
-    expect(history[history.length - 1].note).toBe("Needs updated tier reference.");
+    expect(history[history.length - 1]!.action).toBe("Requested changes");
+    expect(history[history.length - 1]!.note).toBe("Needs updated tier reference.");
   });
 
   it("6. Draft visibility across role sessions using the same persistent database", async () => {
@@ -309,7 +309,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
     const candidate = ingestRes.candidates![0]!;
     await handleProposeDrafts(
       {
-        sourceDocId: ingestRes.doc_id,
+        sourceDocId: ingestRes.doc_id!,
         candidateIds: [candidate.id],
         proposerName: "Dana (Knowledge author)",
       },
@@ -319,7 +319,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
     // Dana views My Drafts
     const danaDrafts = await handleListMyDrafts("Dana", inMemoryRepo);
     expect(danaDrafts.length).toBe(1);
-    expect(danaDrafts[0].title).toBe(candidate.title);
+    expect(danaDrafts[0]!.title).toBe(candidate.title);
 
     // Owen loads review queue from same repo
     const owenQueue = await handleListReviewQueue(inMemoryRepo);

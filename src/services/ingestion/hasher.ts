@@ -22,12 +22,10 @@ export async function calculateSha256Async(bytes: Uint8Array | Buffer | string):
     return calculateSha256(bytes);
   } catch (err) {
     if (typeof globalThis.crypto !== "undefined" && globalThis.crypto.subtle) {
-      const data =
+      const data: Uint8Array<ArrayBuffer> =
         typeof bytes === "string"
           ? new TextEncoder().encode(bytes)
-          : bytes instanceof Uint8Array
-          ? bytes
-          : new Uint8Array(bytes);
+          : Uint8Array.from(bytes);
       const hashBuffer = await globalThis.crypto.subtle.digest("SHA-256", data);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");

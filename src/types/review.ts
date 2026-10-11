@@ -6,36 +6,38 @@ export type ReviewStatus =
 
 export interface ReviewQueueItem {
   id: string;
-  unit_id?: string;
-  source_id?: string;
-  is_demo?: boolean;
+  unit_id?: string | undefined;
+  source_id?: string | undefined;
+  is_demo?: boolean | undefined;
   title: string;
   preview: string;
   content: string;
   source_doc: string;
   section: string;
-  type: "Policy" | "Procedure" | "Guidance" | "Benefit Details" | "FAQ";
+  type: "Policy" | "Procedure" | "Guidance" | "Benefit Details" | "FAQ" | "Legal";
+  verbatim?: number | undefined;
+  proposer?: string | undefined;
   status: ReviewStatus;
   extracted_on: string;
   lob: string;
   state: string;
   suggested_effective_date: string;
   key_points: string[];
-  reviewer_notes?: string;
-  assigned_reviewer?: string;
-  demand?: number;
-  due_date?: string;
-  reverified?: boolean;
-  version?: number;
-  version_id?: string;
-  supersedes?: string;
-  duplicate_of?: string;
-  is_duplicate_review?: boolean;
-  history?: {
+  reviewer_notes?: string | undefined;
+  assigned_reviewer?: string | undefined;
+  demand?: number | undefined;
+  due_date?: string | undefined;
+  reverified?: boolean | undefined;
+  version?: number | undefined;
+  version_id?: string | undefined;
+  supersedes?: string | undefined;
+  duplicate_of?: string | undefined;
+  is_duplicate_review?: boolean | undefined;
+  history?: undefined | {
     action: string;
     by: string;
     at: string;
-    note?: string;
+    note?: string | undefined;
   }[];
 }
 
