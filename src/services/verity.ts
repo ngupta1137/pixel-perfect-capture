@@ -521,6 +521,11 @@ import type {
 import type { RecentUpload } from "@/types/ingest";
 import { getActiveSessionToken } from "@/lib/session";
 
+const isBrowser =
+  typeof window !== "undefined" &&
+  typeof navigator !== "undefined" &&
+  !navigator.userAgent?.includes("jsdom");
+
 export async function uploadAndIngestSource(
   req: IngestUploadRequest
 ): Promise<IngestResponse> {
@@ -531,9 +536,15 @@ export async function uploadAndIngestSource(
   try {
     const { uploadAndIngestSourceFn } = await import("./ingest.functions");
     return await uploadAndIngestSourceFn({ data: payload });
-  } catch {
-    const { handleUploadAndIngest } = await import("./ingest.server");
-    return await handleUploadAndIngest(payload);
+  } catch (err: any) {
+    if (!isBrowser) {
+      const { handleUploadAndIngest } = await import("./ingest.server");
+      return await handleUploadAndIngest(payload);
+    }
+    return {
+      ok: false,
+      error: err?.message || "Ingestion server function failed to execute in this environment.",
+    };
   }
 }
 
@@ -541,9 +552,13 @@ export async function listRecentUploads(): Promise<RecentUpload[]> {
   try {
     const { listRecentUploadsFn } = await import("./ingest.functions");
     return await listRecentUploadsFn();
-  } catch {
-    const { handleListRecentUploads } = await import("./ingest.server");
-    return await handleListRecentUploads();
+  } catch (err: any) {
+    if (!isBrowser) {
+      const { handleListRecentUploads } = await import("./ingest.server");
+      return await handleListRecentUploads();
+    }
+    console.error("Failed to list recent uploads from server:", err);
+    return [];
   }
 }
 
@@ -557,9 +572,15 @@ export async function submitProposedDrafts(
   try {
     const { proposeDraftsFn } = await import("./ingest.functions");
     return await proposeDraftsFn({ data: payload });
-  } catch {
-    const { handleProposeDrafts } = await import("./ingest.server");
-    return await handleProposeDrafts(payload);
+  } catch (err: any) {
+    if (!isBrowser) {
+      const { handleProposeDrafts } = await import("./ingest.server");
+      return await handleProposeDrafts(payload);
+    }
+    return {
+      ok: false,
+      error: err?.message || "Server function failed to submit proposed drafts.",
+    };
   }
 }
 
@@ -573,9 +594,15 @@ export async function updateCandidate(
   try {
     const { updateCandidateUnitFn } = await import("./ingest.functions");
     return await updateCandidateUnitFn({ data: payload });
-  } catch {
-    const { handleUpdateCandidateUnit } = await import("./ingest.server");
-    return await handleUpdateCandidateUnit(payload);
+  } catch (err: any) {
+    if (!isBrowser) {
+      const { handleUpdateCandidateUnit } = await import("./ingest.server");
+      return await handleUpdateCandidateUnit(payload);
+    }
+    return {
+      ok: false,
+      error: err?.message || "Server function failed to update candidate.",
+    };
   }
 }
 
@@ -585,9 +612,16 @@ export async function fetchCandidatesForDoc(
   try {
     const { getCandidatesForDocFn } = await import("./ingest.functions");
     return await getCandidatesForDocFn({ data: { docId } });
-  } catch {
-    const { handleGetCandidatesByDocId } = await import("./ingest.server");
-    return await handleGetCandidatesByDocId(docId);
+  } catch (err: any) {
+    if (!isBrowser) {
+      const { handleGetCandidatesByDocId } = await import("./ingest.server");
+      return await handleGetCandidatesByDocId(docId);
+    }
+    return {
+      ok: false,
+      candidates: [],
+      error: err?.message || "Server function failed to fetch candidates.",
+    };
   }
 }
 
@@ -595,9 +629,13 @@ export async function fetchReviewQueue(): Promise<import("../types/review").Revi
   try {
     const { listReviewQueueFn } = await import("./review.functions");
     return await listReviewQueueFn();
-  } catch {
-    const { handleListReviewQueue } = await import("./review.server");
-    return await handleListReviewQueue();
+  } catch (err: any) {
+    if (!isBrowser) {
+      const { handleListReviewQueue } = await import("./review.server");
+      return await handleListReviewQueue();
+    }
+    console.error("Failed to fetch review queue from server:", err);
+    return [];
   }
 }
 
@@ -608,9 +646,13 @@ export async function fetchMyDrafts(
   try {
     const { listMyDraftsFn } = await import("./review.functions");
     return await listMyDraftsFn({ data: { proposerName, sessionToken } });
-  } catch {
-    const { handleListMyDrafts } = await import("./review.server");
-    return await handleListMyDrafts(proposerName, undefined, sessionToken);
+  } catch (err: any) {
+    if (!isBrowser) {
+      const { handleListMyDrafts } = await import("./review.server");
+      return await handleListMyDrafts(proposerName, undefined, sessionToken);
+    }
+    console.error("Failed to fetch drafts from server:", err);
+    return [];
   }
 }
 
@@ -624,9 +666,15 @@ export async function submitReviewDecision(
   try {
     const { decideReviewItemFn } = await import("./review.functions");
     return await decideReviewItemFn({ data: payload });
-  } catch {
-    const { handleDecideReviewItem } = await import("./review.server");
-    return await handleDecideReviewItem(payload);
+  } catch (err: any) {
+    if (!isBrowser) {
+      const { handleDecideReviewItem } = await import("./review.server");
+      return await handleDecideReviewItem(payload);
+    }
+    return {
+      ok: false,
+      error: err?.message || "Server function failed to process review decision.",
+    };
   }
 }
 
