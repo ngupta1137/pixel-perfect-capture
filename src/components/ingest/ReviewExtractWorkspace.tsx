@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { MEMBER_SERVICES_GUIDE_UNITS, type ExtractedUnit } from "@/types/ingest";
 import { useSession } from "@/lib/session";
-import { proposeCandidates, submitProposedDrafts, type Candidate } from "@/services/verity";
+import { proposeCandidates, submitProposedDrafts, updateCandidate, type Candidate } from "@/services/verity";
 
 interface ReviewExtractWorkspaceProps {
   documentTitle?: string;
@@ -101,7 +101,7 @@ export function ReviewExtractWorkspace({
     );
   };
 
-  const handleSaveChanges = () => {
+  const handleSaveChanges = async () => {
     if (!activeUnit) return;
     const parsedKeyPoints = editKeyPoints
       .split("\n")
@@ -123,8 +123,23 @@ export function ReviewExtractWorkspace({
           : u
       )
     );
+
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2000);
+
+    try {
+      await updateCandidate({
+        id: activeUnit.id,
+        title: editTitle,
+        type: editType,
+        content: editContent,
+        key_points: parsedKeyPoints,
+        source_reference: editSourceRef,
+        effective_date: editEffectiveDate,
+      });
+    } catch (e) {
+      console.error("Failed to persist candidate edits to database", e);
+    }
   };
 
   const handleDiscardChanges = () => {

@@ -539,6 +539,30 @@ export async function submitProposedDrafts(
   }
 }
 
+export async function updateCandidate(
+  req: import("./ingest.server").UpdateCandidateUnitInput
+): Promise<{ ok: boolean; candidate?: any; error?: string }> {
+  try {
+    const { updateCandidateUnitFn } = await import("./ingest.functions");
+    return await updateCandidateUnitFn({ data: req });
+  } catch {
+    const { handleUpdateCandidateUnit } = await import("./ingest.server");
+    return await handleUpdateCandidateUnit(req);
+  }
+}
+
+export async function fetchCandidatesForDoc(
+  docId: string
+): Promise<{ ok: boolean; candidates: any[]; error?: string }> {
+  try {
+    const { getCandidatesForDocFn } = await import("./ingest.functions");
+    return await getCandidatesForDocFn({ data: { docId } });
+  } catch {
+    const { handleGetCandidatesByDocId } = await import("./ingest.server");
+    return await handleGetCandidatesByDocId(docId);
+  }
+}
+
 export async function fetchReviewQueue(): Promise<import("../types/review").ReviewQueueItem[]> {
   try {
     const { listReviewQueueFn } = await import("./review.functions");

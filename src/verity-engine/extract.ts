@@ -52,6 +52,13 @@ export interface CandidateUnit {
   plan_scope?: string;
   allowed_roles?: string[];
   classification?: string;
+  version?: number;
+  version_id?: string;
+  supersedes?: string | null;
+  duplicate_of?: string | null;
+  is_duplicate_review?: boolean;
+  domain?: string;
+  annotations?: Record<string, string>;
 }
 
 /**
@@ -86,6 +93,12 @@ export interface ExtractionResult {
   plan_scope?: string;
   allowed_roles?: string[];
   classification?: string;
+  version?: number;
+  version_id?: string;
+  supersedes?: string | null;
+  duplicate_of?: string | null;
+  domain?: string;
+  annotations?: Record<string, string>;
 }
 
 const STOP = new Set(['the', 'a', 'an', 'and', 'or', 'of', 'to', 'for', 'in', 'on', 'by', 'is', 'are', 'be', 'with', 'your', 'this', 'that', 'can', 'may', 'will', 'it', 'as', 'at', 'from', 'any', 'their', 'members', 'member']);
@@ -124,13 +137,27 @@ function parseDateRange(s: string | undefined): { start: string | null; end: str
 }
 
 function cleanTitle(s: string): string {
-  return s
-    .replace(/^#{1,6}\s+/, '')
-    .replace(/^\[[A-Z0-9_-]+\]\s*/i, '')
-    .replace(/^\*\*|\*\*$/g, '')
-    .replace(/:$/, '')
-    .replace(/\(SYNTHETIC.*$/i, '')
-    .trim();
+  let res = s.trim();
+  res = res.replace(/^#{1,6}\s+/, '');
+  res = res.replace(/^\[[A-Za-z0-9_.-]+\]\s*/i, '');
+  res = res.replace(/\s*\[[A-Za-z0-9_.-]+\]$/i, '');
+  res = res.replace(/^(?:Unit|Candidate(?:\s+ID)?)\s*:\s*[A-Za-z0-9_.-]+\s*/i, '');
+  res = res.replace(/^[*_`~]+|[*_`~]+$/g, '');
+  res = res.replace(/^\[[A-Za-z0-9_.-]+\]\s*/i, '');
+  res = res.replace(/^[*_`~]+|[*_`~]+$/g, '');
+  res = res.replace(/:$/, '');
+  res = res.replace(/\(SYNTHETIC.*$/i, '');
+  return res.trim();
+}
+
+function extractBracketedId(s: string): string | undefined {
+  const m = s.match(/\[([A-Za-z0-9_.-]+)\]/) || s.match(/(?:Unit|Candidate(?:\s+ID)?)\s*:\s*([A-Za-z0-9_.-]+)/i);
+  return m ? m[1] : undefined;
+}
+
+function isNonKnowledgeHeading(title: string): boolean {
+  const clean = cleanTitle(title).toLowerCase();
+  return /^(extraction annotations|candidate annotations|annotations|source-upload instructions|source upload instructions|upload instructions|instructions|source instructions|document metadata|metadata|document information|administrative details|change log|revision history)$/i.test(clean);
 }
 
 /** "[EDUCATION] Pricing disclaimer" -> "Pricing disclaimer"; "[OPENING]" -> "Opening". */
@@ -172,6 +199,12 @@ interface Raw {
   review?: string | null;
   labeled?: boolean;
   annotated_id?: string;
+  version?: number;
+  version_id?: string;
+  supersedes?: string | null;
+  duplicate_of?: string | null;
+  is_duplicate_review?: boolean;
+  annotations?: Record<string, string>;
 }
 
 const META_KEYS = new Set([
@@ -201,36 +234,123 @@ const META_KEYS = new Set([
   'audience',
   'annotated unit id',
   'unit id',
+  'unit_id',
+  'candidate id',
+  'candidate_id',
+  'candidate',
+  'annotated candidate',
+  'annotated candidate id',
+  'proposed version',
+  'proposed_version',
+  'version',
+  'version_id',
+  'supersedes',
+  'supersedes unit',
+  'superseded by',
+  'duplicate review',
+  'duplicate candidate',
+  'duplicate of',
+  'duplicate_of',
+  'duplicate',
+  'instructions',
+  'source-upload instructions',
+  'source upload instructions',
+  'upload instructions',
+  'source instructions',
+  'status',
+  'review date',
+  'next review due',
+  'knowledge base',
+  'kb',
+  'tags',
+  'synonyms',
+  'domain',
+  'domain team',
+  'unit type',
+  'unit_type',
+  'type',
+  'candidate type',
+  'target type',
 ]);
 
 function isMetaLine(line: string): boolean {
   const trimmed = line.trim();
+  if (!trimmed) return false;
   if (/^---/.test(trimmed)) return true;
-  if (/^(?:doc id|source id|revision|plan scope|owner|effective|classification|allowed role|last edited|scope):/i.test(trimmed)) return true;
+  if (/^<!--.*-->$/.test(trimmed)) return true;
+  if (/^["'\[\]\s,]+$/.test(trimmed)) return true;
+  if (/^["']?[a-zA-Z0-9_-]+["']?\]\s*,?$/i.test(trimmed)) return true;
+  if (/^\[?["']?(?:pharmacy_advocate|insurance_advocate|member_chat|clinical_reviewer)["']?\]?,?$/i.test(trimmed)) return true;
+
+  const stripped = trimmed.replace(/^[-*•]\s+/, '').replace(/^>\s*/, '');
+  const colonIdx = stripped.indexOf(':');
+  if (colonIdx > 0) {
+    const key = stripped.slice(0, colonIdx).replace(/[`*]/g, '').trim().toLowerCase();
+    if (META_KEYS.has(key)) return true;
+  }
   if (trimmed.includes('|')) {
     const parts = trimmed.split('|');
     return parts.some((p) => {
       const idx = p.indexOf(':');
       if (idx <= 0) return false;
-      const k = p.slice(0, idx).trim().toLowerCase();
+      const k = p.slice(0, idx).replace(/^[-*•]\s+/, '').replace(/[`*]/g, '').trim().toLowerCase();
       return META_KEYS.has(k);
     });
   }
   return false;
 }
 
-function parseMetaLine(line: string, header: Record<string, string>): void {
-  const parts = line.split('|');
+function parseMetaLine(line: string, target: Record<string, string>): void {
+  const trimmed = line.trim().replace(/^[-*•]\s+/, '');
+  // Handle array continuations like '"member_chat"]'
+  const roleContinuation = trimmed.match(/^["']?([a-zA-Z0-9_-]+)["']?\]?\s*$/);
+  if (roleContinuation && (target['allowed role'] || target['allowed roles'])) {
+    const key = target['allowed role'] ? 'allowed role' : 'allowed roles';
+    target[key] = `${target[key]}, ${roleContinuation[1]}`;
+    return;
+  }
+
+  const parts = trimmed.split('|');
   for (const part of parts) {
     const idx = part.indexOf(':');
     if (idx > 0) {
-      const k = part.slice(0, idx).trim().toLowerCase();
-      const v = part.slice(idx + 1).trim();
+      const k = part.slice(0, idx).replace(/^[-*•]\s+/, '').replace(/[`*]/g, '').trim().toLowerCase();
+      let v = part.slice(idx + 1).replace(/^[`*]+|[`*]+$/g, '').trim();
+      if (v.startsWith('[') && v.endsWith(']')) {
+        v = v.slice(1, -1).replace(/["']/g, '').trim();
+      } else if (v.startsWith('[')) {
+        v = v.slice(1).replace(/["']/g, '').trim();
+      }
       if (k && v) {
-        header[k] = v;
+        target[k] = v;
       }
     }
   }
+}
+
+function cleanCandidateBody(body: string): string {
+  const lines = body.split('\n');
+  let startIdx = 0;
+  while (startIdx < lines.length) {
+    const raw = lines[startIdx]!;
+    const l = raw.trim();
+    if (!l) {
+      startIdx++;
+      continue;
+    }
+    if (
+      isMetaLine(l) ||
+      /^["'\[\]\s,]+$/.test(l) ||
+      /^["']?[a-zA-Z0-9_-]+["']?\]\s*,?$/i.test(l) ||
+      /^(?:member_chat|pharmacy_advocate|insurance_advocate)["'\]\s,]*$/i.test(l) ||
+      /^[-*•]?\s*(?:Candidate ID|Proposed Version|Supersedes|Duplicate Review|Allowed Role|Doc ID|Source ID|Classification|Unit Type|Domain):/i.test(l)
+    ) {
+      startIdx++;
+      continue;
+    }
+    break;
+  }
+  return lines.slice(startIdx).join('\n').trim();
 }
 
 /** Split a messy source document into raw candidates. Deterministic. */
@@ -241,31 +361,64 @@ function segment(text: string): { header: Record<string, string>; title: string;
   const skipped: SkippedLine[] = [];
   const notes: string[] = [];
 
+  // Parse frontmatter if present
+  let startIdx = 0;
+  if (lines[0]?.trim().startsWith('---')) {
+    let closing = -1;
+    for (let i = 1; i < lines.length; i++) {
+      if (lines[i]?.trim().startsWith('---')) {
+        closing = i;
+        break;
+      }
+      parseMetaLine(lines[i]!, header);
+    }
+    if (closing > 0) {
+      startIdx = closing + 1;
+    }
+  }
+
   // 1. Identify title line
   let titleIndex = -1;
-  for (let i = 0; i < lines.length; i++) {
+  for (let i = startIdx; i < lines.length; i++) {
     const l = lines[i]!.trim();
     if (l && !l.startsWith('---') && !isMetaLine(l)) {
       titleIndex = i;
       break;
+    } else if (l && isMetaLine(l)) {
+      parseMetaLine(l, header);
     }
   }
 
   const rawTitle = titleIndex >= 0 ? lines[titleIndex]!.trim() : (lines[0] ?? '');
   const title = cleanTitle(rawTitle);
+  const titleAnnotatedId = extractBracketedId(rawTitle);
 
   // Check if document uses structured Markdown headings (## or ###)
-  const hasMarkdownHeadings = lines.some((l, idx) => idx > titleIndex && /^#{2,6}\s+/.test(l.trim()));
+  const substantiveHeadings = lines.filter((l, idx) => {
+    if (idx <= titleIndex) return false;
+    const m = l.trim().match(/^(#{2,6})\s+(.+)$/);
+    if (!m) return false;
+    return !isNonKnowledgeHeading(m[2]!);
+  });
 
-  if (hasMarkdownHeadings) {
+  const hasSubstantiveHeadings = substantiveHeadings.length > 0;
+  const isMarkdownDoc = rawTitle.startsWith('#') || lines.some((l, idx) => idx > titleIndex && /^#{1,6}\s+/.test(l.trim()));
+
+  if (hasSubstantiveHeadings) {
     // ---------------------------------------------------------------------------
     // Markdown Document Strategy: Header metadata + Heading section boundaries
     // ---------------------------------------------------------------------------
-    let currentHeading: { title: string; section: string; annotated_id?: string } | null = null;
+    let currentHeading: {
+      title: string;
+      section: string;
+      annotated_id?: string;
+      isNonKnowledge: boolean;
+      annotations: Record<string, string>;
+    } | null = null;
     let sectionLines: string[] = [];
 
     const flushMarkdownSection = () => {
-      if (!currentHeading || sectionLines.length === 0) {
+      if (!currentHeading || currentHeading.isNonKnowledge || sectionLines.length === 0) {
         currentHeading = null;
         sectionLines = [];
         return;
@@ -273,13 +426,44 @@ function segment(text: string): { header: Record<string, string>; title: string;
 
       const bodyText = sectionLines.join('\n').trim();
       if (bodyText) {
+        const combined = { ...header, ...currentHeading.annotations };
+        const annotatedId =
+          currentHeading.annotated_id ||
+          combined['candidate id'] ||
+          combined['candidate_id'] ||
+          combined['candidate'] ||
+          combined['annotated candidate'] ||
+          combined['annotated candidate id'] ||
+          combined['unit id'] ||
+          combined['unit_id'] ||
+          titleAnnotatedId;
+
+        const proposedVersion = combined['proposed version'] || combined['proposed_version'] || combined['version_id'] || combined['version'];
+        let versionNum: number | undefined;
+        if (proposedVersion) {
+          const vMatch = proposedVersion.match(/v(\d+)/i) || proposedVersion.match(/(\d+)/);
+          if (vMatch) versionNum = parseInt(vMatch[1]!, 10);
+        }
+
+        const supersedes = combined['supersedes'] || combined['supersedes unit'] || combined['supersedes_id'] || null;
+        const duplicateSignal = combined['duplicate review'] || combined['duplicate candidate'] || combined['duplicate of'] || combined['duplicate_of'] || combined['duplicate'];
+        const isDup = Boolean(duplicateSignal || (annotatedId && /^(?:CAND-)?DUP/i.test(annotatedId)));
+        const dupOf = duplicateSignal || (isDup ? annotatedId : null);
+
+        const explicitType = combined['unit type'] || combined['unit_type'] || combined['type'] || combined['candidate type'];
         raws.push({
           title: currentHeading.title,
-          type: 'fact',
-          body: bodyText,
+          type: (explicitType ? explicitType.toLowerCase() : 'fact') as any,
+          body: cleanCandidateBody(bodyText),
           verbatim: false,
           section: currentHeading.section,
-          annotated_id: currentHeading.annotated_id,
+          annotated_id: annotatedId,
+          version: versionNum,
+          version_id: proposedVersion,
+          supersedes,
+          duplicate_of: dupOf,
+          is_duplicate_review: isDup,
+          annotations: combined,
         });
       }
 
@@ -288,40 +472,54 @@ function segment(text: string): { header: Record<string, string>; title: string;
     };
 
     for (let i = 0; i < lines.length; i++) {
-      if (i === titleIndex) continue;
+      if (i <= titleIndex && titleIndex >= 0) continue;
       const rawLine = lines[i]!;
       const line = rawLine.trim();
       if (!line) {
-        if (currentHeading && sectionLines.length > 0) {
+        if (currentHeading && !currentHeading.isNonKnowledge && sectionLines.length > 0) {
           sectionLines.push('');
         }
         continue;
       }
 
-      // Metadata lines before or outside sections
+      // Metadata lines before any section
       if (!currentHeading && isMetaLine(line)) {
         parseMetaLine(line, header);
         continue;
       }
 
-      // Check for Markdown heading
-      const headingMatch = line.match(/^(#{2,6})\s+(.+)$/);
+      // Check for Markdown heading (levels 2-3 define candidate units; levels 4+ remain substantive text)
+      const headingMatch = line.match(/^(#{2,3})\s+(.+)$/);
       if (headingMatch) {
         flushMarkdownSection();
         const fullHeading = headingMatch[2]!.trim();
-        const annotatedMatch = fullHeading.match(/\[([A-Z0-9_-]+)\]/);
-        const annotatedId = annotatedMatch ? annotatedMatch[1] : undefined;
+        const nonKnowledge = isNonKnowledgeHeading(fullHeading);
+        const annotatedId = extractBracketedId(fullHeading);
         const headingClean = cleanTitle(fullHeading);
 
         currentHeading = {
           title: headingClean,
           section: annotatedId ? `[${annotatedId}] ${headingClean}` : headingClean,
           annotated_id: annotatedId,
+          isNonKnowledge: nonKnowledge,
+          annotations: {},
         };
         continue;
       }
 
       if (currentHeading) {
+        if (currentHeading.isNonKnowledge) {
+          if (isMetaLine(line)) {
+            parseMetaLine(line, header);
+          }
+          continue;
+        }
+
+        if (isMetaLine(line)) {
+          parseMetaLine(line, currentHeading.annotations);
+          continue;
+        }
+
         if (/^(tip|fyi)\b/i.test(line)) {
           skipped.push({ text: line, reason: 'coaching tip, not knowledge' });
           continue;
@@ -335,6 +533,101 @@ function segment(text: string): { header: Record<string, string>; title: string;
       }
     }
     flushMarkdownSection();
+
+    return { header, title, raws, skipped, notes };
+  }
+
+  if (isMarkdownDoc) {
+    // ---------------------------------------------------------------------------
+    // Markdown Document Strategy: Single substantive knowledge unit
+    // (Preserve all substantive paragraphs, quoted scripts, safety restrictions)
+    // ---------------------------------------------------------------------------
+    const sectionLines: string[] = [];
+    let insideNonKnowledgeSection = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      if (i <= titleIndex && titleIndex >= 0) continue;
+      const rawLine = lines[i]!;
+      const line = rawLine.trim();
+      if (!line) {
+        if (sectionLines.length > 0 && !insideNonKnowledgeSection) {
+          sectionLines.push('');
+        }
+        continue;
+      }
+
+      const headingMatch = line.match(/^(#{2,6})\s+(.+)$/);
+      if (headingMatch) {
+        const fullHeading = headingMatch[2]!.trim();
+        insideNonKnowledgeSection = isNonKnowledgeHeading(fullHeading);
+        continue;
+      }
+
+      if (insideNonKnowledgeSection) {
+        if (isMetaLine(line)) {
+          parseMetaLine(line, header);
+        }
+        continue;
+      }
+
+      if (isMetaLine(line)) {
+        parseMetaLine(line, header);
+        continue;
+      }
+
+      if (/^(tip|fyi)\b/i.test(line)) {
+        skipped.push({ text: line, reason: 'coaching tip, not knowledge' });
+        continue;
+      }
+      if (/retired|do not use/i.test(line)) {
+        skipped.push({ text: line, reason: 'lifecycle note: routed to the owner as a possible retirement' });
+        notes.push(`Possible retirement: "${line}"`);
+        continue;
+      }
+
+      sectionLines.push(rawLine);
+    }
+
+    const bodyText = sectionLines.join('\n').trim();
+    if (bodyText) {
+      const annotatedId =
+        header['candidate id'] ||
+        header['candidate_id'] ||
+        header['candidate'] ||
+        header['annotated candidate'] ||
+        header['annotated candidate id'] ||
+        header['unit id'] ||
+        header['unit_id'] ||
+        titleAnnotatedId;
+
+      const proposedVersion = header['proposed version'] || header['proposed_version'] || header['version_id'] || header['version'];
+      let versionNum: number | undefined;
+      if (proposedVersion) {
+        const vMatch = proposedVersion.match(/v(\d+)/i) || proposedVersion.match(/(\d+)/);
+        if (vMatch) versionNum = parseInt(vMatch[1]!, 10);
+      }
+
+      const supersedes = header['supersedes'] || header['supersedes unit'] || header['supersedes_id'] || null;
+      const duplicateSignal = header['duplicate review'] || header['duplicate candidate'] || header['duplicate of'] || header['duplicate_of'] || header['duplicate'];
+      const isDup = Boolean(duplicateSignal || (annotatedId && /^(?:CAND-)?DUP/i.test(annotatedId)));
+      const dupOf = duplicateSignal || (isDup ? annotatedId : null);
+
+      const explicitType = header['unit type'] || header['unit_type'] || header['type'] || header['candidate type'];
+      raws.push({
+        title,
+        type: (explicitType ? explicitType.toLowerCase() : 'fact') as any,
+        body: cleanCandidateBody(bodyText),
+        verbatim: false,
+        section: annotatedId ? `[${annotatedId}] ${title}` : title,
+        annotated_id: annotatedId,
+        version: versionNum,
+        version_id: proposedVersion,
+        supersedes,
+        duplicate_of: dupOf,
+        is_duplicate_review: isDup,
+        annotations: header,
+      });
+    }
 
     return { header, title, raws, skipped, notes };
   }
@@ -441,8 +734,14 @@ export function extract(text: string, approved: KnowledgeUnit[], previous?: Cand
   const revision = header['revision'] ?? header['source revision'] ?? undefined;
   const planScope = header['plan scope'] ?? header['scope'] ?? undefined;
   const classification = header['classification'] ?? undefined;
-  const allowedRolesRaw = header['allowed role'] ?? header['allowed roles'] ?? header['role'];
-  const allowedRoles = allowedRolesRaw ? allowedRolesRaw.split(/[,|]/).map((r) => r.trim()).filter(Boolean) : undefined;
+  const allowedRolesRaw = header['allowed roles'] ?? header['allowed role'] ?? header['roles'] ?? undefined;
+  const allowedRoles = allowedRolesRaw
+    ? allowedRolesRaw
+        .replace(/[\[\]"]/g, '')
+        .split(/[,|]/)
+        .map((r) => r.trim().replace(/^["']|["']$/g, ''))
+        .filter(Boolean)
+    : undefined;
   const live = approved.filter((u) => u.status === 'approved');
 
   const candidates = raws.map((r, i): CandidateUnit => {
@@ -509,6 +808,13 @@ export function extract(text: string, approved: KnowledgeUnit[], previous?: Cand
       plan_scope: planScope,
       allowed_roles: allowedRoles,
       classification,
+      domain: header['domain'] ?? header['domain team'] ?? owner,
+      version: r.version,
+      version_id: r.version_id,
+      supersedes: r.supersedes,
+      duplicate_of: r.duplicate_of,
+      is_duplicate_review: r.is_duplicate_review,
+      annotations: r.annotations,
     };
   });
 
@@ -517,6 +823,7 @@ export function extract(text: string, approved: KnowledgeUnit[], previous?: Cand
     doc_id: docId,
     title,
     owner,
+    domain: header['domain'] ?? header['domain team'] ?? owner,
     effective_date: effective,
     candidates,
     skipped,
@@ -526,6 +833,11 @@ export function extract(text: string, approved: KnowledgeUnit[], previous?: Cand
     plan_scope: planScope,
     allowed_roles: allowedRoles,
     classification,
+    version: candidates[0]?.version,
+    version_id: candidates[0]?.version_id,
+    supersedes: candidates[0]?.supersedes,
+    duplicate_of: candidates[0]?.duplicate_of,
+    annotations: header,
   };
 }
 

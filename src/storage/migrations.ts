@@ -64,6 +64,7 @@ export async function runMigrations(db: Kysely<DatabaseSchema>): Promise<void> {
     .ifNotExists()
     .addColumn("id", "text", (col) => col.primaryKey())
     .addColumn("cid", "text", (col) => col.notNull())
+    .addColumn("annotated_id", "text")
     .addColumn("job_id", "text", (col) => col.notNull())
     .addColumn("source_doc_id", "text", (col) => col.notNull())
     .addColumn("title", "text", (col) => col.notNull())
@@ -84,6 +85,11 @@ export async function runMigrations(db: Kysely<DatabaseSchema>): Promise<void> {
     .addColumn("key_points_json", "text", (col) => col.notNull().defaultTo("[]"))
     .addColumn("selected", "integer", (col) => col.notNull().defaultTo(0))
     .addColumn("created_at", "text", (col) => col.notNull())
+    .addColumn("version", "integer")
+    .addColumn("version_id", "text")
+    .addColumn("supersedes", "text")
+    .addColumn("duplicate_of", "text")
+    .addColumn("annotations_json", "text")
     .execute();
 
   await db.schema
@@ -92,6 +98,14 @@ export async function runMigrations(db: Kysely<DatabaseSchema>): Promise<void> {
     .on("candidate_units")
     .column("job_id")
     .execute();
+
+  // Safely alter candidate_units if already existing
+  const candidateCols = ["annotated_id", "version", "version_id", "supersedes", "duplicate_of", "annotations_json"];
+  for (const col of candidateCols) {
+    try {
+      await db.schema.alterTable("candidate_units").addColumn(col as any, col === "version" ? "integer" : "text").execute();
+    } catch {}
+  }
 
   // 5. drafts
   await db.schema
@@ -119,5 +133,18 @@ export async function runMigrations(db: Kysely<DatabaseSchema>): Promise<void> {
     .addColumn("history_json", "text", (col) => col.notNull().defaultTo("[]"))
     .addColumn("created_at", "text", (col) => col.notNull())
     .addColumn("updated_at", "text", (col) => col.notNull())
+    .addColumn("version", "integer")
+    .addColumn("version_id", "text")
+    .addColumn("supersedes", "text")
+    .addColumn("duplicate_of", "text")
+    .addColumn("annotations_json", "text")
     .execute();
+
+  // Safely alter drafts if already existing
+  const draftCols = ["version", "version_id", "supersedes", "duplicate_of", "annotations_json"];
+  for (const col of draftCols) {
+    try {
+      await db.schema.alterTable("drafts").addColumn(col as any, col === "version" ? "integer" : "text").execute();
+    } catch {}
+  }
 }

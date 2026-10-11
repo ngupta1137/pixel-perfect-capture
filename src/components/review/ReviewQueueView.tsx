@@ -18,6 +18,8 @@ import {
   Clock,
   ExternalLink,
   RotateCcw,
+  FlaskConical,
+  FileCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -121,8 +123,62 @@ export function ReviewQueueView() {
   }, [items, activeTab, searchQuery, filterLob, filterType, filterStaleOnly, person.name]);
 
   const activeItem = useMemo(() => {
+    if (!filteredItems.length) return null;
     return filteredItems.find((it) => it.id === selectedId) || filteredItems[0] || null;
   }, [filteredItems, selectedId]);
+
+  useEffect(() => {
+    if (activeItem && activeItem.id !== selectedId) {
+      setSelectedId(activeItem.id);
+    }
+  }, [activeItem, selectedId]);
+
+  // Role-based review capability checks
+  const canApproveLegal = can("approve_legal");
+  const canApproveStd = can("approve_standard") || canApproveLegal;
+  const isLegalDraft = Boolean(
+    activeItem && (
+      activeItem.verbatim === 1 ||
+      activeItem.type === "Legal" ||
+      activeItem.assigned_reviewer?.toLowerCase().includes("legal")
+    )
+  );
+
+  const proposerName = activeItem?.proposer || (activeItem as any)?.proposed_by || activeItem?.history?.[0]?.by || "";
+  const proposerFirst = proposerName.trim().toLowerCase().split(/[\s(]/)[0];
+  const reviewerFirst = person.name.trim().toLowerCase().split(/[\s(]/)[0];
+  const isProposer = Boolean(
+    activeItem &&
+    proposerFirst &&
+    reviewerFirst &&
+    proposerFirst === reviewerFirst
+  );
+
+  let approveDisabledReason: string | null = null;
+  if (!activeItem) {
+    approveDisabledReason = "No unit selected.";
+  } else if (activeItem.status === "Approved") {
+    approveDisabledReason = "This knowledge unit has already been approved and published.";
+  } else if (activeItem.status === "Rejected") {
+    approveDisabledReason = "This draft has already been rejected.";
+  } else if (!canApproveStd) {
+    approveDisabledReason = `Your role (${person.label}) does not have approval authority. Approvals must be made by Knowledge Owner (Owen) or Legal Approver (Rita).`;
+  } else if (isProposer) {
+    approveDisabledReason = "Maker-checker restriction: You proposed this draft and cannot approve your own work.";
+  } else if (isLegalDraft && !canApproveLegal) {
+    approveDisabledReason = "This verbatim unit requires Legal Approver authorization (Rita).";
+  }
+
+  let reviewDisabledReason: string | null = null;
+  if (!activeItem) {
+    reviewDisabledReason = "No unit selected.";
+  } else if (activeItem.status === "Approved") {
+    reviewDisabledReason = "This knowledge unit has already been approved.";
+  } else if (activeItem.status === "Rejected") {
+    reviewDisabledReason = "This draft has already been rejected.";
+  } else if (!canApproveStd) {
+    reviewDisabledReason = `Your role (${person.label}) does not have review decision authority.`;
+  }
 
   // Tab counts
   const counts = useMemo(() => {
@@ -237,6 +293,11 @@ export function ReviewQueueView() {
     setActionError("");
     setActionSuccess("");
 
+    if (reviewDisabledReason) {
+      setActionError(reviewDisabledReason);
+      return;
+    }
+
     if (!reviewerNotes.trim()) {
       setActionError("A rejection reason or note is required to reject a knowledge unit.");
       return;
@@ -272,6 +333,11 @@ export function ReviewQueueView() {
     if (!activeItem || isDeciding) return;
     setActionError("");
     setActionSuccess("");
+
+    if (reviewDisabledReason) {
+      setActionError(reviewDisabledReason);
+      return;
+    }
 
     if (!reviewerNotes.trim()) {
       setActionError("Please provide reviewer notes explaining the requested changes.");
@@ -624,14 +690,9 @@ export function ReviewQueueView() {
                               <DropdownMenuItem onClick={() => handleSelectRow(item)}>
                                 View details
                               </DropdownMenuItem>
-                              {item.status !== "Approved" && (
-                                <DropdownMenuItem onClick={handleApprove} className="text-emerald-700">
-                                  Approve
-                                </DropdownMenuItem>
-                              )}
-                              {item.status !== "Rejected" && (
-                                <DropdownMenuItem onClick={handleReject} className="text-rose-700">
-                                  Reject
+                              {canApproveStd && (
+                                <DropdownMenuItem onClick={() => handleSelectRow(item)}>
+                                  Review item
                                 </DropdownMenuItem>
                               )}
                             </DropdownMenuContent>
@@ -710,11 +771,11 @@ export function ReviewQueueView() {
                         {activeItem.title}
                       </h2>
                       {activeItem.is_demo ? (
-                        <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                        <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
                           Demo fixture
                         </span>
                       ) : (
-                        <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
                           Live record
                         </span>
                       )}
@@ -753,6 +814,24 @@ export function ReviewQueueView() {
                     )}
                   </div>
                 </div>
+
+                {activeItem.is_demo ? (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-50/70 border border-amber-200 text-amber-900 text-xs">
+                    <FlaskConical className="h-4 w-4 text-amber-700 shrink-0" />
+                    <div>
+                      <span className="font-semibold">Demo Fixture</span>: Synthetic demonstration reference. Not an operational document.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-200 text-emerald-900 text-xs">
+                    <FileCheck className="h-4 w-4 text-emerald-700 shrink-0" />
+                    <div>
+                      <span className="font-semibold">Live Operational Record</span>: Extracted from <span className="font-medium">{activeItem.source_doc}</span> (Doc ID: {activeItem.source_id || "N/A"}).
+                      {activeItem.version ? ` • v${activeItem.version}` : ""}
+                      {activeItem.supersedes ? ` • Supersedes ${activeItem.supersedes}` : ""}
+                    </div>
+                  </div>
+                )}
 
                 {/* Sub-tabs: Content, Context, Source, History */}
                 <div className="flex border-b border-border text-xs font-medium pt-2">
@@ -965,31 +1044,45 @@ export function ReviewQueueView() {
                 </div>
               )}
 
+              {/* Governance notice banner if actions are disabled */}
+              {(approveDisabledReason || reviewDisabledReason) && (
+                <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-50/80 border border-amber-200 text-amber-900 text-xs">
+                  <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold">Review Actions Restricted</span>:{" "}
+                    {approveDisabledReason || reviewDisabledReason}
+                  </div>
+                </div>
+              )}
+
               {/* Bottom Action Bar */}
               <div className="flex items-center justify-between gap-2 pt-3 border-t border-border">
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={isDeciding}
+                  disabled={isDeciding || Boolean(reviewDisabledReason)}
+                  title={reviewDisabledReason || undefined}
                   onClick={handleReject}
-                  className="text-xs h-9 px-3 gap-1.5 text-rose-700 border-rose-200 hover:bg-rose-50 hover:text-rose-800 disabled:opacity-50"
+                  className="text-xs h-9 px-3 gap-1.5 text-rose-700 border-rose-200 hover:bg-rose-50 hover:text-rose-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <X className="h-3.5 w-3.5" /> Reject
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={isDeciding}
+                  disabled={isDeciding || Boolean(reviewDisabledReason)}
+                  title={reviewDisabledReason || undefined}
                   onClick={handleRequestChanges}
-                  className="text-xs h-9 px-3 gap-1.5 text-sky-700 border-sky-200 hover:bg-sky-50 hover:text-sky-800 disabled:opacity-50"
+                  className="text-xs h-9 px-3 gap-1.5 text-sky-700 border-sky-200 hover:bg-sky-50 hover:text-sky-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <MessageSquare className="h-3.5 w-3.5" /> Request changes
                 </Button>
                 <Button
                   size="sm"
-                  disabled={isDeciding}
+                  disabled={isDeciding || Boolean(approveDisabledReason)}
+                  title={approveDisabledReason || undefined}
                   onClick={handleApprove}
-                  className="text-xs h-9 px-4 gap-1.5 bg-[#1E5E2E] hover:bg-[#184d25] text-white font-semibold disabled:opacity-50"
+                  className="text-xs h-9 px-4 gap-1.5 bg-[#1E5E2E] hover:bg-[#184d25] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Check className="h-3.5 w-3.5" /> {isDeciding ? "Processing..." : "Approve"}
                 </Button>

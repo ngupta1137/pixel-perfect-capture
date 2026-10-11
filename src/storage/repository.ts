@@ -194,6 +194,15 @@ export class StorageRepository {
       .execute();
   }
 
+  async getCandidateById(id: string): Promise<CandidateUnitTable | undefined> {
+    const db = await this.getDb();
+    return await db
+      .selectFrom("candidate_units")
+      .selectAll()
+      .where("id", "=", id)
+      .executeTakeFirst();
+  }
+
   async updateCandidateUnit(
     id: string,
     updates: Updateable<CandidateUnitTable>
@@ -212,7 +221,11 @@ export class StorageRepository {
   async createDrafts(drafts: Insertable<DraftTable>[]): Promise<DraftTable[]> {
     if (drafts.length === 0) return [];
     const db = await this.getDb();
-    await db.insertInto("drafts").values(drafts).execute();
+    await db
+      .insertInto("drafts")
+      .values(drafts)
+      .onConflict((oc) => oc.column("draft_id").doNothing())
+      .execute();
     const ids = drafts.map((d) => d.draft_id);
     return await db
       .selectFrom("drafts")

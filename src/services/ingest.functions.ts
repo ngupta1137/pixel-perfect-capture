@@ -101,3 +101,17 @@ export const proposeDraftsFn = createServerFn({ method: "POST" })
     const { handleProposeDrafts } = await import("./ingest.server");
     return await handleProposeDrafts(data);
   });
+
+export const updateCandidateUnitFn = createServerFn({ method: "POST" })
+  .validator((d: any) => d)
+  .handler(async ({ data }): Promise<any> => {
+    const { handleUpdateCandidateUnit } = await import("./ingest.server");
+    return await handleUpdateCandidateUnit(data);
+  });
+
+export const getCandidatesForDocFn = createServerFn({ method: "POST" })
+  .validator((d: { docId: string }) => d)
+  .handler(async ({ data }): Promise<any> => {
+    const { handleGetCandidatesByDocId } = await import("./ingest.server");
+    return await handleGetCandidatesByDocId(data.docId);
+  });

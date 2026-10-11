@@ -12,6 +12,7 @@ import {
   uploadAndIngestSource,
   listRecentUploads,
   fetchMyDrafts,
+  fetchCandidatesForDoc,
   type Candidate,
 } from "@/services/verity";
 import { IngestSidebarGuide } from "@/components/ingest/IngestSidebarGuide";
@@ -231,6 +232,71 @@ function WorkPage() {
     }
   };
 
+  const handleSelectRecent = async (upload: RecentUpload) => {
+    try {
+      setIsExtracting(true);
+      setExtractionError("");
+      const res = await fetchCandidatesForDoc(upload.id);
+      if (res.ok && res.candidates && res.candidates.length > 0) {
+        const mappedUnits: ExtractedUnit[] = res.candidates.map((c: any) => ({
+          id: c.id,
+          cid: c.cid || c.candidate_id,
+          title: c.title,
+          type: (c.candidate_type || c.unit_type as any) || "Procedure",
+          content: c.body || c.content,
+          key_points: (() => {
+            try {
+              return JSON.parse(c.key_points_json || "[]");
+            } catch {
+              return [];
+            }
+          })(),
+          source_reference: c.source_reference,
+          suggested_effective_date: c.effective_date || c.suggested_effective_date || "2024-01-01",
+          match_status: c.match_status,
+          similarity: c.similarity,
+          route_to: c.route_to,
+          annotated_id: c.annotated_id ?? undefined,
+          version: c.version ?? undefined,
+          version_id: c.version_id ?? undefined,
+          supersedes: c.supersedes ?? undefined,
+          duplicate_of: c.duplicate_of ?? undefined,
+          is_duplicate_review: !!c.duplicate_of,
+          selected: true,
+        }));
+
+        setExtractedUnits(mappedUnits);
+        setExtractedCandidates(
+          res.candidates.map((c: any) => ({
+            cid: c.cid || c.candidate_id,
+            title: c.title,
+            text: c.body || c.content,
+            status: c.match_status === "changed" ? "changed_flagged" : "new",
+            route: c.route_to === "legal" ? "legal" : "owner",
+            owner_team: c.owner_team || "Pharmacy Ops",
+            effective_date: c.effective_date || c.suggested_effective_date || "2024-01-01",
+            tags: [(c.candidate_type || c.unit_type || "procedure").toLowerCase()],
+            gate: { checked: 27, blocking: [] },
+            note: undefined,
+            annotated_id: c.annotated_id ?? undefined,
+            version: c.version ?? undefined,
+            version_id: c.version_id ?? undefined,
+            supersedes: c.supersedes ?? undefined,
+            duplicate_of: c.duplicate_of ?? undefined,
+          }))
+        );
+        setActiveSourceTitle(upload.title);
+        setCurrentDocId(upload.id);
+        setExtractedParsedText("");
+        setIngestStep("review_extract");
+      }
+    } catch (err: any) {
+      setExtractionError(err?.message || "Could not load candidates for selected document.");
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
   const handleResetToSource = () => {
     setExtractedCandidates(null);
     setIngestStep("upload");
@@ -335,6 +401,7 @@ function WorkPage() {
                   isExtracting={isExtracting}
                   error={extractionError}
                   recentUploads={serverRecentUploads}
+                  onSelectRecent={handleSelectRecent}
                 />
               </div>
 

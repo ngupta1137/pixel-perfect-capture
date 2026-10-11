@@ -29,9 +29,21 @@ const renderReviewRoute = (personId = "priya") => {
   );
 };
 
+import { getDb } from "@/storage/db";
+
 describe("Verity Review Queue Redesign", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetDemoStore();
+    try {
+      const db = await getDb();
+      await db
+        .updateTable("drafts")
+        .set({ status: "proposed", reason: null, decided_by: null })
+        .where("draft_id", "=", "REV-001")
+        .execute();
+    } catch {
+      // ignore
+    }
   });
 
   it("denies access to consumers (Priya) without review queue rights", () => {

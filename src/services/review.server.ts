@@ -6,64 +6,69 @@ import { Verity } from "../verity-engine/pipeline";
 import type { DraftTable } from "../storage/schema";
 import type { KnowledgeUnit } from "../verity-engine/types";
 import type { ReviewDecisionRequest, ReviewDecisionResponse } from "./review.functions";
+import { updateDemoState } from "./demoStore";
 
 /**
  * Seed initial operational drafts into the persistent database if the table is empty.
  * This guarantees the review queue and drafts are backed by real SQLite records.
  */
 export async function seedInitialDraftsIfEmpty(repo: StorageRepository = repository): Promise<void> {
-  const existing = await repo.listDrafts();
-  if (existing.length > 0) return;
+  try {
+    const existing = await repo.listDrafts();
+    if (existing.length > 0) return;
 
-  const now = new Date();
-  const seeds = INITIAL_REVIEW_QUEUE.map((it, idx) => {
-    const isLegal =
-      it.assigned_reviewer?.toLowerCase().includes("legal") ||
-      it.type === "Policy" && idx === 2;
+    const now = new Date();
+    const seeds = INITIAL_REVIEW_QUEUE.map((it, idx) => {
+      const isLegal =
+        it.assigned_reviewer?.toLowerCase().includes("legal") ||
+        (it.type === "Policy" && idx === 2);
 
-    const statusMap: Record<ReviewStatus, DraftTable["status"]> = {
-      "Pending review": "proposed",
-      "Requested changes": "requested_changes",
-      Approved: "approved",
-      Rejected: "rejected",
-    };
+      const statusMap: Record<ReviewStatus, DraftTable["status"]> = {
+        "Pending review": "proposed",
+        "Requested changes": "requested_changes",
+        Approved: "approved",
+        Rejected: "rejected",
+      };
 
-    return {
-      draft_id: it.id,
-      candidate_id: null,
-      source_doc_id: null,
-      unit_id: it.unit_id || `U-PH-${String(idx + 1).padStart(3, "0")}`,
-      title: it.title,
-      proposed_text: it.content,
-      current_text: null,
-      candidate_type: it.type || "Policy",
-      verbatim: isLegal ? 1 : 0,
-      route_to: (isLegal ? "legal" : "owner") as "owner" | "legal",
-      owner_team: "Pharmacy Ops",
-      knowledge_base: "KB-PHARM",
-      effective_date: it.suggested_effective_date || "2026-01-01",
-      tags_json: JSON.stringify(it.key_points || []),
-      proposed_by: it.history?.[0]?.by || "Dana (Knowledge author)",
-      status: statusMap[it.status] || "proposed",
-      reason: it.reviewer_notes || null,
-      decided_by: it.status === "Approved" ? "Owen (Knowledge owner)" : null,
-      gate_json: JSON.stringify({ checked: 27, blocking: [] }),
-      history_json: JSON.stringify(
-        it.history || [
-          {
-            action: "Proposed draft",
-            by: "Dana (Knowledge author)",
-            at: new Date(now.getTime() - (idx + 1) * 3600000).toLocaleString(),
-            note: "Extracted from source document and submitted for review.",
-          },
-        ]
-      ),
-      created_at: new Date(now.getTime() - (idx + 1) * 3600000).toISOString(),
-      updated_at: new Date(now.getTime() - (idx + 1) * 3600000).toISOString(),
-    };
-  });
+      return {
+        draft_id: it.id,
+        candidate_id: null,
+        source_doc_id: null,
+        unit_id: it.unit_id || `U-PH-${String(idx + 1).padStart(3, "0")}`,
+        title: it.title,
+        proposed_text: it.content,
+        current_text: null,
+        candidate_type: it.type || "Policy",
+        verbatim: isLegal ? 1 : 0,
+        route_to: (isLegal ? "legal" : "owner") as "owner" | "legal",
+        owner_team: "Pharmacy Ops",
+        knowledge_base: "KB-PHARM",
+        effective_date: it.suggested_effective_date || "2026-01-01",
+        tags_json: JSON.stringify(it.key_points || []),
+        proposed_by: it.history?.[0]?.by || "Dana (Knowledge author)",
+        status: statusMap[it.status] || "proposed",
+        reason: it.reviewer_notes || null,
+        decided_by: it.status === "Approved" ? "Owen (Knowledge owner)" : null,
+        gate_json: JSON.stringify({ checked: 27, blocking: [] }),
+        history_json: JSON.stringify(
+          it.history || [
+            {
+              action: "Proposed draft",
+              by: "Dana (Knowledge author)",
+              at: new Date(now.getTime() - (idx + 1) * 3600000).toLocaleString(),
+              note: "Extracted from source document and submitted for review.",
+            },
+          ]
+        ),
+        created_at: new Date(now.getTime() - (idx + 1) * 3600000).toISOString(),
+        updated_at: new Date(now.getTime() - (idx + 1) * 3600000).toISOString(),
+      };
+    });
 
-  await repo.createDrafts(seeds);
+    await repo.createDrafts(seeds);
+  } catch (err) {
+    // Concurrency safety if multiple callers seed simultaneously
+  }
 }
 
 /**
@@ -132,6 +137,11 @@ export function draftTableToReviewQueueItem(
     assigned_reviewer: isLegal ? "Rita (Legal / Compliance approver)" : "Owen (Knowledge owner)",
     demand: 38,
     due_date: "2026-02-15",
+    version: draft.version || 1,
+    version_id: draft.version_id || undefined,
+    supersedes: draft.supersedes || undefined,
+    duplicate_of: draft.duplicate_of || undefined,
+    is_duplicate_review: Boolean(draft.duplicate_of || draft.unit_id?.includes("DUP")),
     history,
   };
 }
@@ -204,13 +214,8 @@ export async function handleDecideReviewItem(
     return { ok: false, success: false, error: `Draft "${draftId}" not found in persistent store.` };
   }
 
-  const caps = req.reviewerCapabilities || [];
-  const hasApproveStd = caps.includes("approve_standard") || reviewerRole === "knowledge_owner" || reviewerRole === "legal_approver";
-  const hasApproveLegal = caps.includes("approve_legal") || reviewerRole === "legal_approver";
-
-  // 1. APPROVE ACTION
+  // Maker-checker rule enforcement: proposer cannot self-approve their own draft!
   if (action === "approve") {
-    // Maker-checker rule enforcement: author cannot approve their own draft!
     const proposerLower = (draft.proposed_by || "").toLowerCase();
     const reviewerLower = (reviewerName || "").toLowerCase();
     const proposerFirst = proposerLower.split(/[\s(]/)[0] || "";
@@ -223,22 +228,39 @@ export async function handleDecideReviewItem(
         error: `Maker-checker violation: You (${reviewerName}) cannot approve your own proposed draft. Approval requires an independent reviewer.`,
       };
     }
+  }
 
-    // Role capability verification
-    if (!hasApproveStd && !hasApproveLegal) {
+  const caps = req.reviewerCapabilities || [];
+  const hasApproveStd = caps.includes("approve_standard") || reviewerRole === "knowledge_owner" || reviewerRole === "legal_approver";
+  const hasApproveLegal = caps.includes("approve_legal") || reviewerRole === "legal_approver";
+
+  // General RBAC gate: only authorized reviewers may decide or review drafts
+  if (!hasApproveStd && !hasApproveLegal) {
+    return {
+      ok: false,
+      success: false,
+      error: `Unauthorized: Your role does not hold authorization to approve, reject, or decide knowledge units.`,
+    };
+  }
+
+  // Verbatim and legal-authority units require Legal Approver authorization
+  const isLegalRequired = draft.verbatim === 1 || draft.route_to === "legal";
+  if (isLegalRequired && !hasApproveLegal) {
+    return {
+      ok: false,
+      success: false,
+      error: `Unauthorized: Verbatim and legal-authority units require Legal Approver authorization.`,
+    };
+  }
+
+  // 1. APPROVE ACTION
+  if (action === "approve") {
+    // Check if already approved
+    if (draft.status === "approved") {
       return {
         ok: false,
         success: false,
-        error: `Unauthorized: Your role does not hold authorization to approve knowledge units.`,
-      };
-    }
-
-    const isLegalRequired = draft.verbatim === 1 || draft.route_to === "legal";
-    if (isLegalRequired && !hasApproveLegal) {
-      return {
-        ok: false,
-        success: false,
-        error: `Unauthorized: Verbatim and legal-authority units require Legal Approver authorization.`,
+        error: `Draft "${draft.title}" has already been approved.`,
       };
     }
 
@@ -246,6 +268,18 @@ export async function handleDecideReviewItem(
     try {
       const store = getStore();
       const currentLive = store.units();
+
+      const existingLive = currentLive.find((u) => u.unit_id === draft.unit_id);
+      if (existingLive) {
+        // Prevent silent overwrite of an existing approved unit
+        if ((!draft.version || draft.version <= existingLive.version) && !draft.supersedes) {
+          return {
+            ok: false,
+            success: false,
+            error: `Governance violation: Approved unit "${draft.unit_id}" (v${existingLive.version}) cannot be silently overwritten without explicit version increment or supersedes relationship.`,
+          };
+        }
+      }
 
       const publishedUnit: KnowledgeUnit = {
         unit_id: draft.unit_id,
@@ -262,9 +296,9 @@ export async function handleDecideReviewItem(
         source_section: "Section 1",
         effective_date: draft.effective_date || "2026-01-01",
         review_date: "2027-01-01",
-        version: 1,
+        version: draft.version || (existingLive ? existingLive.version + 1 : 1),
         status: "approved",
-        supersedes: null,
+        supersedes: draft.supersedes || null,
         synonyms: [draft.title],
         owner: draft.owner_team || "Pharmacy Ops",
         approved_by: `${reviewerName} (${reviewerLabel || reviewerRole})`,
@@ -286,6 +320,42 @@ export async function handleDecideReviewItem(
       // Live KnowledgeStore update
       (store as any).live = afterUnits;
       (store as any).engineCache = new Verity({ ...(store as any).data, units: afterUnits });
+
+      // Sync in-memory demoStore
+      updateDemoState((s) => {
+        const existingIdx = s.units.findIndex((u) => u.unit_id === draft.unit_id);
+        const newVersion = {
+          version: publishedUnit.version,
+          text: publishedUnit.body,
+          effective_date: publishedUnit.effective_date,
+          approver: reviewerName,
+          supersedes: publishedUnit.supersedes ?? undefined,
+        };
+        if (existingIdx >= 0) {
+          const updated = [...s.units];
+          const cur = updated[existingIdx]!;
+          updated[existingIdx] = {
+            ...cur,
+            versions: [...cur.versions, newVersion],
+          };
+          return { ...s, units: updated };
+        } else {
+          return {
+            ...s,
+            units: [
+              ...s.units,
+              {
+                unit_id: draft.unit_id,
+                title: draft.title,
+                owner: draft.owner_team || "Pharmacy Ops",
+                verbatim: Boolean(draft.verbatim),
+                status: "approved",
+                versions: [newVersion],
+              },
+            ],
+          };
+        }
+      });
     } catch (err: any) {
       return {
         ok: false,
@@ -328,6 +398,13 @@ export async function handleDecideReviewItem(
 
   // 2. REJECT ACTION
   if (action === "reject") {
+    if (draft.status === "rejected") {
+      return {
+        ok: false,
+        success: false,
+        error: `Draft "${draft.title}" has already been rejected.`,
+      };
+    }
     if (!notes.trim()) {
       return {
         ok: false,

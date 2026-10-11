@@ -201,6 +201,7 @@ export async function handleUploadAndIngest(
       return {
         id: `CAND-${jobId}-${i + 1}`,
         cid: c.cid || `C${i + 1}`,
+        annotated_id: c.annotated_id || null,
         job_id: jobId,
         source_doc_id: docId,
         title: c.title,
@@ -228,6 +229,11 @@ export async function handleUploadAndIngest(
         key_points_json: JSON.stringify(keyPoints),
         selected: i === 0 ? 1 : 0,
         created_at: nowIso,
+        version: c.version || 1,
+        version_id: c.version_id || null,
+        supersedes: c.supersedes || null,
+        duplicate_of: c.duplicate_of || null,
+        annotations_json: c.annotations ? JSON.stringify(c.annotations) : null,
       };
     });
 
@@ -236,6 +242,7 @@ export async function handleUploadAndIngest(
     const mappedUnits = savedCandidates.map((c) => ({
       id: c.id,
       cid: c.cid,
+      annotated_id: c.annotated_id || undefined,
       title: c.title,
       type: c.candidate_type,
       content: c.body,
@@ -245,6 +252,11 @@ export async function handleUploadAndIngest(
       match_status: c.match_status,
       similarity: c.similarity,
       route_to: c.route_to,
+      version: c.version || 1,
+      version_id: c.version_id || undefined,
+      supersedes: c.supersedes || undefined,
+      duplicate_of: c.duplicate_of || undefined,
+      is_duplicate_review: Boolean(c.duplicate_of || c.cid?.includes("DUP")),
     }));
 
     return {
@@ -330,6 +342,7 @@ export async function handleProposeDrafts(
   const draftInserts = selected.map((c, i) => {
     const draftId = `DRAFT-${Date.now().toString(36).toUpperCase()}-${i + 1}`;
     const unitId =
+      (c.annotated_id && /^[A-Z0-9_-]+$/i.test(c.annotated_id) && !c.annotated_id.includes("#") ? c.annotated_id : null) ||
       (c.cid && /^[A-Z0-9_-]+$/i.test(c.cid) && !c.cid.includes("#") ? c.cid : null) ||
       c.matched_unit_id ||
       `U-NEW-${Date.now().toString(36).slice(-4)}-${i + 1}`;
@@ -364,6 +377,11 @@ export async function handleProposeDrafts(
       ]),
       created_at: nowIso,
       updated_at: nowIso,
+      version: c.version ?? 1,
+      version_id: c.version_id ?? null,
+      supersedes: c.supersedes ?? null,
+      duplicate_of: c.duplicate_of ?? null,
+      annotations_json: c.annotations_json ?? null,
     };
   });
 
@@ -376,4 +394,60 @@ export async function handleProposeDrafts(
     draft_ids: savedDrafts.map((d) => d.draft_id),
     message: `Successfully proposed ${savedDrafts.length} candidate unit(s) for review.`,
   };
+}
+
+export interface UpdateCandidateUnitInput {
+  id: string;
+  title?: string;
+  candidate_type?: string;
+  type?: string;
+  body?: string;
+  content?: string;
+  key_points?: string[];
+  source_reference?: string;
+  effective_date?: string;
+  suggested_effective_date?: string;
+  selected?: boolean;
+}
+
+export async function handleUpdateCandidateUnit(
+  data: UpdateCandidateUnitInput,
+  repo: StorageRepository = repository
+): Promise<{ ok: boolean; candidate?: CandidateUnitTable; error?: string }> {
+  try {
+    const existing = await repo.getCandidateById(data.id);
+    if (!existing) {
+      return { ok: false, error: `Candidate unit ${data.id} not found.` };
+    }
+
+    const updates: Partial<CandidateUnitTable> = {};
+    if (data.title !== undefined) updates.title = data.title;
+    if (data.body !== undefined) updates.body = data.body;
+    else if (data.content !== undefined) updates.body = data.content;
+    if (data.candidate_type !== undefined) updates.candidate_type = data.candidate_type;
+    else if (data.type !== undefined) updates.candidate_type = data.type;
+    if (data.key_points !== undefined) updates.key_points_json = JSON.stringify(data.key_points);
+    if (data.source_reference !== undefined) updates.source_reference = data.source_reference;
+    if (data.effective_date !== undefined) updates.effective_date = data.effective_date;
+    else if (data.suggested_effective_date !== undefined) updates.effective_date = data.suggested_effective_date;
+    if (data.selected !== undefined) updates.selected = data.selected ? 1 : 0;
+
+    await repo.updateCandidateUnit(data.id, updates);
+    const updated = await repo.getCandidateById(data.id);
+    return { ok: true, candidate: updated };
+  } catch (err: any) {
+    return { ok: false, error: err.message || "Failed to update candidate unit." };
+  }
+}
+
+export async function handleGetCandidatesByDocId(
+  docId: string,
+  repo: StorageRepository = repository
+): Promise<{ ok: boolean; candidates: CandidateUnitTable[]; error?: string }> {
+  try {
+    const cands = await repo.getCandidatesByDocId(docId);
+    return { ok: true, candidates: cands };
+  } catch (err: any) {
+    return { ok: false, candidates: [], error: err.message };
+  }
 }

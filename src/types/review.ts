@@ -26,6 +26,11 @@ export interface ReviewQueueItem {
   demand?: number;
   due_date?: string;
   reverified?: boolean;
+  version?: number;
+  version_id?: string;
+  supersedes?: string;
+  duplicate_of?: string;
+  is_duplicate_review?: boolean;
   history?: {
     action: string;
     by: string;
