@@ -112,7 +112,7 @@ export async function parseDocument(
   if (ext === "docx") {
     try {
       const nodeBuffer = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
-      const result = await mammoth.convertToMarkdown({ buffer: nodeBuffer });
+      const result = await (mammoth as any).convertToMarkdown({ buffer: nodeBuffer });
       const rawText = (result.value || "").trim();
 
       if (!rawText) {

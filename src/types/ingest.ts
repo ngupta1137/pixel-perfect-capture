@@ -6,23 +6,23 @@ export interface RecentUpload {
   lob: string;
   uploaded_on: string;
   status: "Extracted" | "Processing" | "Error" | "Pending";
-  snippet?: string;
-  description?: string;
+  snippet?: string | undefined;
+  description?: string | undefined;
 }
 
 export interface ExtractedUnit {
   id: string;
-  cid?: string;
+  cid?: string | undefined;
   title: string;
   type: "Policy" | "Procedure" | "Guidance" | "Benefit Details" | "FAQ" | "Legal";
   content: string;
   key_points: string[];
   source_reference: string;
   suggested_effective_date: string;
-  selected?: boolean;
-  match_status?: "new" | "changed" | "unchanged";
-  similarity?: number;
-  route_to?: "owner" | "legal";
+  selected?: boolean | undefined;
+  match_status?: "new" | "changed" | "unchanged" | undefined;
+  similarity?: number | undefined;
+  route_to?: "owner" | "legal" | undefined;
 }
 
 export const INITIAL_RECENT_UPLOADS: RecentUpload[] = [

@@ -43,5 +43,5 @@ window.HTMLElement.prototype.releasePointerCapture = () => {};
 window.HTMLElement.prototype.scrollIntoView = () => {};
 window.HTMLElement.prototype.focus = () => {};
 if (typeof Element !== "undefined") {
-  Element.prototype.focus = () => {};
+  (Element.prototype as any).focus = () => {};
 }

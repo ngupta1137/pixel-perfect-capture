@@ -14,7 +14,9 @@ export interface ReviewQueueItem {
   content: string;
   source_doc: string;
   section: string;
-  type: "Policy" | "Procedure" | "Guidance" | "Benefit Details" | "FAQ";
+  type: "Policy" | "Procedure" | "Guidance" | "Benefit Details" | "FAQ" | "Legal";
+  verbatim?: number;
+  proposer?: string;
   status: ReviewStatus;
   extracted_on: string;
   lob: string;

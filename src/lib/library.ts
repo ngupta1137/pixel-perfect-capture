@@ -36,7 +36,7 @@ export interface EnrichedKnowledgeUnit {
     section: string;
     ingested_at: string;
     ingested_by: string;
-    snippet?: string;
+    snippet?: string | undefined;
   };
   related_unit_ids: string[];
   versions: Array<{

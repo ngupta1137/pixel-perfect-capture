@@ -69,7 +69,7 @@ interface AnswerDetailsViewProps {
   onChoose?: (c: Choice) => void;
 }
 
-const RELATED_QUESTIONS_MAP: Record<string, string[]> = {
+const RELATED_QUESTIONS_MAP: { copay: string[]; pricing: string[]; mail: string[]; default: string[] } = {
   copay: [
     "Which medications are covered by the copay assistance program?",
     "How do I apply for copay assistance?",
