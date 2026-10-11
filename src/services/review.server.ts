@@ -592,3 +592,49 @@ export async function handleListPublishedUnits(
   });
 }
 
+/**
+ * Deletes an unapproved draft, strictly enforcing authorization and audit rules.
+ * Governed rule: Published knowledge units cannot be bypassed or deleted here;
+ * they must follow the governed retirement workflow.
+ */
+export async function handleDeleteDraft(
+  draftId: string,
+  user: AuthenticatedUser,
+  repo: StorageRepository = repository
+): Promise<{ ok: boolean; message?: string; error?: string }> {
+  const draft = await repo.getDraftById(draftId);
+  if (!draft) {
+    return { ok: false, error: `Draft "${draftId}" not found.` };
+  }
+
+  // Published / approved units cannot be deleted arbitrarily
+  if (draft.status === "approved") {
+    return {
+      ok: false,
+      error: `Governed rule violation: Approved draft "${draftId}" is published and cannot be deleted directly. It must follow the governed retirement workflow.`,
+    };
+  }
+
+  // Authorization: Only knowledge owners, legal approvers, or the author may delete the draft
+  const isOwnerOrLegal =
+    user.capabilities.includes("approve_standard") ||
+    user.capabilities.includes("approve_legal") ||
+    user.role === "admin";
+  const isAuthor =
+    draft.proposer_id === user.id ||
+    (draft.proposed_by && draft.proposed_by.toLowerCase().includes(user.name.toLowerCase()));
+
+  if (!isOwnerOrLegal && !isAuthor) {
+    return {
+      ok: false,
+      error: `Unauthorized: User "${user.name}" (${user.label}) lacks permission to delete draft "${draftId}".`,
+    };
+  }
+
+  await repo.deleteDraft(draftId);
+  return {
+    ok: true,
+    message: `Draft "${draftId}" successfully deleted by ${user.name} (${user.label}).`,
+  };
+}
+

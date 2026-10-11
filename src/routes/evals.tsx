@@ -174,26 +174,50 @@ function EvalsPage() {
       )}
 
       {report && !isExecuting && (
-        <div
-          className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-surface-alt px-4 py-2.5 text-xs text-ink-muted"
-          data-testid="eval-run-metadata"
-        >
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-brand-green-dark">Live Execution:</span>
-            <span className="font-mono">{report.run_id}</span>
-            <span>·</span>
-            <span>Suite: {report.suite}</span>
-            <span>·</span>
-            <span>Engine: {report.engine_version}</span>
-            <span>·</span>
-            <span>As of: {report.as_of}</span>
+        <>
+          <div
+            className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-surface-alt px-4 py-2.5 text-xs text-ink-muted"
+            data-testid="eval-run-metadata"
+          >
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-brand-green-dark">Live Execution:</span>
+              <span className="font-mono">{report.run_id}</span>
+              <span>·</span>
+              <span>Suite: {report.suite}</span>
+              <span>·</span>
+              <span>Engine: {report.engine_version}</span>
+              <span>·</span>
+              <span>As of: {report.as_of}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="h-3.5 w-3.5" />
+              <span>Duration: {report.duration_ms} ms</span>
+              <span>({report.metrics.average_latency_ms} ms/case)</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Clock className="h-3.5 w-3.5" />
-            <span>Duration: {report.duration_ms} ms</span>
-            <span>({report.metrics.average_latency_ms} ms/case)</span>
+
+          <div
+            className={`flex items-center justify-between gap-3 rounded-md border px-4 py-3 text-xs ${
+              report.production_ready
+                ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                : "border-amber-300 bg-amber-50 text-amber-900"
+            }`}
+            data-testid="production-readiness-banner"
+          >
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 shrink-0 text-amber-700" />
+              <div>
+                <span className="font-semibold">Production Readiness: {report.production_ready ? "CERTIFIED" : "BLOCKED"}</span>
+                <p className="mt-0.5 text-[11px] text-amber-800/90">
+                  {report.readiness_blocker || (report.blind_set_evaluated ? "All evaluation gates passed." : "Blind set not evaluated.")}
+                </p>
+              </div>
+            </div>
+            <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-800 border border-amber-300">
+              Blind Set: Not Evaluated
+            </span>
           </div>
-        </div>
+        </>
       )}
 
       {!report && !isExecuting && !error && (

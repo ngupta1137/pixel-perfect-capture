@@ -174,7 +174,32 @@ export async function handleUploadAndIngest(
       created_at: nowIso,
     });
 
-    // 7. Persist original binary file storage
+    // 7. Persist original binary file storage (Supabase Storage + Database record)
+    let storageBucket: string | null = null;
+    let storagePath: string | null = null;
+
+    try {
+      const { uploadSourceFileToStorage } = await import("./storage.server");
+      const storageRes = await uploadSourceFileToStorage({
+        docId,
+        fileName,
+        buffer,
+        mimeType:
+          parsed.detectedFormat === "pdf"
+            ? "application/pdf"
+            : parsed.detectedFormat === "docx"
+            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            : "text/plain",
+        ownerTeam: effectiveOwner,
+      });
+      if (storageRes.ok) {
+        storageBucket = storageRes.storageBucket || null;
+        storagePath = storageRes.storagePath || null;
+      }
+    } catch {
+      // Graceful fallback if Supabase storage is unconfigured in test
+    }
+
     await repo.saveSourceFile({
       id: `FILE-${docId}`,
       source_doc_id: docId,
@@ -185,6 +210,10 @@ export async function handleUploadAndIngest(
           : parsed.detectedFormat === "docx"
           ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           : "text/plain",
+      storage_bucket: storageBucket,
+      storage_path: storagePath,
+      file_size: parsed.fileSize,
+      content_hash: contentHash,
       data_base64: fileBase64,
       created_at: nowIso,
     });

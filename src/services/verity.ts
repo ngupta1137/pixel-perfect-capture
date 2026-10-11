@@ -70,10 +70,17 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
   try {
     const { runSearch } = await import("./engine.functions");
     return await runSearch({ data: req });
-  } catch (err) {
-    console.error("Verity engine unavailable, using fixtures", err);
-    const r = mockSearch(req);
-    return { ...r, engine: "fixtures (engine unavailable)" };
+  } catch (err: any) {
+    // If running in test environment or client without active server endpoint, execute engine directly
+    try {
+      const { serveEngine, ensureStoreHydrated } = await import("../verity-engine/server.ts");
+      await ensureStoreHydrated();
+      return serveEngine(req);
+    } catch (innerErr) {
+      console.error("Direct engine execution failed:", innerErr);
+    }
+    console.error("Verity engine unavailable:", err);
+    throw new Error(`Verity search engine unavailable: ${err?.message || "Server connection failed"}`);
   }
 }
 
@@ -81,14 +88,20 @@ export async function fetchPublishedLibraryUnits(): Promise<DemoUnit[]> {
   try {
     const { listPublishedUnitsFn } = await import("./review.functions");
     const units = await listPublishedUnitsFn();
-    if (units && units.length > 0) {
+    if (units) {
       updateDemoState((s) => ({ ...s, units }));
       return units;
     }
   } catch (err) {
-    console.error("Failed to fetch published units from server, using demo state", err);
+    try {
+      const { handleListPublishedUnits } = await import("./review.server");
+      const units = await handleListPublishedUnits();
+      updateDemoState((s) => ({ ...s, units }));
+      return units;
+    } catch {}
+    console.error("Failed to fetch published units from server:", err);
   }
-  return getDemoState().units;
+  return [];
 }
 
 

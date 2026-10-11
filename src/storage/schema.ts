@@ -23,7 +23,11 @@ export interface SourceFileTable {
   source_doc_id: string;
   file_name: string;
   mime_type: string;
-  data_base64: string;
+  storage_bucket?: string | null;
+  storage_path?: string | null;
+  file_size?: number | null;
+  content_hash?: string | null;
+  data_base64?: string | null;
   created_at: string;
 }
 

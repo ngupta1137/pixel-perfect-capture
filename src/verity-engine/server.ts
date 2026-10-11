@@ -150,6 +150,8 @@ export function nextStep(outcome: string, role: string, owner: string | null): s
       return member ? 'Connect the member with an advocate who can help.' : `Warm-transfer to ${owner ?? 'the owning team'}, or ask them to answer.`;
     case 'needs_clarification':
       return member ? null : 'Ask the member the question above, then search again.';
+    case 'safety_escalation':
+      return 'If the member is in immediate crisis, advise them to call 911 or the crisis lifeline. Immediate human handoff required.';
     default:
       return null;
   }
@@ -163,7 +165,11 @@ export function serveEngine(req: SearchRequest, via: { iface: 'REST' | 'MCP'; pr
     role: req.role,
     channel: req.channel,
     input_mode: req.input_mode ?? 'typed',
-    context: { lob: req.lob ?? null, state: req.state ?? null },
+    context: {
+      lob: req.lob ?? null,
+      state: req.state ?? null,
+      plan_year: req.plan_year ? Number(req.plan_year) : undefined,
+    },
   });
   for (const p of r.parts) {
     if (p.outcome !== "stale" && p.outcome !== "conflict") continue;
@@ -183,6 +189,13 @@ export function serveEngine(req: SearchRequest, via: { iface: 'REST' | 'MCP'; pr
       text: p.text,
       owner_team: p.owner_team ?? null,
       next_step: nextStep(p.outcome, req.role, p.owner_team ?? (p.outcome === 'stale' && p.unit_ids[0] ? e.unit(p.unit_ids[0])?.owner ?? null : null)),
+      choices: p.outcome === 'needs_clarification' ? [
+        { label: "Kentucky (KY)", set: { state: "KY" } },
+        { label: "Florida (FL)", set: { state: "FL" } },
+        { label: "Ohio (OH)", set: { state: "OH" } },
+        { label: "Other state", set: { state: "OTHER" } },
+      ] : undefined,
+      trust: p.outcome === 'answer' ? 'approved' : p.outcome === 'stale' ? 'stale' : p.outcome === 'conflict' ? 'conflict' : null,
       citations: p.unit_ids.map((id) => {
         const u = e.unit(id)!;
         return {

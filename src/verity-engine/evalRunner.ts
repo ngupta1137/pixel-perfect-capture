@@ -59,6 +59,9 @@ export interface EvalReport {
   metrics: EvalMetrics;
   gate_passed: boolean;
   cases: EvalCaseResult[];
+  blind_set_evaluated: boolean;
+  production_ready: boolean;
+  readiness_blocker?: string | null;
 }
 
 export interface RunOptions {
@@ -257,7 +260,7 @@ export function runGoldenSuite(options: RunOptions = {}): EvalReport {
 
   const runId = `eval-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
-  return {
+  const report: EvalReport = {
     run_id: runId,
     suite: 'golden',
     started_at: startedAt,
@@ -279,6 +282,9 @@ export function runGoldenSuite(options: RunOptions = {}): EvalReport {
     },
     gate_passed: gatePassed,
     cases: results,
+    blind_set_evaluated: false,
+    production_ready: false,
+    readiness_blocker: "Conversational retrieval cannot be certified production-ready until the blind holdout set has been evaluated.",
   };
 
   latestReport = report;

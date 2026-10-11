@@ -38,9 +38,20 @@ export async function runMigrations(db: Kysely<DatabaseSchema>): Promise<void> {
     .addColumn("source_doc_id", "text", (col) => col.notNull())
     .addColumn("file_name", "text", (col) => col.notNull())
     .addColumn("mime_type", "text", (col) => col.notNull())
-    .addColumn("data_base64", "text", (col) => col.notNull())
+    .addColumn("data_base64", "text")
+    .addColumn("storage_bucket", "text")
+    .addColumn("storage_path", "text")
+    .addColumn("file_size", "integer")
+    .addColumn("content_hash", "text")
     .addColumn("created_at", "text", (col) => col.notNull())
     .execute();
+
+  const sourceFileCols = ["storage_bucket", "storage_path", "file_size", "content_hash"];
+  for (const col of sourceFileCols) {
+    try {
+      await db.schema.alterTable("source_files").addColumn(col as any, col === "file_size" ? "integer" : "text").execute();
+    } catch {}
+  }
 
   // 3. ingestion_jobs
   await db.schema

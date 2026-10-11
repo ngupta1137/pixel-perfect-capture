@@ -259,6 +259,11 @@ export class StorageRepository {
     await db.updateTable("drafts").set(updates).where("draft_id", "=", id).execute();
   }
 
+  async deleteDraft(draftId: string): Promise<void> {
+    const db = await this.getDb();
+    await db.deleteFrom("drafts").where("draft_id", "=", draftId).execute();
+  }
+
   // ---------------------------------------------------------------------------
   // Authoritative Published Knowledge Units
   // ---------------------------------------------------------------------------

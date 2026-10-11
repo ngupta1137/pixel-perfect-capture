@@ -226,7 +226,9 @@ export class Verity {
     path.push(`cluster: ${cluster.map((c) => c.unit_id).join(', ')}`);
 
     // 7. Eligibility: effective, not past review date
-    const asOf = this.data.asOf;
+    const asOf = req.context.plan_year && req.context.plan_year > Number(this.data.asOf.slice(0, 4))
+      ? `${req.context.plan_year}-12-31`
+      : this.data.asOf;
     let live = cluster.map((c) => this.byId.get(c.unit_id)!).filter((u) => {
       if (u.effective_date > asOf) { exclusions.push({ unit_id: u.unit_id, reason: 'not yet effective' }); return false; }
       return true;
