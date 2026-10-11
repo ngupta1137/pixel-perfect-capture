@@ -46,7 +46,7 @@ import {
   type LineOfBusiness,
 } from "@/lib/library";
 import { useDemoStore } from "@/services/demoStore";
-import { listUnits } from "@/services/verity";
+import { listUnits, fetchPublishedLibraryUnits } from "@/services/verity";
 import { AddKnowledgeMenu } from "./AddKnowledgeMenu";
 import { KnowledgeDetailPanel } from "./KnowledgeDetailPanel";
 import { ViewSourceModal } from "./ViewSourceModal";
@@ -66,6 +66,10 @@ export function KnowledgeLibraryView() {
   const { person, can } = useSession();
   const rawUnits = useDemoStore((s) => s.units);
 
+  useEffect(() => {
+    void fetchPublishedLibraryUnits();
+  }, []);
+
   // Scoped units based on persona entitlements
   const allUnits = useMemo(() => {
     return scopedLibrary(listUnits(), person);
@@ -73,6 +77,7 @@ export function KnowledgeLibraryView() {
 
   // Filters & State
   const [searchQuery, setSearchQuery] = useState("");
+
   const [lobFilter, setLobFilter] = useState<string>("MAPD");
   const [stateFilter, setStateFilter] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");

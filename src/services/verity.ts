@@ -62,8 +62,8 @@ export interface SearchRequest {
  * fails, the fixtures answer and the trace drawer's engine line says so.
  */
 export async function search(req: SearchRequest): Promise<SearchResponse> {
-  // Fixtures are the answer source; VITE_VERITY_ENGINE=engine runs src/verity-engine instead.
-  if (import.meta.env["VITE_VERITY_ENGINE"] !== "engine") {
+  // Fixtures are only used if explicitly requested via VITE_VERITY_ENGINE=mock. Default: real server-side engine.
+  if (import.meta.env["VITE_VERITY_ENGINE"] === "mock") {
     await new Promise((r) => setTimeout(r, 400));
     return mockSearch(req);
   }
@@ -76,6 +76,21 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
     return { ...r, engine: "fixtures (engine unavailable)" };
   }
 }
+
+export async function fetchPublishedLibraryUnits(): Promise<DemoUnit[]> {
+  try {
+    const { listPublishedUnitsFn } = await import("./review.functions");
+    const units = await listPublishedUnitsFn();
+    if (units && units.length > 0) {
+      updateDemoState((s) => ({ ...s, units }));
+      return units;
+    }
+  } catch (err) {
+    console.error("Failed to fetch published units from server, using demo state", err);
+  }
+  return getDemoState().units;
+}
+
 
 // ---------------------------------------------------------------------------
 // Service seam. Every function below reads and writes the shared demo store,

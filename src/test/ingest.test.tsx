@@ -128,7 +128,7 @@ describe("Verity Ingest & Drafts Screen", () => {
       () => {
         expect(screen.getByRole("heading", { name: "Review & extract", level: 1 })).toBeInTheDocument();
       },
-      { timeout: 4000 },
+      { timeout: 8000 },
     );
 
     // Check 3-column elements

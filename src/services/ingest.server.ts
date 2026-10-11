@@ -238,8 +238,9 @@ export async function handleUploadAndIngest(
             : "Policy",
         body: c.body,
         verbatim: c.verbatim ? 1 : 0,
-        knowledge_base: c.knowledge_base || "KB-PHARM",
+        knowledge_base: (!c.knowledge_base || c.knowledge_base === "KB-UNASSIGNED") ? "KB-PHARM" : c.knowledge_base,
         owner_team: c.owner || effectiveOwner,
+
         source_reference: `${docTitle} • Section: ${c.source_section || "General"}`,
         source_section: c.source_section || null,
         source_page: sourcePage,

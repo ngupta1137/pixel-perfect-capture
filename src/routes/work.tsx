@@ -183,30 +183,26 @@ function WorkPage() {
       setActiveSourceTitle(sourceTitle || result.filename || "Member Services Guide v3.pdf");
       setCurrentDocId(result.doc_id || null);
 
-      if (sourceTitle && sourceTitle.includes("Member Services")) {
-        setExtractedUnits(MEMBER_SERVICES_GUIDE_UNITS);
-        setExtractedParsedText("");
-      } else {
-        setExtractedParsedText(result.extracted_text || "");
-        if (result.units && result.units.length > 0) {
-          setExtractedUnits(
-            result.units.map((u, i) => ({
-              id: u.id || `UNIT-EXT-${i + 1}`,
-              cid: u.cid,
-              title: u.title,
-              type: (u.type as any) || "Procedure",
-              content: u.content,
-              key_points: u.key_points?.length ? u.key_points : ["Extracted statement from document."],
-              source_reference: u.source_reference || `${result.filename} • Section 1.${i + 1}`,
-              suggested_effective_date: u.suggested_effective_date || "2024-01-01",
-              match_status: u.match_status,
-              similarity: u.similarity,
-              route_to: u.route_to,
-              selected: i === 0 || u.match_status === "new",
-            }))
-          );
-        }
+      setExtractedParsedText(result.extracted_text || "");
+      if (result.units && result.units.length > 0) {
+        setExtractedUnits(
+          result.units.map((u, i) => ({
+            id: u.id || `UNIT-EXT-${i + 1}`,
+            cid: u.cid,
+            title: u.title,
+            type: (u.type as any) || "Procedure",
+            content: u.content,
+            key_points: u.key_points?.length ? u.key_points : ["Extracted statement from document."],
+            source_reference: u.source_reference || `${result.filename} • Section 1.${i + 1}`,
+            suggested_effective_date: u.suggested_effective_date || "2024-01-01",
+            match_status: u.match_status,
+            similarity: u.similarity,
+            route_to: u.route_to,
+            selected: i === 0 || u.match_status === "new",
+          }))
+        );
       }
+
 
       setExtractedCandidates(
         result.units.map((u) => ({

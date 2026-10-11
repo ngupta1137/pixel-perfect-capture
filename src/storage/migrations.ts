@@ -152,4 +152,34 @@ export async function runMigrations(db: Kysely<DatabaseSchema>): Promise<void> {
   try {
     await db.schema.alterTable("source_documents").addColumn("created_by_user_id", "text").execute();
   } catch {}
+
+  // 6. published_units (authoritative persistent storage of approved & published knowledge)
+  await db.schema
+    .createTable("published_units")
+    .ifNotExists()
+    .addColumn("unit_id", "text", (col) => col.primaryKey())
+    .addColumn("title", "text", (col) => col.notNull())
+    .addColumn("type", "text", (col) => col.notNull())
+    .addColumn("body", "text", (col) => col.notNull())
+    .addColumn("verbatim", "integer", (col) => col.notNull().defaultTo(0))
+    .addColumn("spoken_version", "text")
+    .addColumn("knowledge_base", "text", (col) => col.notNull())
+    .addColumn("audience_json", "text", (col) => col.notNull().defaultTo("[]"))
+    .addColumn("channels_json", "text", (col) => col.notNull().defaultTo("[]"))
+    .addColumn("authority_level", "text", (col) => col.notNull().defaultTo("knowledge_article"))
+    .addColumn("source_doc", "text", (col) => col.notNull())
+    .addColumn("source_section", "text", (col) => col.notNull().defaultTo("Section 1"))
+    .addColumn("effective_date", "text", (col) => col.notNull())
+    .addColumn("review_date", "text", (col) => col.notNull())
+    .addColumn("version", "integer", (col) => col.notNull().defaultTo(1))
+    .addColumn("status", "text", (col) => col.notNull().defaultTo("approved"))
+    .addColumn("supersedes", "text")
+    .addColumn("synonyms_json", "text", (col) => col.notNull().defaultTo("[]"))
+    .addColumn("owner", "text", (col) => col.notNull())
+    .addColumn("approved_by", "text", (col) => col.notNull())
+    .addColumn("applies_to_json", "text", (col) => col.notNull().defaultTo("{}"))
+    .addColumn("created_at", "text", (col) => col.notNull())
+    .addColumn("updated_at", "text", (col) => col.notNull())
+    .execute();
 }
+

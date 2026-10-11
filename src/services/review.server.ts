@@ -6,7 +6,7 @@ import { Verity } from "../verity-engine/pipeline";
 import type { DraftTable } from "../storage/schema";
 import type { KnowledgeUnit } from "../verity-engine/types";
 import type { ReviewDecisionRequest, ReviewDecisionResponse } from "./review.functions";
-import { updateDemoState } from "./demoStore";
+import { updateDemoState, type DemoUnit } from "./demoStore";
 import {
   authenticateRequest,
   resolveRequestUser,
@@ -299,6 +299,7 @@ export async function handleDecideReviewItem(
     }
 
     // Regression & Publication Gate: Check against the Golden Evaluation suite
+    let publishedUnit: KnowledgeUnit;
     try {
       const store = getStore();
       const currentLive = store.units();
@@ -315,7 +316,7 @@ export async function handleDecideReviewItem(
         }
       }
 
-      const publishedUnit: KnowledgeUnit = {
+      publishedUnit = {
         unit_id: draft.unit_id,
         title: draft.title,
         type: (draft.candidate_type.toLowerCase() as any) || "fact",
@@ -421,6 +422,33 @@ export async function handleDecideReviewItem(
       updated_at: nowIso,
     });
 
+    // Authoritative durable persistence in published_units
+    await repo.savePublishedUnit({
+      unit_id: publishedUnit.unit_id,
+      title: publishedUnit.title,
+      type: publishedUnit.type,
+      body: publishedUnit.body,
+      verbatim: publishedUnit.verbatim ? 1 : 0,
+      spoken_version: publishedUnit.spoken_version,
+      knowledge_base: publishedUnit.knowledge_base,
+      audience_json: JSON.stringify(publishedUnit.audience || ["advocate"]),
+      channels_json: JSON.stringify(publishedUnit.channels || ["advocate_view", "member_chat", "voice"]),
+      authority_level: publishedUnit.authority_level,
+      source_doc: publishedUnit.source_doc,
+      source_section: publishedUnit.source_section,
+      effective_date: publishedUnit.effective_date,
+      review_date: publishedUnit.review_date,
+      version: publishedUnit.version,
+      status: "approved",
+      supersedes: publishedUnit.supersedes,
+      synonyms_json: JSON.stringify(publishedUnit.synonyms || [publishedUnit.title]),
+      owner: publishedUnit.owner,
+      approved_by: publishedUnit.approved_by,
+      applies_to_json: JSON.stringify(publishedUnit.applies_to || { lob: ["MAPD"], states: "ALL", plan_year: 2026 }),
+      created_at: nowIso,
+      updated_at: nowIso,
+    });
+
     const updated = await repo.getDraftById(draft.draft_id);
     return {
       ok: true,
@@ -429,6 +457,7 @@ export async function handleDecideReviewItem(
       message: `Successfully approved "${draft.title}". Published as governed unit ${draft.unit_id}.`,
     };
   }
+
 
   // 2. REJECT ACTION
   if (action === "reject") {
@@ -521,3 +550,45 @@ export async function handleDecideReviewItem(
 
   return { ok: false, success: false, error: `Unrecognized review action "${action}".` };
 }
+
+/**
+ * Authoritative list of published knowledge units for the Knowledge Library and search views.
+ * Strictly returns only published units (status "approved" or "stale") from the engine/database.
+ * Never leaks drafts, pending items, or rejected units.
+ */
+export async function handleListPublishedUnits(
+  repo: StorageRepository = repository
+): Promise<DemoUnit[]> {
+  const { ensureStoreHydrated } = await import("../verity-engine/server");
+  const store = await ensureStoreHydrated();
+  const live = store.units().filter((u) => u.status === "approved" || u.status === "stale");
+
+  return live.map((u) => {
+    const allVersions = store.versions(u.unit_id);
+    const versions = allVersions.length > 0
+      ? allVersions.map((v) => ({
+          version: v.version,
+          text: v.body,
+          effective_date: v.effective_date,
+          approver: v.approved_by || (u.owner === "Legal" || u.verbatim ? "Rita (Legal)" : "Pharmacy Ops"),
+        }))
+      : [
+          {
+            version: u.version,
+            text: u.body,
+            effective_date: u.effective_date,
+            approver: u.approved_by || (u.owner === "Legal" || u.verbatim ? "Rita (Legal)" : "Pharmacy Ops"),
+          },
+        ];
+
+    return {
+      unit_id: u.unit_id,
+      title: u.title,
+      owner: u.owner,
+      verbatim: Boolean(u.verbatim),
+      status: u.status,
+      versions,
+    };
+  });
+}
+

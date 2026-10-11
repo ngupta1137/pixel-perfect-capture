@@ -171,8 +171,13 @@ function kbFor(docId: string, verbatim: boolean, section: string): string {
   // in the knowledge base of the source document.
   if (verbatim && /open|clos|intro|wrap/i.test(section)) return 'KB-SHARED';
   const m = docId.match(/^(KB-[A-Z]+)/);
-  return m ? m[1]! : 'KB-UNASSIGNED';
+  if (m) return m[1]!;
+  if (/^SRC-RX|^RX-/i.test(docId)) return 'KB-PHARM';
+  if (/^SRC-INS/i.test(docId)) return 'KB-INS';
+  if (/^SRC-BEN/i.test(docId)) return 'KB-PHARM';
+  return 'KB-PHARM';
 }
+
 
 function contentWords(s: string): string[] {
   return normalizeForHash(s).replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w));

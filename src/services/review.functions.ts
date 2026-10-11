@@ -54,3 +54,11 @@ export const decideReviewItemFn = createServerFn({ method: "POST" })
     }
     return await handleDecideReviewItem(data, undefined, callerUser);
   });
+
+export const listPublishedUnitsFn = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const { handleListPublishedUnits } = await import("./review.server");
+    return await handleListPublishedUnits();
+  }
+);
+

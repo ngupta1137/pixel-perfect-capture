@@ -9,13 +9,24 @@ import lexiconRaw from './data/lexicon.json';
 import sourceDocs from './data/source_docs.json';
 import goldenRaw from './data/golden_set.json';
 import { KnowledgeStore } from './workflow.ts';
+import { Verity } from './pipeline.ts';
+import type { KnowledgeUnit } from './types.ts';
 import type { SearchRequest, SearchResponse } from '../services/verity.ts';
 
 export const AS_OF = '2026-10-06'; // same as-of date as the golden set
 
+function safeJsonParse<T>(val: string | null | undefined, fallback: T): T {
+  if (!val) return fallback;
+  try {
+    return JSON.parse(val);
+  } catch {
+    return fallback;
+  }
+}
+
 // One in-memory knowledge store per server process: search and authoring share
 // it, so a unit approved on the Author page is served on the next Ask query.
-// Restarting the server resets the demo to the seed data.
+// Restarting the server resets the demo to the seed data plus durable published_units from SQLite.
 let store: KnowledgeStore | null = null;
 export function getStore(): KnowledgeStore {
   if (!store) {
@@ -35,12 +46,73 @@ export function getStore(): KnowledgeStore {
   return store;
 }
 
+export function syncPublishedUnitsToStore(s: KnowledgeStore, dbUnits: any[]): void {
+  const cur = [...s.units()];
+  let changed = false;
+  for (const row of dbUnits) {
+    const unit: KnowledgeUnit = {
+      unit_id: row.unit_id,
+      title: row.title,
+      type: row.type,
+      body: row.body,
+      verbatim: Boolean(row.verbatim),
+      spoken_version: row.spoken_version || null,
+      knowledge_base: row.knowledge_base,
+      audience: safeJsonParse(row.audience_json, ['advocate']),
+      channels: safeJsonParse(row.channels_json, ['advocate_view', 'member_chat', 'voice']),
+      authority_level: (row.authority_level as any) || (row.verbatim ? 'legal_approved' : 'knowledge_article'),
+      source_doc: row.source_doc,
+      source_section: row.source_section,
+      effective_date: row.effective_date,
+      review_date: row.review_date,
+      version: row.version,
+      status: row.status,
+      supersedes: row.supersedes || null,
+      synonyms: safeJsonParse(row.synonyms_json, [row.title]),
+      owner: row.owner,
+      approved_by: row.approved_by,
+      applies_to: safeJsonParse(row.applies_to_json, { lob: ['MAPD'], states: 'ALL', plan_year: 2026 }),
+    };
+
+    const idx = cur.findIndex((u) => u.unit_id === unit.unit_id);
+    if (idx >= 0) {
+      if (cur[idx]!.version !== unit.version || cur[idx]!.body !== unit.body || cur[idx]!.status !== unit.status) {
+        cur[idx] = unit;
+        changed = true;
+      }
+    } else {
+      cur.push(unit);
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    (s as any).live = cur;
+    (s as any).engineCache = new Verity({ ...(s as any).data, units: cur });
+  }
+}
+
+export async function ensureStoreHydrated(): Promise<KnowledgeStore> {
+  const s = getStore();
+  try {
+    const { repository } = await import('../storage/repository.ts');
+    const dbUnits = await repository.listPublishedUnits();
+    if (dbUnits && dbUnits.length > 0) {
+      syncPublishedUnitsToStore(s, dbUnits);
+    }
+  } catch (err) {
+    // Graceful fallback for non-db testing
+  }
+  return s;
+}
+
 export function resetStore(): void {
   store = null;
   ownerQueue = new OwnerQueue();
   sessionLog.length = 0;
   callLog.length = 0;
 }
+
 
 // Every call through either interface in this server session, newest last.
 // Queries are logged after PHI redaction.

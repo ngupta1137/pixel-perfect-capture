@@ -666,7 +666,7 @@ export function AnswerDetailsView({
                             Section 4.2 · Pages 12–14
                           </p>
                           <p className="text-[11px] text-ink-muted">
-                            Approved by {v?.approver ?? c.owner ?? "Pharmacy Ops"}
+                            {v?.approver ? `Approved by ${v.approver}` : (c.owner ? `Owned by ${c.owner}` : "Approver not recorded")}
                           </p>
                           <p className="text-[11px] text-ink-muted">
                             v{c.version} · {c.effective_date}
@@ -681,77 +681,13 @@ export function AnswerDetailsView({
                   );
                 })
               ) : (
-                <>
-                  {/* Fallback sources for screenshot demonstration */}
-                  <div
-                    onClick={() =>
-                      setOpenCite({
-                        unit_id: "U-PH-010",
-                        version: 3,
-                        title: "Member Services Guide v3",
-                        owner: "Pharmacy Ops",
-                        effective_date: "12 Jan 2024",
-                        verbatim: false,
-                      })
-                    }
-                    className="group flex cursor-pointer items-start justify-between gap-3 rounded-xl border border-border/80 bg-[#FAFAFA] p-3.5 transition-colors hover:border-[#2E7D32]/50 hover:bg-white"
-                  >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#2E7D32]" />
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-xs font-bold text-ink group-hover:text-primary">
-                            Member Services Guide v3
-                          </span>
-                          <span className="shrink-0 rounded-full bg-[#EAF7EE] px-2 py-0.5 text-[10px] font-semibold text-[#1E5E2E]">
-                            Current
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-ink-muted">Section 4.2 · Pages 12–14</p>
-                        <p className="text-[11px] text-ink-muted">Approved by Pharmacy Ops</p>
-                        <p className="text-[11px] text-ink-muted">v3 · 12 Jan 2024</p>
-                        <p className="text-[11px] text-ink-muted">Next review: 12 Jan 2025</p>
-                      </div>
-                    </div>
-                    <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-ink-muted group-hover:text-ink" />
-                  </div>
-
-                  <div
-                    onClick={() =>
-                      setOpenCite({
-                        unit_id: "U-PH-003",
-                        version: 1,
-                        title: "Pharmacy Benefits Policy",
-                        owner: "Compliance",
-                        effective_date: "02 Feb 2024",
-                        verbatim: false,
-                      })
-                    }
-                    className="group flex cursor-pointer items-start justify-between gap-3 rounded-xl border border-border/80 bg-[#FAFAFA] p-3.5 transition-colors hover:border-[#2E7D32]/50 hover:bg-white"
-                  >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#2E7D32]" />
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-xs font-bold text-ink group-hover:text-primary">
-                            Pharmacy Benefits Policy
-                          </span>
-                          <span className="shrink-0 rounded-full bg-[#EAF7EE] px-2 py-0.5 text-[10px] font-semibold text-[#1E5E2E]">
-                            Current
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-ink-muted">Section 3.1 · Page 8</p>
-                        <p className="text-[11px] text-ink-muted">Approved by Compliance</p>
-                        <p className="text-[11px] text-ink-muted">v1 · 02 Feb 2024</p>
-                        <p className="text-[11px] text-ink-muted">Next review: 02 Feb 2025</p>
-                      </div>
-                    </div>
-                    <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-ink-muted group-hover:text-ink" />
-                  </div>
-                </>
+                <div className="rounded-xl border border-dashed border-border/80 bg-[#FAFAFA] p-4 text-center">
+                  <p className="text-xs text-ink-muted">No cited knowledge units for this outcome.</p>
+                </div>
               )}
             </div>
           </section>
+
 
           {/* Related Questions Card */}
           <section className="rounded-2xl border border-border bg-surface p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
