@@ -15,7 +15,7 @@ graph TD
     Phase4 --> Phase5[Phase 5: Granular Failure Diagnostics & Tracing]
 ```
 
-### Phase 1: Real Golden Suite Runner & Server RPC (Estimated: 2–3 hours)
+### Phase 1: Real Golden Suite Runner & Server RPC [COMPLETED]
 - **Goal:** Expose the real Verity engine and golden evaluation suite through a typed server function.
 - **Dependencies:** None. Can be implemented immediately using existing code.
 - **Components:**
@@ -24,8 +24,9 @@ graph TD
 - **Acceptance Criteria:**
   - Running `runEvalsFn({ suite: 'golden' })` executes all 27 golden cases against the live Verity engine.
   - Returns actual 26/27 pass rate, detects `G17` failure, and calculates metrics dynamically without mocking.
+- **Status:** Completed and verified with `src/test/evals-runner.test.ts`.
 
-### Phase 2: Dynamic Evals UI & Persistence (Estimated: 3–4 hours)
+### Phase 2: Dynamic Evals UI & Persistence [COMPLETED]
 - **Goal:** Replace static mock constants in `/evals` with live execution controls and local report persistence.
 - **Dependencies:** Phase 1 server functions.
 - **Components:**
@@ -35,6 +36,7 @@ graph TD
   - Clicking "Execute Evaluation" triggers the real evaluation run.
   - Metric cards and Recharts bar chart render dynamic numbers computed from the execution.
   - Refreshing the browser preserves the latest completed run results.
+- **Status:** Completed and verified with `src/test/evals-ui.test.tsx`.
 
 ### Phase 3: Dataset Ingestion — Blind & Holdout Sets (Estimated: 3–4 hours)
 - **Goal:** Author and integrate genuine datasets for Blind set (30 cases), Hold-out set 1 (15 cases), and AEP hold-out (30 cases).
@@ -85,20 +87,20 @@ graph TD
 
 ## 3. Prioritized Implementation Backlog (First Tasks)
 
-### Task 1: Create `src/verity-engine/evalRunner.ts`
+### Task 1: Create `src/verity-engine/evalRunner.ts` [COMPLETED]
 - **Objective:** Pure server-side runner that reads a dataset (e.g. `golden_set.json`), loops through cases, calls `engine.serve()`, evaluates `passes()`, and returns aggregated metrics.
 - **Files to create/modify:**
   - New: `src/verity-engine/evalRunner.ts`
   - Reused: [src/verity-engine/regression.ts](file:///c:/Users/lakha/nitin_sir_collab/pixel-perfect-capture/src/verity-engine/regression.ts), [src/verity-engine/server.ts](file:///c:/Users/lakha/nitin_sir_collab/pixel-perfect-capture/src/verity-engine/server.ts), [src/verity-engine/pipeline.ts](file:///c:/Users/lakha/nitin_sir_collab/pixel-perfect-capture/src/verity-engine/pipeline.ts)
 - **Verification:** Unit test `src/test/evals-runner.test.ts` asserting 26/27 pass rate on the golden set.
 
-### Task 2: Create Server Function in `src/services/evals.functions.ts`
+### Task 2: Create Server Function in `src/services/evals.functions.ts` [COMPLETED]
 - **Objective:** Bridge the frontend and engine runner with TanStack Start `createServerFn`.
 - **Files to create/modify:**
   - New: `src/services/evals.functions.ts`
 - **Verification:** Vitest test executing `runEvalsFn` directly.
 
-### Task 3: Connect `/evals` UI to Server Function
+### Task 3: Connect `/evals` UI to Server Function [COMPLETED]
 - **Objective:** Add "Run evaluation" button and replace static `ACCURACY`, `SETS`, `GATE`, and `FAILURES` with reactive state.
 - **Files to modify:**
   - Edit: [src/routes/evals.tsx](file:///c:/Users/lakha/nitin_sir_collab/pixel-perfect-capture/src/routes/evals.tsx)

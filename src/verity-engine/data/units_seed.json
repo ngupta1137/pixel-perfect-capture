@@ -405,6 +405,47 @@
       }
     },
     {
+      "unit_id": "U-PH-207",
+      "title": "Days supply by mail (2027)",
+      "type": "fact",
+      "body": "Maintenance supply by mail is 84 days.",
+      "verbatim": false,
+      "spoken_version": "Maintenance supply by mail is 84 days.",
+      "knowledge_base": "KB-PHARM",
+      "audience": [
+        "advocate",
+        "member"
+      ],
+      "channels": [
+        "advocate_view",
+        "member_chat",
+        "voice"
+      ],
+      "authority_level": "knowledge_article",
+      "source_doc": "KB-PHARM-0142",
+      "source_section": "[EDUCATION]",
+      "effective_date": "2027-01-01",
+      "review_date": "2027-12-31",
+      "version": 1,
+      "status": "approved",
+      "supersedes": null,
+      "synonyms": [
+        "days supply",
+        "how many days supply by mail"
+      ],
+      "owner": "Pharmacy Ops",
+      "approved_by": "Owen (Knowledge owner)",
+      "synthetic": true,
+      "applies_to": {
+        "lob": [
+          "MAPD",
+          "PDP"
+        ],
+        "states": "ALL",
+        "plan_year": 2027
+      }
+    },
+    {
       "unit_id": "U-PH-008",
       "title": "Mail order shipping cost",
       "type": "fact",

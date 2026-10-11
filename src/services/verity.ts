@@ -62,20 +62,48 @@ export interface SearchRequest {
  * fails, the fixtures answer and the trace drawer's engine line says so.
  */
 export async function search(req: SearchRequest): Promise<SearchResponse> {
-  // Fixtures are the answer source; VITE_VERITY_ENGINE=engine runs src/verity-engine instead.
-  if (import.meta.env["VITE_VERITY_ENGINE"] !== "engine") {
+  // Fixtures are only used if explicitly requested via VITE_VERITY_ENGINE=mock. Default: real server-side engine.
+  if (import.meta.env["VITE_VERITY_ENGINE"] === "mock") {
     await new Promise((r) => setTimeout(r, 400));
     return mockSearch(req);
   }
   try {
     const { runSearch } = await import("./engine.functions");
     return await runSearch({ data: req });
-  } catch (err) {
-    console.error("Verity engine unavailable, using fixtures", err);
-    const r = mockSearch(req);
-    return { ...r, engine: "fixtures (engine unavailable)" };
+  } catch (err: any) {
+    // If running in test environment or client without active server endpoint, execute engine directly
+    try {
+      const { serveEngine, ensureStoreHydrated } = await import("../verity-engine/server.ts");
+      await ensureStoreHydrated();
+      return serveEngine(req);
+    } catch (innerErr) {
+      console.error("Direct engine execution failed:", innerErr);
+    }
+    console.error("Verity engine unavailable:", err);
+    throw new Error(`Verity search engine unavailable: ${err?.message || "Server connection failed"}`);
   }
 }
+
+export async function fetchPublishedLibraryUnits(): Promise<DemoUnit[]> {
+  try {
+    const { listPublishedUnitsFn } = await import("./review.functions");
+    const units = await listPublishedUnitsFn();
+    if (units) {
+      updateDemoState((s) => ({ ...s, units }));
+      return units;
+    }
+  } catch (err) {
+    try {
+      const { handleListPublishedUnits } = await import("./review.server");
+      const units = await handleListPublishedUnits();
+      updateDemoState((s) => ({ ...s, units }));
+      return units;
+    } catch {}
+    console.error("Failed to fetch published units from server:", err);
+  }
+  return [];
+}
+
 
 // ---------------------------------------------------------------------------
 // Service seam. Every function below reads and writes the shared demo store,
@@ -504,16 +532,32 @@ import type {
   ProposeDraftsResponse,
 } from "./ingest.functions";
 import type { RecentUpload } from "@/types/ingest";
+import { getActiveSessionToken } from "@/lib/session";
+
+const isBrowser =
+  typeof window !== "undefined" &&
+  typeof navigator !== "undefined" &&
+  !navigator.userAgent?.includes("jsdom");
 
 export async function uploadAndIngestSource(
   req: IngestUploadRequest
 ): Promise<IngestResponse> {
+  const payload = {
+    ...req,
+    sessionToken: req.sessionToken || getActiveSessionToken(),
+  };
   try {
     const { uploadAndIngestSourceFn } = await import("./ingest.functions");
-    return await uploadAndIngestSourceFn({ data: req });
-  } catch {
-    const { handleUploadAndIngest } = await import("./ingest.server");
-    return await handleUploadAndIngest(req);
+    return await uploadAndIngestSourceFn({ data: payload });
+  } catch (err: any) {
+    if (!isBrowser) {
+      const { handleUploadAndIngest } = await import("./ingest.server");
+      return await handleUploadAndIngest(payload);
+    }
+    return {
+      ok: false,
+      error: err?.message || "Ingestion server function failed to execute in this environment.",
+    };
   }
 }
 
@@ -521,33 +565,57 @@ export async function listRecentUploads(): Promise<RecentUpload[]> {
   try {
     const { listRecentUploadsFn } = await import("./ingest.functions");
     return await listRecentUploadsFn();
-  } catch {
-    const { handleListRecentUploads } = await import("./ingest.server");
-    return await handleListRecentUploads();
+  } catch (err: any) {
+    if (!isBrowser) {
+      const { handleListRecentUploads } = await import("./ingest.server");
+      return await handleListRecentUploads();
+    }
+    console.error("Failed to list recent uploads from server:", err);
+    return [];
   }
 }
 
 export async function submitProposedDrafts(
   req: ProposeDraftsRequest
 ): Promise<ProposeDraftsResponse> {
+  const payload = {
+    ...req,
+    sessionToken: req.sessionToken || getActiveSessionToken(),
+  };
   try {
     const { proposeDraftsFn } = await import("./ingest.functions");
-    return await proposeDraftsFn({ data: req });
-  } catch {
-    const { handleProposeDrafts } = await import("./ingest.server");
-    return await handleProposeDrafts(req);
+    return await proposeDraftsFn({ data: payload });
+  } catch (err: any) {
+    if (!isBrowser) {
+      const { handleProposeDrafts } = await import("./ingest.server");
+      return await handleProposeDrafts(payload);
+    }
+    return {
+      ok: false,
+      error: err?.message || "Server function failed to submit proposed drafts.",
+    };
   }
 }
 
 export async function updateCandidate(
   req: import("./ingest.server").UpdateCandidateUnitInput
 ): Promise<{ ok: boolean; candidate?: any; error?: string }> {
+  const payload = {
+    ...req,
+    sessionToken: req.sessionToken || getActiveSessionToken(),
+  };
   try {
     const { updateCandidateUnitFn } = await import("./ingest.functions");
-    return await updateCandidateUnitFn({ data: req });
-  } catch {
-    const { handleUpdateCandidateUnit } = await import("./ingest.server");
-    return await handleUpdateCandidateUnit(req);
+    return await updateCandidateUnitFn({ data: payload });
+  } catch (err: any) {
+    if (!isBrowser) {
+      const { handleUpdateCandidateUnit } = await import("./ingest.server");
+      return await handleUpdateCandidateUnit(payload);
+    }
+    return {
+      ok: false,
+      error: err?.message || "Server function failed to update candidate.",
+    };
   }
 }
 
@@ -557,9 +625,16 @@ export async function fetchCandidatesForDoc(
   try {
     const { getCandidatesForDocFn } = await import("./ingest.functions");
     return await getCandidatesForDocFn({ data: { docId } });
-  } catch {
-    const { handleGetCandidatesByDocId } = await import("./ingest.server");
-    return await handleGetCandidatesByDocId(docId);
+  } catch (err: any) {
+    if (!isBrowser) {
+      const { handleGetCandidatesByDocId } = await import("./ingest.server");
+      return await handleGetCandidatesByDocId(docId);
+    }
+    return {
+      ok: false,
+      candidates: [],
+      error: err?.message || "Server function failed to fetch candidates.",
+    };
   }
 }
 
@@ -567,33 +642,52 @@ export async function fetchReviewQueue(): Promise<import("../types/review").Revi
   try {
     const { listReviewQueueFn } = await import("./review.functions");
     return await listReviewQueueFn();
-  } catch {
-    const { handleListReviewQueue } = await import("./review.server");
-    return await handleListReviewQueue();
+  } catch (err: any) {
+    if (!isBrowser) {
+      const { handleListReviewQueue } = await import("./review.server");
+      return await handleListReviewQueue();
+    }
+    console.error("Failed to fetch review queue from server:", err);
+    return [];
   }
 }
 
 export async function fetchMyDrafts(
   proposerName?: string
 ): Promise<import("../storage/schema").DraftTable[]> {
+  const sessionToken = getActiveSessionToken();
   try {
     const { listMyDraftsFn } = await import("./review.functions");
-    return await listMyDraftsFn({ data: { ...(proposerName ? { proposerName } : {}) } });
-  } catch {
-    const { handleListMyDrafts } = await import("./review.server");
-    return await handleListMyDrafts(proposerName);
+    return await listMyDraftsFn({ data: { proposerName, sessionToken } });
+  } catch (err: any) {
+    if (!isBrowser) {
+      const { handleListMyDrafts } = await import("./review.server");
+      return await handleListMyDrafts(proposerName, undefined, sessionToken);
+    }
+    console.error("Failed to fetch drafts from server:", err);
+    return [];
   }
 }
 
 export async function submitReviewDecision(
   req: import("./review.functions").ReviewDecisionRequest
 ): Promise<import("./review.functions").ReviewDecisionResponse> {
+  const payload = {
+    ...req,
+    sessionToken: req.sessionToken || getActiveSessionToken(),
+  };
   try {
     const { decideReviewItemFn } = await import("./review.functions");
-    return await decideReviewItemFn({ data: req });
-  } catch {
-    const { handleDecideReviewItem } = await import("./review.server");
-    return await handleDecideReviewItem(req);
+    return await decideReviewItemFn({ data: payload });
+  } catch (err: any) {
+    if (!isBrowser) {
+      const { handleDecideReviewItem } = await import("./review.server");
+      return await handleDecideReviewItem(payload);
+    }
+    return {
+      ok: false,
+      error: err?.message || "Server function failed to process review decision.",
+    };
   }
 }
 

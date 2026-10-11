@@ -156,4 +156,81 @@ describe("AnswerDetailsView component", () => {
     renderComponent(props);
     expect(screen.getByText(/Immediate safety escalation/i)).toBeInTheDocument();
   });
+
+  it("renders zero citation count correctly without fabricating fallback count or sources", () => {
+    const zeroCiteResponse: SearchResponse = {
+      ...makeResponse("answer", "Answer without citations"),
+      parts: [
+        {
+          ...makeResponse("answer").parts[0]!,
+          citations: [],
+        },
+      ],
+    };
+    renderComponent({
+      ...defaultProps,
+      response: zeroCiteResponse,
+    });
+    expect(screen.getByText("Sources (0)")).toBeInTheDocument();
+    expect(screen.queryByText("Sources (2)")).not.toBeInTheDocument();
+    expect(screen.getByText("No cited knowledge units for this outcome.")).toBeInTheDocument();
+    expect(
+      screen.getByText("No verified citations or approved publication metadata for this outcome."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Approved by Pharmacy Ops")).not.toBeInTheDocument();
+  });
+
+  it("displays verified citation count and approval metadata when valid approved citations exist", () => {
+    renderComponent(defaultProps);
+    expect(screen.getByText("Sources (1)")).toBeInTheDocument();
+    expect(screen.getByText("Approved knowledge")).toBeInTheDocument();
+    expect(screen.getAllByText(/Approved by/i).length).toBeGreaterThan(0);
+  });
+
+  it("does not fabricate approval metadata for insufficient evidence outcome with zero citations", () => {
+    const insufficientZeroCite: SearchResponse = {
+      ...makeResponse("insufficient_evidence", null),
+      parts: [
+        {
+          ...makeResponse("insufficient_evidence").parts[0]!,
+          citations: [],
+        },
+      ],
+    };
+    renderComponent({
+      ...defaultProps,
+      response: insufficientZeroCite,
+    });
+    expect(screen.getByText("Sources (0)")).toBeInTheDocument();
+    expect(screen.getByText("No approved answer found")).toBeInTheDocument();
+    expect(
+      screen.getByText("No verified citations or approved publication metadata for this outcome."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Approved knowledge")).not.toBeInTheDocument();
+    expect(screen.queryByText("Approved by Pharmacy Ops")).not.toBeInTheDocument();
+  });
+
+  it("does not fabricate approval metadata for unauthorized outcome with zero citations", () => {
+    const unauthorizedZeroCite: SearchResponse = {
+      ...makeResponse("not_authorized", null),
+      parts: [
+        {
+          ...makeResponse("not_authorized").parts[0]!,
+          citations: [],
+        },
+      ],
+    };
+    renderComponent({
+      ...defaultProps,
+      response: unauthorizedZeroCite,
+    });
+    expect(screen.getByText("Sources (0)")).toBeInTheDocument();
+    expect(screen.getByText(/Outside your access/i)).toBeInTheDocument();
+    expect(
+      screen.getByText("No verified citations or approved publication metadata for this outcome."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Approved knowledge")).not.toBeInTheDocument();
+    expect(screen.queryByText("Approved by Pharmacy Ops")).not.toBeInTheDocument();
+  });
 });
+

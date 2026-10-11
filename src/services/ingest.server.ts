@@ -16,11 +16,34 @@ import type {
   ProposeDraftsRequest,
   ProposeDraftsResponse,
 } from "./ingest.functions";
+import {
+  authenticateRequest,
+  resolveRequestUser,
+  requireCapability,
+  type AuthenticatedUser,
+} from "./auth.server";
+
+export { resolveRequestUser };
 
 export async function handleUploadAndIngest(
   data: IngestUploadRequest,
-  repo: StorageRepository = repository
+  repo: StorageRepository = repository,
+  callerUser?: AuthenticatedUser
 ): Promise<IngestResponse> {
+  let user: AuthenticatedUser;
+  try {
+    user = callerUser || authenticateRequest(data);
+  } catch (err: any) {
+    return { ok: false, error: err.message || "Authentication required: No valid session." };
+  }
+
+  // Capability check: User must hold "ingest_source" capability!
+  try {
+    requireCapability(user, "ingest_source", "upload and ingest source documents");
+  } catch (err: any) {
+    return { ok: false, error: err.message };
+  }
+
   const fileName = data.fileName || data.filename || "document.txt";
   const title = data.title || data.source_title;
   const sourceType = data.sourceType || data.source_type || "Policy / Guidance";
@@ -29,7 +52,8 @@ export async function handleUploadAndIngest(
   const stateCode = data.stateCode || "All";
   const description = data.description;
   const ownerTeam = data.ownerTeam || "Pharmacy Ops";
-  const actor = data.actor || data.uploaded_by || "Dana (Knowledge author)";
+  const actor = `${user.name} (${user.label})`;
+  const createdByUserId = user.id;
 
   let fileBase64 = data.fileBase64 || data.file_base64;
   let buffer: Buffer;
@@ -146,10 +170,36 @@ export async function handleUploadAndIngest(
       source_type: effectiveSourceType,
       description: description || null,
       created_by: actor,
+      created_by_user_id: createdByUserId,
       created_at: nowIso,
     });
 
-    // 7. Persist original binary file storage
+    // 7. Persist original binary file storage (Supabase Storage + Database record)
+    let storageBucket: string | null = null;
+    let storagePath: string | null = null;
+
+    try {
+      const { uploadSourceFileToStorage } = await import("./storage.server");
+      const storageRes = await uploadSourceFileToStorage({
+        docId,
+        fileName,
+        buffer,
+        mimeType:
+          parsed.detectedFormat === "pdf"
+            ? "application/pdf"
+            : parsed.detectedFormat === "docx"
+            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            : "text/plain",
+        ownerTeam: effectiveOwner,
+      });
+      if (storageRes.ok) {
+        storageBucket = storageRes.storageBucket || null;
+        storagePath = storageRes.storagePath || null;
+      }
+    } catch {
+      // Graceful fallback if Supabase storage is unconfigured in test
+    }
+
     await repo.saveSourceFile({
       id: `FILE-${docId}`,
       source_doc_id: docId,
@@ -160,6 +210,10 @@ export async function handleUploadAndIngest(
           : parsed.detectedFormat === "docx"
           ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           : "text/plain",
+      storage_bucket: storageBucket,
+      storage_path: storagePath,
+      file_size: parsed.fileSize,
+      content_hash: contentHash,
       data_base64: fileBase64,
       created_at: nowIso,
     });
@@ -213,8 +267,9 @@ export async function handleUploadAndIngest(
             : "Policy",
         body: c.body,
         verbatim: c.verbatim ? 1 : 0,
-        knowledge_base: c.knowledge_base || "KB-PHARM",
+        knowledge_base: (!c.knowledge_base || c.knowledge_base === "KB-UNASSIGNED") ? "KB-PHARM" : c.knowledge_base,
         owner_team: c.owner || effectiveOwner,
+
         source_reference: `${docTitle} • Section: ${c.source_section || "General"}`,
         source_section: c.source_section || null,
         source_page: sourcePage,
@@ -320,12 +375,26 @@ export async function handleListRecentUploads(): Promise<RecentUpload[]> {
 
 export async function handleProposeDrafts(
   data: ProposeDraftsRequest,
-  repo: StorageRepository = repository
+  repo: StorageRepository = repository,
+  callerUser?: AuthenticatedUser
 ): Promise<ProposeDraftsResponse> {
+  let user: AuthenticatedUser;
+  try {
+    user = callerUser || authenticateRequest(data);
+  } catch (err: any) {
+    return { ok: false, success: false, error: err.message || "Authentication required: No valid session." };
+  }
+
+  try {
+    requireCapability(user, "propose_unit", "propose candidate units for review");
+  } catch (err: any) {
+    return { ok: false, success: false, error: err.message };
+  }
+
   const sourceDocId = data.sourceDocId || data.source_doc_id || "";
   const candidateIds = data.candidateIds || data.candidate_ids || [];
-  const proposerName = data.proposerName || data.proposer_name || "Knowledge Author";
-  const proposerRole = data.proposerRole || data.proposer_role || "author";
+  const proposerName = `${user.name} (${user.label})`;
+  const proposerId = user.id;
 
   if (!candidateIds || candidateIds.length === 0) {
     return { ok: false, success: false, error: "No candidate units selected for submission." };
@@ -363,6 +432,7 @@ export async function handleProposeDrafts(
       effective_date: c.effective_date,
       tags_json: JSON.stringify([c.candidate_type.toLowerCase()]),
       proposed_by: proposerName,
+      proposer_id: proposerId,
       status: "proposed" as const,
       reason: null,
       decided_by: null,
@@ -398,6 +468,7 @@ export async function handleProposeDrafts(
 
 export interface UpdateCandidateUnitInput {
   id: string;
+  sessionToken?: string;
   title?: string;
   candidate_type?: string;
   type?: string;
@@ -412,9 +483,23 @@ export interface UpdateCandidateUnitInput {
 
 export async function handleUpdateCandidateUnit(
   data: UpdateCandidateUnitInput,
-  repo: StorageRepository = repository
+  repo: StorageRepository = repository,
+  callerUser?: AuthenticatedUser
 ): Promise<{ ok: boolean; candidate?: CandidateUnitTable; error?: string }> {
   try {
+    let user: AuthenticatedUser;
+    try {
+      user = callerUser || authenticateRequest(data);
+    } catch (err: any) {
+      return { ok: false, error: err.message || "Authentication required: No valid session." };
+    }
+
+    try {
+      requireCapability(user, "propose_unit", "edit candidate knowledge units");
+    } catch (err: any) {
+      return { ok: false, error: err.message };
+    }
+
     const existing = await repo.getCandidateById(data.id);
     if (!existing) {
       return { ok: false, error: `Candidate unit ${data.id} not found.` };

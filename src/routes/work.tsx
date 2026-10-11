@@ -179,53 +179,43 @@ function WorkPage() {
         });
       }
 
-      if (!result || result.ok === false) {
-        throw new Error(
-          result?.error ||
-            "Candidate extraction could not be completed. Please verify the source document."
-        );
+      if (!result || !result.ok) {
+        throw new Error(result?.error || "Candidate extraction failed: Server returned an unsuccessful response.");
+      }
+
+      const units = Array.isArray(result.units) ? result.units : [];
+      if (units.length === 0) {
+        throw new Error(result?.error || "No candidate units could be extracted from this document.");
       }
 
       setActiveSourceTitle(sourceTitle || result.filename || "Member Services Guide v3.pdf");
       setCurrentDocId(result.doc_id || null);
 
-      const units = Array.isArray(result.units) ? result.units : [];
-
-      if (sourceTitle && sourceTitle.includes("Member Services")) {
-        setExtractedUnits(MEMBER_SERVICES_GUIDE_UNITS);
-        setExtractedParsedText("");
-      } else {
-        setExtractedParsedText(result.extracted_text || "");
-        if (units.length === 0) {
-          throw new Error(
-            "No candidate knowledge units could be extracted from this document. Try a different source or paste the content as text."
-          );
-        }
-        setExtractedUnits(
-          units.map((u, i) => ({
-            id: u.id || `UNIT-EXT-${i + 1}`,
-            cid: u.cid,
-            title: u.title,
-            type: (u.type as any) || "Procedure",
-            content: u.content,
-            key_points: u.key_points?.length ? u.key_points : ["Extracted statement from document."],
-            source_reference: u.source_reference || `${result.filename} • Section 1.${i + 1}`,
-            suggested_effective_date: u.suggested_effective_date || "2024-01-01",
-            match_status: u.match_status,
-            similarity: u.similarity,
-            route_to: u.route_to as "owner" | "legal" | undefined,
-            selected: i === 0 || u.match_status === "new",
-          }))
-        );
-      }
+      setExtractedParsedText(result.extracted_text || "");
+      setExtractedUnits(
+        units.map((u, i) => ({
+          id: u.id || `UNIT-EXT-${i + 1}`,
+          cid: u.cid,
+          title: u.title,
+          type: (u.type as any) || "Procedure",
+          content: u.content,
+          key_points: u.key_points?.length ? u.key_points : ["Extracted statement from document."],
+          source_reference: u.source_reference || `${result.filename} • Section 1.${i + 1}`,
+          suggested_effective_date: u.suggested_effective_date || "2024-01-01",
+          match_status: u.match_status,
+          similarity: u.similarity,
+          route_to: u.route_to,
+          selected: i === 0 || u.match_status === "new",
+        }))
+      );
 
       setExtractedCandidates(
         units.map((u) => ({
           cid: u.cid,
           title: u.title,
           text: u.content,
-          status: u.match_status === "changed" ? "changed_flagged" : "new",
-          route: u.route_to === "legal" ? "legal" : "owner",
+          status: (u.match_status === "changed" ? "changed_flagged" : "new") as any,
+          route: (u.route_to === "legal" ? "legal" : "owner") as any,
           owner_team: "Pharmacy Ops",
           effective_date: u.suggested_effective_date,
           tags: [(u.type || "procedure").toLowerCase()],

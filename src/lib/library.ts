@@ -70,12 +70,12 @@ export function formatUnitDate(dStr: string | null | undefined): string {
 export function normalizeStatus(status: string): KnowledgeStatus {
   const s = (status || "").toLowerCase().trim();
   if (s === "approved") return "Approved";
-  if (s === "under_review" || s === "in_review" || s === "under review") return "Under review";
-  if (s === "draft" || s === "proposed") return "Draft";
+  if (s === "under_review" || s === "in_review" || s === "under review" || s === "pending") return "Under review";
+  if (s === "draft" || s === "proposed" || s === "new" || s === "changed" || s === "unchanged" || s === "duplicate_candidate") return "Draft";
   if (s === "stale") return "Stale";
   if (s === "conflict") return "Conflict";
-  if (s === "retired" || s === "archived") return "Retired";
-  return "Approved";
+  if (s === "retired" || s === "archived" || s === "rejected") return "Retired";
+  return "Draft";
 }
 
 export function enrichUnit(u: DemoUnit): EnrichedKnowledgeUnit {
@@ -89,9 +89,11 @@ export function enrichUnit(u: DemoUnit): EnrichedKnowledgeUnit {
 
   const effective_date_formatted = formatUnitDate(rawEffective);
   const last_updated_formatted = formatUnitDate(rawLastUpdated);
-  const approved_on_formatted = formatUnitDate(rawApprovedOn);
 
   const status = normalizeStatus(u.status);
+  const isApproved = status === "Approved" || status === "Stale";
+
+  const approved_on_formatted = isApproved ? formatUnitDate(rawApprovedOn) : "—";
 
   // Content type inference
   let content_type: ContentType = meta?.content_type ?? "Procedure";
@@ -111,7 +113,9 @@ export function enrichUnit(u: DemoUnit): EnrichedKnowledgeUnit {
   const next_review = meta?.next_review ?? formatUnitDate(meta?.review_date ?? "2025-01-01");
   const next_review_status = meta?.next_review_status ?? (status === "Stale" ? "Overdue" : "Current");
 
-  const approved_by = meta?.approved_by ?? latestV?.approver ?? (u.owner === "Legal" || u.verbatim ? "Rita (Legal)" : "Pharmacy Ops");
+  const approved_by = isApproved
+    ? (meta?.approved_by ?? latestV?.approver ?? (u.owner === "Legal" || u.verbatim ? "Rita (Legal)" : "Pharmacy Ops"))
+    : "—";
 
   const summary =
     meta?.summary ??
@@ -146,7 +150,7 @@ export function enrichUnit(u: DemoUnit): EnrichedKnowledgeUnit {
     text: v.text,
     effective_date: v.effective_date,
     effective_date_formatted: formatUnitDate(v.effective_date),
-    approver: v.approver,
+    approver: isApproved ? v.approver : "—",
     change_note:
       v.version === 1
         ? "Initial publication."
@@ -175,7 +179,7 @@ export function enrichUnit(u: DemoUnit): EnrichedKnowledgeUnit {
     next_review,
     next_review_status,
     approved_by,
-    approved_on: rawApprovedOn,
+    approved_on: isApproved ? rawApprovedOn : "",
     approved_on_formatted,
     summary,
     key_points,
@@ -190,8 +194,14 @@ export function scopedLibrary(units: DemoUnit[], person: Person): EnrichedKnowle
   if (!person.capabilities.includes("get_unit")) return [];
   return units
     .filter((unit) => {
+      // Governance rule: Drafts, candidates, and rejected units must never leak into library views
+      const status = normalizeStatus(unit.status);
+      if (status === "Draft" || status === "Retired") return false;
+
       const kb = UNIT_META[unit.unit_id]?.kb ?? (unit.unit_id.startsWith("U-SH") ? "KB-SHARED" : "KB-PHARM");
       return !!kb && person.kbs.includes(kb);
     })
     .map(enrichUnit);
 }
+
+

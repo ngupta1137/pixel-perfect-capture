@@ -60,6 +60,9 @@ export interface EvalReport {
   metrics: EvalMetrics;
   gate_passed: boolean;
   cases: EvalCaseResult[];
+  blind_set_evaluated: boolean;
+  production_ready: boolean;
+  readiness_blocker?: string | null;
 }
 
 export interface RunOptions {
@@ -280,6 +283,9 @@ export function runGoldenSuite(options: RunOptions = {}): EvalReport {
     },
     gate_passed: gatePassed,
     cases: results,
+    blind_set_evaluated: false,
+    production_ready: false,
+    readiness_blocker: "Conversational retrieval cannot be certified production-ready until the blind holdout set has been evaluated.",
   };
 
   latestReport = report;

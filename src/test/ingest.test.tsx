@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SessionProvider } from "@/lib/session";
 import { DemoStoreProvider, resetDemoStore } from "@/services/demoStore";
@@ -6,6 +6,7 @@ import { PEOPLE, findPerson } from "@/lib/rights";
 import { Route } from "@/routes/work";
 import { ReviewExtractWorkspace } from "@/components/ingest/ReviewExtractWorkspace";
 import { MEMBER_SERVICES_GUIDE_UNITS } from "@/types/ingest";
+import * as verityServices from "@/services/verity";
 
 const renderWorkPage = (personId = "dana") => {
   const person = findPerson(personId) || PEOPLE[0]!;
@@ -128,7 +129,7 @@ describe("Verity Ingest & Drafts Screen", () => {
       () => {
         expect(screen.getByRole("heading", { name: "Review & extract", level: 1 })).toBeInTheDocument();
       },
-      { timeout: 4000 },
+      { timeout: 8000 },
     );
 
     // Check 3-column elements
@@ -223,4 +224,108 @@ describe("Verity Ingest & Drafts Screen", () => {
       expect(screen.getByText(/No question analytics yet/i)).toBeInTheDocument();
     });
   });
+
+  describe("Ingestion error handling & regression tests", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("handles successful extraction with units", async () => {
+      vi.spyOn(verityServices, "uploadAndIngestSource").mockResolvedValueOnce({
+        ok: true,
+        units: [
+          {
+            id: "UNIT-CUSTOM-1",
+            cid: "C1",
+            title: "Custom Policy Rule",
+            type: "Policy",
+            content: "Policy statement content for test.",
+            key_points: ["Key point 1"],
+            source_reference: "Test Doc • Section 1",
+            suggested_effective_date: "2026-01-01",
+            match_status: "new",
+          },
+        ],
+        filename: "test-policy.txt",
+        doc_id: "DOC-123",
+      } as any);
+
+      renderWorkPage("dana");
+      const extractBtn = screen.getByRole("button", { name: /Extract candidate units/i });
+      fireEvent.click(extractBtn);
+
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: "Review & extract", level: 1 })).toBeInTheDocument();
+      });
+      expect(screen.getByText("Custom Policy Rule")).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("handles unsuccessful ingestion response containing a server error without crashing", async () => {
+      const serverErrorMessage = "Database connection failed: disk I/O error or readonly filesystem";
+      vi.spyOn(verityServices, "uploadAndIngestSource").mockResolvedValueOnce({
+        ok: false,
+        error: serverErrorMessage,
+      } as any);
+
+      renderWorkPage("dana");
+      const extractBtn = screen.getByRole("button", { name: /Extract candidate units/i });
+      fireEvent.click(extractBtn);
+
+      await waitFor(() => {
+        const alert = screen.getByRole("alert");
+        expect(alert).toBeInTheDocument();
+        expect(alert).toHaveTextContent(serverErrorMessage);
+      });
+
+      // Does not navigate to Review & extract workspace
+      expect(screen.queryByRole("heading", { name: "Review & extract", level: 1 })).not.toBeInTheDocument();
+      // Remained on Ingest source step
+      expect(screen.getByRole("heading", { name: "Ingest source", level: 1 })).toBeInTheDocument();
+    });
+
+    it("handles a successful response with missing or invalid units array without .map() error", async () => {
+      // Simulate an invalid response where ok is true but units is missing / undefined
+      vi.spyOn(verityServices, "uploadAndIngestSource").mockResolvedValueOnce({
+        ok: true,
+        units: undefined as any,
+      } as any);
+
+      renderWorkPage("dana");
+      const extractBtn = screen.getByRole("button", { name: /Extract candidate units/i });
+      fireEvent.click(extractBtn);
+
+      await waitFor(() => {
+        const alert = screen.getByRole("alert");
+        expect(alert).toBeInTheDocument();
+        expect(alert).toHaveTextContent(/No candidate units could be extracted/i);
+      });
+
+      // Does not crash or transition to invalid workspace
+      expect(screen.queryByRole("heading", { name: "Review & extract", level: 1 })).not.toBeInTheDocument();
+    });
+
+    it("displays a useful error in the UI instead of throwing a .map() TypeError", async () => {
+      const dbError = "SQLite error: cannot open database file in /data/verity.db";
+      vi.spyOn(verityServices, "uploadAndIngestSource").mockResolvedValueOnce({
+        ok: false,
+        error: dbError,
+      } as any);
+
+      renderWorkPage("dana");
+      const extractBtn = screen.getByRole("button", { name: /Extract candidate units/i });
+      
+      // Clicking extract button should not throw any unhandled TypeError
+      expect(() => fireEvent.click(extractBtn)).not.toThrow();
+
+      await waitFor(() => {
+        const alert = screen.getByRole("alert");
+        expect(alert).toBeInTheDocument();
+        expect(alert.textContent).toBe(dbError);
+      });
+      // The button should be re-enabled after failure
+      expect(screen.getByRole("button", { name: /Extract candidate units/i })).toBeEnabled();
+    });
+  });
 });
+

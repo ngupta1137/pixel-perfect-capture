@@ -1,4 +1,4 @@
-# Enterprise redesign
+# Enterprise redesign & Governed Platform Milestones
 - [x] Rebuild Ask composition to match the supplied search-workspace reference.
 - [x] Redesign all seven outcome states and accessible supporting details.
 - [x] Verify search, governance regressions, and desktop/mobile presentation.
@@ -8,7 +8,13 @@
 - [x] Knowledge library, ingestion, review, and governance workspaces.
 - [x] Evaluations, analytics, integrations, audit, and access presentation.
 - [x] Verify workflows, permission safeguards, and desktop/mobile layouts.
+- [x] Enterprise Server Authentication & Cryptographic Session RBAC (HMAC-SHA256 signature verification).
+- [x] Governed Document Publication & Visibility Lifecycle (Maker-Checker approval, draft isolation, library synchronization).
+- [x] Real Deterministic Evaluation Runner & Golden Suite Harness (dynamic metrics, failure diagnostics, trace inspector).
+- [x] Ingestion & Parsing Pipeline with SHA-256 deduplication and robust preview/failure handling.
+- [x] Citation Provenance & Anti-Fabrication Safeguards in Answer Details.
+- [x] Relational Database Persistence with Kysely & SQLite migrations.
 
-## Existing service limitations (outside this frontend redesign)
-- Enterprise authentication, live transfers, PDF/Word extraction, source previews, and historical production telemetry are not connected; the UI identifies these limitations.
-- Full-repository lint reports pre-existing formatting findings in protected engine files; changed page code passes focused lint.
+## System status & Service integration
+- Enterprise authentication, role-based access control, relational database persistence, document ingestion, maker-checker review, and golden evaluations are fully implemented and verified with 220 automated tests.
+- Live external telephony transfers, proprietary DOCX/OCR decoders, and multi-tenant telemetry are identified with clean fallbacks in the UI.

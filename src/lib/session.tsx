@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import {
   DEFAULT_PERSON,
   PEOPLE,
@@ -36,6 +36,20 @@ export const CHANNELS: Channel[] = [
 export const MEMBER_CHANNELS = ["member_chat", "voice"];
 export { PEOPLE };
 
+/**
+ * Returns the active session token for API / server function authorization.
+ * Defaults to demo session token for the active persona if not yet negotiated.
+ */
+export function getActiveSessionToken(): string {
+  if (typeof window !== "undefined") {
+    const savedToken = sessionStorage.getItem("verity_session_token");
+    if (savedToken) return savedToken;
+    const persona = sessionStorage.getItem("verity_active_persona") || DEFAULT_PERSON.id;
+    return `vty_sess_demo_${persona}`;
+  }
+  return `vty_sess_demo_${DEFAULT_PERSON.id}`;
+}
+
 interface SessionState {
   /** The signed-in person. Kept as `persona` too for older callers. */
   person: Person;
@@ -61,7 +75,13 @@ export function SessionProvider({
   initialAuthenticated?: boolean;
 }) {
   const [person, setP] = useState<Person>(() => {
-    if (initialPerson) return initialPerson;
+    if (initialPerson) {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("verity_active_persona", initialPerson.id);
+        sessionStorage.setItem("verity_session_token", `vty_sess_demo_${initialPerson.id}`);
+      }
+      return initialPerson;
+    }
     if (typeof window !== "undefined") {
       const saved = sessionStorage.getItem("verity_active_persona");
       if (saved) {
@@ -84,7 +104,25 @@ export function SessionProvider({
   const [channel, setC] = useState("voice");
   const allowedChannels = CHANNELS;
 
-  // Switching person never touches the shared demo store.
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const activeId = person.id;
+      sessionStorage.setItem("verity_active_persona", activeId);
+      if (!sessionStorage.getItem("verity_session_token") || sessionStorage.getItem("verity_session_token")?.startsWith("vty_sess_demo_")) {
+        sessionStorage.setItem("verity_session_token", `vty_sess_demo_${activeId}`);
+      }
+      void import("@/services/auth.functions")
+        .then(({ establishSessionFn }) => establishSessionFn({ data: { userId: activeId } }))
+        .then((res) => {
+          if (res.ok && res.token && typeof window !== "undefined") {
+            sessionStorage.setItem("verity_session_token", res.token);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [person.id]);
+
+  // Switching person establishes a verified server session for the selected persona.
   const setPersona = (id: string) => {
     const p = findPerson(id) ?? DEFAULT_PERSON;
     setP(p);
@@ -92,7 +130,16 @@ export function SessionProvider({
     if (typeof window !== "undefined") {
       sessionStorage.setItem("verity_authenticated", "true");
       sessionStorage.setItem("verity_active_persona", p.id);
+      sessionStorage.setItem("verity_session_token", `vty_sess_demo_${p.id}`);
     }
+    void import("@/services/auth.functions")
+      .then(({ establishSessionFn }) => establishSessionFn({ data: { userId: p.id } }))
+      .then((res) => {
+        if (res.ok && res.token && typeof window !== "undefined") {
+          sessionStorage.setItem("verity_session_token", res.token);
+        }
+      })
+      .catch(() => {});
   };
 
   const signOut = () => {
@@ -100,7 +147,11 @@ export function SessionProvider({
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("verity_authenticated");
       sessionStorage.removeItem("verity_active_persona");
+      sessionStorage.removeItem("verity_session_token");
     }
+    void import("@/services/auth.functions")
+      .then(({ destroySessionFn }) => destroySessionFn({ data: {} }))
+      .catch(() => {});
   };
 
   const setChannel = (id: string) => {

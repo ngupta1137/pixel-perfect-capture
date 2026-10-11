@@ -222,14 +222,23 @@ export function AnswerDetailsView({
   const content = parseAnswerContent(part?.text ?? null);
 
   // Metadata calculations for Answer Details drawer / accordion
-  const firstUnitId = uniqueCitations[0]?.unit_id ?? "U-PH-010";
-  const firstUnit = getUnit(firstUnitId);
-  const firstUnitMeta = UNIT_META[firstUnitId];
+  const firstCitation = uniqueCitations[0];
+  const firstUnit = firstCitation ? getUnit(firstCitation.unit_id) : null;
+  const firstUnitMeta = firstCitation ? UNIT_META[firstCitation.unit_id] : undefined;
+  const latestVersion = firstUnit?.versions[firstUnit.versions.length - 1];
+
   const lastUpdatedDate =
-    firstUnit?.versions[firstUnit.versions.length - 1]?.effective_date ?? "12 Jan 2024";
+    latestVersion?.effective_date ??
+    firstCitation?.effective_date ??
+    null;
+
   const approverName =
-    firstUnit?.versions[firstUnit.versions.length - 1]?.approver ?? "Pharmacy Ops";
-  const nextReviewDate = firstUnitMeta?.review_date ?? "12 Jan 2025";
+    latestVersion?.approver ||
+    (firstCitation?.owner ? firstCitation.owner : null) ||
+    "Authorized reviewer";
+
+  const nextReviewDate = firstUnitMeta?.review_date ?? null;
+  const hasVerifiedCitations = uniqueCitations.length > 0;
 
   return (
     <div className="mx-auto w-full max-w-[1536px]">
@@ -575,43 +584,57 @@ export function AnswerDetailsView({
                   </div>
                 </div>
 
-                {/* Answer type row */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
-                  <div className="flex items-center gap-2 w-32 shrink-0 text-ink-muted">
-                    <FileText className="h-3.5 w-3.5 text-ink-muted" />
-                    <span>Answer type</span>
-                  </div>
-                  <span className="font-medium text-ink">Approved knowledge</span>
-                </div>
+                {hasVerifiedCitations && isApproved ? (
+                  <>
+                    {/* Answer type row */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
+                      <div className="flex items-center gap-2 w-32 shrink-0 text-ink-muted">
+                        <FileText className="h-3.5 w-3.5 text-ink-muted" />
+                        <span>Answer type</span>
+                      </div>
+                      <span className="font-medium text-ink">Approved knowledge</span>
+                    </div>
 
-                {/* Last updated row */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
-                  <div className="flex items-center gap-2 w-32 shrink-0 text-ink-muted">
-                    <Clock className="h-3.5 w-3.5 text-ink-muted" />
-                    <span>Last updated</span>
-                  </div>
-                  <span className="font-medium text-ink">{lastUpdatedDate}</span>
-                </div>
+                    {/* Last updated row */}
+                    {lastUpdatedDate && (
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
+                        <div className="flex items-center gap-2 w-32 shrink-0 text-ink-muted">
+                          <Clock className="h-3.5 w-3.5 text-ink-muted" />
+                          <span>Last updated</span>
+                        </div>
+                        <span className="font-medium text-ink">{lastUpdatedDate}</span>
+                      </div>
+                    )}
 
-                {/* Approval status row */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
-                  <div className="flex items-center gap-2 w-32 shrink-0 text-ink-muted">
-                    <Scale className="h-3.5 w-3.5 text-ink-muted" />
-                    <span>Approval status</span>
-                  </div>
-                  <span className="font-medium text-ink">
-                    Approved by {approverName} · {lastUpdatedDate}
-                  </span>
-                </div>
+                    {/* Approval status row */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
+                      <div className="flex items-center gap-2 w-32 shrink-0 text-ink-muted">
+                        <Scale className="h-3.5 w-3.5 text-ink-muted" />
+                        <span>Approval status</span>
+                      </div>
+                      <span className="font-medium text-ink">
+                        Approved by {approverName}{lastUpdatedDate ? ` · ${lastUpdatedDate}` : ""}
+                      </span>
+                    </div>
 
-                {/* Next review row */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
-                  <div className="flex items-center gap-2 w-32 shrink-0 text-ink-muted">
-                    <CalendarClock className="h-3.5 w-3.5 text-ink-muted" />
-                    <span>Next review</span>
+                    {/* Next review row */}
+                    {nextReviewDate && (
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
+                        <div className="flex items-center gap-2 w-32 shrink-0 text-ink-muted">
+                          <CalendarClock className="h-3.5 w-3.5 text-ink-muted" />
+                          <span>Next review</span>
+                        </div>
+                        <span className="font-medium text-ink">{nextReviewDate}</span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-border/80 bg-[#FAFAFA] p-3 text-ink-muted">
+                    <p className="text-xs">
+                      No verified citations or approved publication metadata for this outcome.
+                    </p>
                   </div>
-                  <span className="font-medium text-ink">{nextReviewDate}</span>
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -626,17 +649,19 @@ export function AnswerDetailsView({
           <section className="rounded-2xl border border-border bg-surface p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-ink">
-                Sources ({uniqueCitations.length || 2})
+                Sources ({uniqueCitations.length})
               </h2>
-              <button
-                type="button"
-                onClick={() => {
-                  if (uniqueCitations[0]) setOpenCite(uniqueCitations[0]);
-                }}
-                className="text-xs font-semibold text-[#2E7D32] hover:underline"
-              >
-                View all →
-              </button>
+              {uniqueCitations.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (uniqueCitations[0]) setOpenCite(uniqueCitations[0]);
+                  }}
+                  className="text-xs font-semibold text-[#2E7D32] hover:underline"
+                >
+                  View all →
+                </button>
+              )}
             </div>
 
             <div className="mt-4 space-y-3">
@@ -666,7 +691,7 @@ export function AnswerDetailsView({
                             Section 4.2 · Pages 12–14
                           </p>
                           <p className="text-[11px] text-ink-muted">
-                            Approved by {v?.approver ?? c.owner ?? "Pharmacy Ops"}
+                            {v?.approver ? `Approved by ${v.approver}` : (c.owner ? `Owned by ${c.owner}` : "Approver not recorded")}
                           </p>
                           <p className="text-[11px] text-ink-muted">
                             v{c.version} · {c.effective_date}
@@ -681,77 +706,13 @@ export function AnswerDetailsView({
                   );
                 })
               ) : (
-                <>
-                  {/* Fallback sources for screenshot demonstration */}
-                  <div
-                    onClick={() =>
-                      setOpenCite({
-                        unit_id: "U-PH-010",
-                        version: 3,
-                        title: "Member Services Guide v3",
-                        owner: "Pharmacy Ops",
-                        effective_date: "12 Jan 2024",
-                        verbatim: false,
-                      })
-                    }
-                    className="group flex cursor-pointer items-start justify-between gap-3 rounded-xl border border-border/80 bg-[#FAFAFA] p-3.5 transition-colors hover:border-[#2E7D32]/50 hover:bg-white"
-                  >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#2E7D32]" />
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-xs font-bold text-ink group-hover:text-primary">
-                            Member Services Guide v3
-                          </span>
-                          <span className="shrink-0 rounded-full bg-[#EAF7EE] px-2 py-0.5 text-[10px] font-semibold text-[#1E5E2E]">
-                            Current
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-ink-muted">Section 4.2 · Pages 12–14</p>
-                        <p className="text-[11px] text-ink-muted">Approved by Pharmacy Ops</p>
-                        <p className="text-[11px] text-ink-muted">v3 · 12 Jan 2024</p>
-                        <p className="text-[11px] text-ink-muted">Next review: 12 Jan 2025</p>
-                      </div>
-                    </div>
-                    <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-ink-muted group-hover:text-ink" />
-                  </div>
-
-                  <div
-                    onClick={() =>
-                      setOpenCite({
-                        unit_id: "U-PH-003",
-                        version: 1,
-                        title: "Pharmacy Benefits Policy",
-                        owner: "Compliance",
-                        effective_date: "02 Feb 2024",
-                        verbatim: false,
-                      })
-                    }
-                    className="group flex cursor-pointer items-start justify-between gap-3 rounded-xl border border-border/80 bg-[#FAFAFA] p-3.5 transition-colors hover:border-[#2E7D32]/50 hover:bg-white"
-                  >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#2E7D32]" />
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-xs font-bold text-ink group-hover:text-primary">
-                            Pharmacy Benefits Policy
-                          </span>
-                          <span className="shrink-0 rounded-full bg-[#EAF7EE] px-2 py-0.5 text-[10px] font-semibold text-[#1E5E2E]">
-                            Current
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-ink-muted">Section 3.1 · Page 8</p>
-                        <p className="text-[11px] text-ink-muted">Approved by Compliance</p>
-                        <p className="text-[11px] text-ink-muted">v1 · 02 Feb 2024</p>
-                        <p className="text-[11px] text-ink-muted">Next review: 02 Feb 2025</p>
-                      </div>
-                    </div>
-                    <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-ink-muted group-hover:text-ink" />
-                  </div>
-                </>
+                <div className="rounded-xl border border-dashed border-border/80 bg-[#FAFAFA] p-4 text-center">
+                  <p className="text-xs text-ink-muted">No cited knowledge units for this outcome.</p>
+                </div>
               )}
             </div>
           </section>
+
 
           {/* Related Questions Card */}
           <section className="rounded-2xl border border-border bg-surface p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">

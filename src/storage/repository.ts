@@ -6,7 +6,9 @@ import type {
   IngestionJobTable,
   CandidateUnitTable,
   DraftTable,
+  PublishedUnitTable,
 } from "./schema";
+
 import { getDb } from "./db";
 
 export class StorageRepository {
@@ -256,6 +258,81 @@ export class StorageRepository {
     const db = await this.getDb();
     await db.updateTable("drafts").set(updates).where("draft_id", "=", id).execute();
   }
+
+  async deleteDraft(draftId: string): Promise<void> {
+    const db = await this.getDb();
+    await db.deleteFrom("drafts").where("draft_id", "=", draftId).execute();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Authoritative Published Knowledge Units
+  // ---------------------------------------------------------------------------
+  async savePublishedUnit(
+    unit: Insertable<PublishedUnitTable>
+  ): Promise<PublishedUnitTable> {
+    const db = await this.getDb();
+    await db
+      .insertInto("published_units")
+      .values(unit)
+      .onConflict((oc) =>
+        oc.column("unit_id").doUpdateSet({
+          title: unit.title,
+          type: unit.type,
+          body: unit.body,
+          verbatim: unit.verbatim,
+          spoken_version: unit.spoken_version,
+          knowledge_base: unit.knowledge_base,
+          audience_json: unit.audience_json,
+          channels_json: unit.channels_json,
+          authority_level: unit.authority_level,
+          source_doc: unit.source_doc,
+          source_section: unit.source_section,
+          effective_date: unit.effective_date,
+          review_date: unit.review_date,
+          version: unit.version,
+          status: unit.status,
+          supersedes: unit.supersedes,
+          synonyms_json: unit.synonyms_json,
+          owner: unit.owner,
+          approved_by: unit.approved_by,
+          applies_to_json: unit.applies_to_json,
+          updated_at: unit.updated_at,
+        })
+      )
+      .execute();
+
+    const saved = await this.getPublishedUnitById(unit.unit_id);
+    if (!saved) throw new Error(`Failed to retrieve saved published unit ${unit.unit_id}`);
+    return saved;
+  }
+
+  async listPublishedUnits(
+    status?: "approved" | "stale" | "retired"
+  ): Promise<PublishedUnitTable[]> {
+    const db = await this.getDb();
+    let query = db.selectFrom("published_units").selectAll();
+    if (status) {
+      query = query.where("status", "=", status);
+    }
+    return await query.orderBy("updated_at", "desc").execute();
+  }
+
+  async getPublishedUnitById(
+    unitId: string
+  ): Promise<PublishedUnitTable | undefined> {
+    const db = await this.getDb();
+    return await db
+      .selectFrom("published_units")
+      .selectAll()
+      .where("unit_id", "=", unitId)
+      .executeTakeFirst();
+  }
+
+  async deletePublishedUnit(unitId: string): Promise<void> {
+    const db = await this.getDb();
+    await db.deleteFrom("published_units").where("unit_id", "=", unitId).execute();
+  }
 }
 
 export const repository = new StorageRepository();
+

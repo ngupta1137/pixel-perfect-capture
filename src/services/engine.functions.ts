@@ -5,9 +5,11 @@ import type { SearchRequest, SearchResponse } from './verity';
 export const runSearch = createServerFn({ method: 'POST' })
   .validator((d: SearchRequest) => d)
   .handler(async ({ data }): Promise<SearchResponse> => {
-    const { serveEngine } = await import('../verity-engine/server.ts');
+    const { serveEngine, ensureStoreHydrated } = await import('../verity-engine/server.ts');
+    await ensureStoreHydrated();
     return serveEngine(data);
   });
+
 
 export interface DriftResult {
   flag: boolean;

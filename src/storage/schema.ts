@@ -14,6 +14,7 @@ export interface SourceDocumentTable {
   source_type: string;
   description: string | null;
   created_by: string;
+  created_by_user_id?: string | null;
   created_at: string;
 }
 
@@ -22,7 +23,11 @@ export interface SourceFileTable {
   source_doc_id: string;
   file_name: string;
   mime_type: string;
-  data_base64: string;
+  storage_bucket?: string | null;
+  storage_path?: string | null;
+  file_size?: number | null;
+  content_hash?: string | null;
+  data_base64?: string | null;
   created_at: string;
 }
 
@@ -86,6 +91,7 @@ export interface DraftTable {
   effective_date: string;
   tags_json: string;
   proposed_by: string;
+  proposer_id?: string | null;
   status: "proposed" | "in_review" | "approved" | "rejected" | "requested_changes";
   reason: string | null;
   decided_by: string | null;
@@ -100,10 +106,38 @@ export interface DraftTable {
   annotations_json?: string | null | undefined;
 }
 
+export interface PublishedUnitTable {
+  unit_id: string;
+  title: string;
+  type: string;
+  body: string;
+  verbatim: number; // 0 or 1
+  spoken_version: string | null;
+  knowledge_base: string;
+  audience_json: string;
+  channels_json: string;
+  authority_level: string;
+  source_doc: string;
+  source_section: string;
+  effective_date: string;
+  review_date: string;
+  version: number;
+  status: "approved" | "stale" | "retired";
+  supersedes: string | null;
+  synonyms_json: string;
+  owner: string;
+  approved_by: string;
+  applies_to_json: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DatabaseSchema {
   source_documents: SourceDocumentTable;
   source_files: SourceFileTable;
   ingestion_jobs: IngestionJobTable;
   candidate_units: CandidateUnitTable;
   drafts: DraftTable;
+  published_units: PublishedUnitTable;
 }
+
