@@ -204,7 +204,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
         repo
       );
 
-      const candidate = uploadRes.units![0]!;
+      const candidate = uploadRes.units![0]! as any;
       expect(candidate.version).toBe(2);
       expect(candidate.version_id).toBe("RX-006-v2");
       expect(candidate.supersedes).toBe("RX-006-v1");
