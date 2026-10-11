@@ -156,7 +156,7 @@ describe("Phase 3C: Extraction Quality, Record Integrity, and Navigation Audit",
 
       expect(draftRes.ok).toBe(true);
       expect(draftRes.drafts).toHaveLength(1);
-      const draft = draftRes.drafts[0]!;
+      const draft = draftRes.drafts![0]!;
       expect(draft.unit_id).toBe("BEN-008");
       expect(draft.source_doc_id).toBe("SRC-BEN-2026-003");
       expect(draft.candidate_id).toBe(cand.id);
@@ -201,7 +201,7 @@ describe("Phase 3C: Extraction Quality, Record Integrity, and Navigation Audit",
         },
         repo
       );
-      const draftId = draftRes.drafts[0]!.draft_id;
+      const draftId = draftRes.drafts![0]!.draft_id;
 
       // Dana attempting to approve her own draft MUST be rejected by maker-checker
       const selfApprove = await handleDecideReviewItem(
