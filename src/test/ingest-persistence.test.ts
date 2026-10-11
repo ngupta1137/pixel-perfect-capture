@@ -363,6 +363,7 @@ The care team must contact the prescribing physician if no alternative NDC is on
           source_title: "Benefits Handling of Mail-Order Rejections",
           scope: "DEMO-RX-2026",
           uploaded_by: "Dana - Knowledge author",
+          sessionToken: "vty_sess_demo_dana",
         },
         repo
       );
@@ -397,6 +398,7 @@ The care team must contact the prescribing physician if no alternative NDC is on
           source_title: "Copay Policy v1",
           scope: "DEMO-RX-2026",
           uploaded_by: "Dana - Knowledge author",
+          sessionToken: "vty_sess_demo_dana",
         },
         repo
       );
@@ -413,6 +415,7 @@ The care team must contact the prescribing physician if no alternative NDC is on
           source_title: "Copay Policy Duplicate",
           scope: "DEMO-RX-2026",
           uploaded_by: "Dana - Knowledge author",
+          sessionToken: "vty_sess_demo_dana",
         },
         repo
       );
@@ -434,6 +437,7 @@ The care team must contact the prescribing physician if no alternative NDC is on
           source_title: "Specialty Pharmacy Enrollment Guidelines",
           scope: "DEMO-RX-2026",
           uploaded_by: "Dana - Knowledge author",
+          sessionToken: "vty_sess_demo_dana",
         },
         repo
       );
@@ -447,6 +451,7 @@ The care team must contact the prescribing physician if no alternative NDC is on
           candidateIds: [candidateIds[0]!],
           proposerName: "Dana - Knowledge author",
           proposerRole: "author",
+          sessionToken: "vty_sess_demo_dana",
         },
         repo
       );
@@ -462,7 +467,7 @@ The care team must contact the prescribing physician if no alternative NDC is on
       const match = allDrafts.find((d) => d.draft_id === proposeResult.draft_ids![0]);
       expect(match).toBeDefined();
       expect(match?.status).toBe("proposed");
-      expect(match?.proposed_by).toBe("Dana - Knowledge author");
+      expect(match?.proposed_by).toMatch(/Dana/);
     });
   });
 

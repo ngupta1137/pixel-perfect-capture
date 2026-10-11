@@ -14,6 +14,7 @@ export interface SourceDocumentTable {
   source_type: string;
   description: string | null;
   created_by: string;
+  created_by_user_id?: string | null;
   created_at: string;
 }
 
@@ -86,6 +87,7 @@ export interface DraftTable {
   effective_date: string;
   tags_json: string;
   proposed_by: string;
+  proposer_id?: string | null;
   status: "proposed" | "in_review" | "approved" | "rejected" | "requested_changes";
   reason: string | null;
   decided_by: string | null;

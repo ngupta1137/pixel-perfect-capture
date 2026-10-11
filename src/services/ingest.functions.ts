@@ -21,6 +21,7 @@ export interface IngestUploadRequest {
   actor?: string;
   uploaded_by?: string;
   mime_type?: string;
+  sessionToken?: string;
 }
 
 export interface IngestResponse {
@@ -64,6 +65,7 @@ export interface ProposeDraftsRequest {
   proposer_name?: string;
   proposerRole?: string;
   proposer_role?: string;
+  sessionToken?: string;
 }
 
 export interface ProposeDraftsResponse {
@@ -84,8 +86,14 @@ export interface ProposeDraftsResponse {
 export const uploadAndIngestSourceFn = createServerFn({ method: "POST" })
   .validator((d: IngestUploadRequest) => d)
   .handler(async ({ data }): Promise<IngestResponse> => {
-    const { handleUploadAndIngest } = await import("./ingest.server");
-    return await handleUploadAndIngest(data);
+    const { handleUploadAndIngest, resolveRequestUser } = await import("./ingest.server");
+    let callerUser;
+    try {
+      callerUser = await resolveRequestUser(data);
+    } catch (err: any) {
+      return { ok: false, error: err.message || "Authentication required." };
+    }
+    return await handleUploadAndIngest(data, undefined, callerUser);
   });
 
 export const listRecentUploadsFn = createServerFn({ method: "GET" }).handler(
@@ -98,15 +106,27 @@ export const listRecentUploadsFn = createServerFn({ method: "GET" }).handler(
 export const proposeDraftsFn = createServerFn({ method: "POST" })
   .validator((d: ProposeDraftsRequest) => d)
   .handler(async ({ data }): Promise<ProposeDraftsResponse> => {
-    const { handleProposeDrafts } = await import("./ingest.server");
-    return await handleProposeDrafts(data);
+    const { handleProposeDrafts, resolveRequestUser } = await import("./ingest.server");
+    let callerUser;
+    try {
+      callerUser = await resolveRequestUser(data);
+    } catch (err: any) {
+      return { ok: false, success: false, error: err.message || "Authentication required." };
+    }
+    return await handleProposeDrafts(data, undefined, callerUser);
   });
 
 export const updateCandidateUnitFn = createServerFn({ method: "POST" })
   .validator((d: any) => d)
   .handler(async ({ data }): Promise<any> => {
-    const { handleUpdateCandidateUnit } = await import("./ingest.server");
-    return await handleUpdateCandidateUnit(data);
+    const { handleUpdateCandidateUnit, resolveRequestUser } = await import("./ingest.server");
+    let callerUser;
+    try {
+      callerUser = await resolveRequestUser(data);
+    } catch (err: any) {
+      return { ok: false, error: err.message || "Authentication required." };
+    }
+    return await handleUpdateCandidateUnit(data, undefined, callerUser);
   });
 
 export const getCandidatesForDocFn = createServerFn({ method: "POST" })

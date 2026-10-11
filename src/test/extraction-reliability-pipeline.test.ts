@@ -131,6 +131,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
           mime_type: "text/markdown",
           content_text: DOC_1_MAINTENANCE_MEDICATION,
           uploaded_by: "Dana (Knowledge author)",
+          sessionToken: "vty_sess_demo_dana",
         },
         repo
       );
@@ -200,6 +201,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
           mime_type: "text/markdown",
           content_text: DOC_2_ROUTINE_REFILL_WINDOW,
           uploaded_by: "Dana (Knowledge author)",
+          sessionToken: "vty_sess_demo_dana",
         },
         repo
       );
@@ -216,6 +218,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
           candidate_ids: [candidate.id],
           proposer_name: "Dana (Knowledge author)",
           proposer_role: "author",
+          sessionToken: "vty_sess_demo_dana",
         },
         repo
       );
@@ -276,6 +279,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
           mime_type: "text/markdown",
           content_text: DOC_2_ROUTINE_REFILL_WINDOW,
           uploaded_by: "Dana (Knowledge author)",
+          sessionToken: "vty_sess_demo_dana",
         },
         repo
       );
@@ -293,6 +297,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
           key_points: ["Key point 1", "Key point 2"],
           source_reference: "SRC-RX-2026-004 • Section Refill Rules",
           effective_date: "2026-03-01",
+          sessionToken: "vty_sess_demo_dana",
         },
         repo
       );
@@ -325,6 +330,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
           mime_type: "text/markdown",
           content_text: DOC_2_ROUTINE_REFILL_WINDOW,
           uploaded_by: "Dana (Knowledge author)",
+          sessionToken: "vty_sess_demo_dana",
         },
         repo
       );
@@ -338,6 +344,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
           candidate_ids: [candId],
           proposer_name: "Dana (Knowledge author)",
           proposer_role: "author",
+          sessionToken: "vty_sess_demo_dana",
         },
         repo
       );
@@ -349,6 +356,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
         {
           draftId,
           action: "approve",
+          sessionToken: "vty_sess_demo_dana",
           reviewerName: "Dana (Knowledge author)",
           reviewerRole: "knowledge_author",
           reviewerCapabilities: ["view_review_queue"],
@@ -363,8 +371,9 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
         {
           draftId,
           action: "approve",
-          reviewerName: "Charlie (Read-only)",
-          reviewerRole: "reader",
+          sessionToken: "vty_sess_demo_priya",
+          reviewerName: "Priya (Advocate)",
+          reviewerRole: "pharmacy_advocate",
           reviewerCapabilities: [],
         },
         repo
@@ -388,6 +397,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
         {
           draftId,
           action: "approve",
+          sessionToken: "vty_sess_demo_owen",
           reviewerName: "Owen (Knowledge owner)",
           reviewerRole: "knowledge_owner",
           reviewerCapabilities: ["approve_standard"],
@@ -434,6 +444,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
           mime_type: "text/markdown",
           content_text: "",
           uploaded_by: "Dana",
+          sessionToken: "vty_sess_demo_dana",
         },
         repo
       );
@@ -448,6 +459,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
           mime_type: "application/x-msdownload",
           content_text: "MZ...",
           uploaded_by: "Dana",
+          sessionToken: "vty_sess_demo_dana",
         },
         repo
       );
@@ -462,6 +474,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
           mime_type: "text/markdown",
           content_text: DOC_2_ROUTINE_REFILL_WINDOW,
           uploaded_by: "Dana",
+          sessionToken: "vty_sess_demo_dana",
         },
         repo
       );
@@ -473,6 +486,7 @@ describe("Verity Document Extraction Reliability & End-to-End Pipeline Audit", (
           mime_type: "text/markdown",
           content_text: DOC_2_ROUTINE_REFILL_WINDOW,
           uploaded_by: "Dana",
+          sessionToken: "vty_sess_demo_dana",
         },
         repo
       );

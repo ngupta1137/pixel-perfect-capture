@@ -504,16 +504,21 @@ import type {
   ProposeDraftsResponse,
 } from "./ingest.functions";
 import type { RecentUpload } from "@/types/ingest";
+import { getActiveSessionToken } from "@/lib/session";
 
 export async function uploadAndIngestSource(
   req: IngestUploadRequest
 ): Promise<IngestResponse> {
+  const payload = {
+    ...req,
+    sessionToken: req.sessionToken || getActiveSessionToken(),
+  };
   try {
     const { uploadAndIngestSourceFn } = await import("./ingest.functions");
-    return await uploadAndIngestSourceFn({ data: req });
+    return await uploadAndIngestSourceFn({ data: payload });
   } catch {
     const { handleUploadAndIngest } = await import("./ingest.server");
-    return await handleUploadAndIngest(req);
+    return await handleUploadAndIngest(payload);
   }
 }
 
@@ -530,24 +535,32 @@ export async function listRecentUploads(): Promise<RecentUpload[]> {
 export async function submitProposedDrafts(
   req: ProposeDraftsRequest
 ): Promise<ProposeDraftsResponse> {
+  const payload = {
+    ...req,
+    sessionToken: req.sessionToken || getActiveSessionToken(),
+  };
   try {
     const { proposeDraftsFn } = await import("./ingest.functions");
-    return await proposeDraftsFn({ data: req });
+    return await proposeDraftsFn({ data: payload });
   } catch {
     const { handleProposeDrafts } = await import("./ingest.server");
-    return await handleProposeDrafts(req);
+    return await handleProposeDrafts(payload);
   }
 }
 
 export async function updateCandidate(
   req: import("./ingest.server").UpdateCandidateUnitInput
 ): Promise<{ ok: boolean; candidate?: any; error?: string }> {
+  const payload = {
+    ...req,
+    sessionToken: req.sessionToken || getActiveSessionToken(),
+  };
   try {
     const { updateCandidateUnitFn } = await import("./ingest.functions");
-    return await updateCandidateUnitFn({ data: req });
+    return await updateCandidateUnitFn({ data: payload });
   } catch {
     const { handleUpdateCandidateUnit } = await import("./ingest.server");
-    return await handleUpdateCandidateUnit(req);
+    return await handleUpdateCandidateUnit(payload);
   }
 }
 
@@ -576,24 +589,29 @@ export async function fetchReviewQueue(): Promise<import("../types/review").Revi
 export async function fetchMyDrafts(
   proposerName?: string
 ): Promise<import("../storage/schema").DraftTable[]> {
+  const sessionToken = getActiveSessionToken();
   try {
     const { listMyDraftsFn } = await import("./review.functions");
-    return await listMyDraftsFn({ data: { proposerName } });
+    return await listMyDraftsFn({ data: { proposerName, sessionToken } });
   } catch {
     const { handleListMyDrafts } = await import("./review.server");
-    return await handleListMyDrafts(proposerName);
+    return await handleListMyDrafts(proposerName, undefined, sessionToken);
   }
 }
 
 export async function submitReviewDecision(
   req: import("./review.functions").ReviewDecisionRequest
 ): Promise<import("./review.functions").ReviewDecisionResponse> {
+  const payload = {
+    ...req,
+    sessionToken: req.sessionToken || getActiveSessionToken(),
+  };
   try {
     const { decideReviewItemFn } = await import("./review.functions");
-    return await decideReviewItemFn({ data: req });
+    return await decideReviewItemFn({ data: payload });
   } catch {
     const { handleDecideReviewItem } = await import("./review.server");
-    return await handleDecideReviewItem(req);
+    return await handleDecideReviewItem(payload);
   }
 }
 

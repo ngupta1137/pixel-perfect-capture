@@ -126,6 +126,7 @@ export async function runMigrations(db: Kysely<DatabaseSchema>): Promise<void> {
     .addColumn("effective_date", "text", (col) => col.notNull())
     .addColumn("tags_json", "text", (col) => col.notNull().defaultTo("[]"))
     .addColumn("proposed_by", "text", (col) => col.notNull())
+    .addColumn("proposer_id", "text")
     .addColumn("status", "text", (col) => col.notNull().defaultTo("proposed"))
     .addColumn("reason", "text")
     .addColumn("decided_by", "text")
@@ -141,10 +142,14 @@ export async function runMigrations(db: Kysely<DatabaseSchema>): Promise<void> {
     .execute();
 
   // Safely alter drafts if already existing
-  const draftCols = ["version", "version_id", "supersedes", "duplicate_of", "annotations_json"];
+  const draftCols = ["proposer_id", "version", "version_id", "supersedes", "duplicate_of", "annotations_json"];
   for (const col of draftCols) {
     try {
       await db.schema.alterTable("drafts").addColumn(col as any, col === "version" ? "integer" : "text").execute();
     } catch {}
   }
+
+  try {
+    await db.schema.alterTable("source_documents").addColumn("created_by_user_id", "text").execute();
+  } catch {}
 }

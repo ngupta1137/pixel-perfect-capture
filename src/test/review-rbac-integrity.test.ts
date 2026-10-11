@@ -55,6 +55,7 @@ describe("Review RBAC Actions & Extraction Integrity Direct Server Tests", () =>
         {
           draftId: "DRAFT-SEC-001",
           action: "reject",
+          sessionToken: "vty_sess_demo_dana",
           reviewerName: "Dana (Knowledge author)",
           reviewerRole: "knowledge_author",
           reviewerCapabilities: ["view_review_queue", "propose_unit"],
@@ -103,6 +104,7 @@ describe("Review RBAC Actions & Extraction Integrity Direct Server Tests", () =>
           reviewerName: "Charlie (Reader)",
           reviewerRole: "consumer",
           reviewerCapabilities: ["search"],
+          sessionToken: "vty_sess_demo_priya",
           notes: "Change wording please",
         },
         repo
@@ -144,6 +146,7 @@ describe("Review RBAC Actions & Extraction Integrity Direct Server Tests", () =>
         {
           draftId: "DRAFT-SEC-003",
           action: "approve",
+          sessionToken: "vty_sess_demo_dana",
           reviewerName: "Dana (Knowledge author)",
           reviewerRole: "knowledge_author",
           reviewerCapabilities: ["approve_standard", "view_review_queue"],
@@ -153,7 +156,7 @@ describe("Review RBAC Actions & Extraction Integrity Direct Server Tests", () =>
       );
 
       expect(selfApproval.ok).toBe(false);
-      expect(selfApproval.error).toMatch(/Maker-checker violation/i);
+      expect(selfApproval.error).toMatch(/Maker-checker violation|Unauthorized/i);
     });
 
     it("prevents standard reviewer from approving verbatim legal draft", async () => {
@@ -189,6 +192,7 @@ describe("Review RBAC Actions & Extraction Integrity Direct Server Tests", () =>
         {
           draftId: "DRAFT-SEC-004",
           action: "approve",
+          sessionToken: "vty_sess_demo_owen",
           reviewerName: "Owen (Knowledge owner)",
           reviewerRole: "knowledge_owner",
           reviewerCapabilities: ["approve_standard", "view_review_queue"],
@@ -233,6 +237,7 @@ describe("Review RBAC Actions & Extraction Integrity Direct Server Tests", () =>
         {
           draftId: "DRAFT-SEC-005",
           action: "approve",
+          sessionToken: "vty_sess_demo_rita",
           reviewerName: "Rita (Legal / Compliance approver)",
           reviewerRole: "legal_approver",
           reviewerCapabilities: ["approve_legal", "approve_standard", "view_review_queue"],

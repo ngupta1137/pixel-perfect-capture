@@ -7,6 +7,13 @@ import type { DraftTable } from "../storage/schema";
 import type { KnowledgeUnit } from "../verity-engine/types";
 import type { ReviewDecisionRequest, ReviewDecisionResponse } from "./review.functions";
 import { updateDemoState } from "./demoStore";
+import {
+  authenticateRequest,
+  resolveRequestUser,
+  type AuthenticatedUser,
+} from "./auth.server";
+
+export { resolveRequestUser };
 
 /**
  * Seed initial operational drafts into the persistent database if the table is empty.
@@ -197,15 +204,29 @@ export async function handleListMyDrafts(
 
 /**
  * Handle server-side review actions with maker-checker, governance, and publication rules.
+ * All authorizations and identities are derived strictly from the verified session identity.
  */
 export async function handleDecideReviewItem(
   req: ReviewDecisionRequest,
-  repo: StorageRepository = repository
+  repo: StorageRepository = repository,
+  callerUser?: AuthenticatedUser
 ): Promise<ReviewDecisionResponse> {
-  const { draftId, action, reviewerName, reviewerLabel = "", reviewerRole = "", notes = "" } = req;
+  const { draftId, action, notes = "" } = req;
 
   if (!draftId) {
     return { ok: false, success: false, error: "Missing required draft ID." };
+  }
+
+  // 1. Authenticate caller strictly on the server
+  let user: AuthenticatedUser;
+  try {
+    user = callerUser || authenticateRequest(req);
+  } catch (err: any) {
+    return {
+      ok: false,
+      success: false,
+      error: err.message || "Authentication required: No valid session token or session cookie provided.",
+    };
   }
 
   await seedInitialDraftsIfEmpty(repo);
@@ -214,32 +235,43 @@ export async function handleDecideReviewItem(
     return { ok: false, success: false, error: `Draft "${draftId}" not found in persistent store.` };
   }
 
-  // Maker-checker rule enforcement: proposer cannot self-approve their own draft!
+  // 2. Maker-checker rule enforcement: proposer cannot self-approve their own draft!
   if (action === "approve") {
-    const proposerLower = (draft.proposed_by || "").toLowerCase();
-    const reviewerLower = (reviewerName || "").toLowerCase();
-    const proposerFirst = proposerLower.split(/[\s(]/)[0] || "";
-    const reviewerFirst = reviewerLower.split(/[\s(]/)[0] || "";
-
-    if (proposerFirst && reviewerFirst && proposerFirst === reviewerFirst) {
+    // Check stable proposer_id if recorded
+    if (draft.proposer_id && draft.proposer_id.toLowerCase() === user.id.toLowerCase()) {
       return {
         ok: false,
         success: false,
-        error: `Maker-checker violation: You (${reviewerName}) cannot approve your own proposed draft. Approval requires an independent reviewer.`,
+        error: `Maker-checker violation: You (${user.name}) cannot approve your own proposed draft. Approval requires an independent reviewer.`,
+      };
+    }
+    // Check normalized proposed_by field
+    const proposerLower = (draft.proposed_by || "").toLowerCase();
+    const userLower = user.name.toLowerCase();
+    const userIdLower = user.id.toLowerCase();
+    const proposerToken = proposerLower.split(/[\s(]/)[0] || "";
+    if (
+      proposerLower.includes(userIdLower) ||
+      (proposerToken && userLower.split(/[\s(]/)[0] === proposerToken)
+    ) {
+      return {
+        ok: false,
+        success: false,
+        error: `Maker-checker violation: You (${user.name}) cannot approve your own proposed draft. Approval requires an independent reviewer.`,
       };
     }
   }
 
-  const caps = req.reviewerCapabilities || [];
-  const hasApproveStd = caps.includes("approve_standard") || reviewerRole === "knowledge_owner" || reviewerRole === "legal_approver";
-  const hasApproveLegal = caps.includes("approve_legal") || reviewerRole === "legal_approver";
+  // 3. Server-side RBAC: derive capabilities exclusively from server-side user record
+  const hasApproveStd = user.capabilities.includes("approve_standard");
+  const hasApproveLegal = user.capabilities.includes("approve_legal");
 
   // General RBAC gate: only authorized reviewers may decide or review drafts
   if (!hasApproveStd && !hasApproveLegal) {
     return {
       ok: false,
       success: false,
-      error: `Unauthorized: Your role does not hold authorization to approve, reject, or decide knowledge units.`,
+      error: `Unauthorized: User "${user.name}" (${user.label}) lacks authorization to approve, reject, or decide knowledge units.`,
     };
   }
 
@@ -249,9 +281,11 @@ export async function handleDecideReviewItem(
     return {
       ok: false,
       success: false,
-      error: `Unauthorized: Verbatim and legal-authority units require Legal Approver authorization.`,
+      error: `Unauthorized: Verbatim and legal-authority units require Legal Approver authorization (capability: approve_legal).`,
     };
   }
+
+  const reviewerAudit = `${user.name} (${user.label})`;
 
   // 1. APPROVE ACTION
   if (action === "approve") {
@@ -301,7 +335,7 @@ export async function handleDecideReviewItem(
         supersedes: draft.supersedes || null,
         synonyms: [draft.title],
         owner: draft.owner_team || "Pharmacy Ops",
-        approved_by: `${reviewerName} (${reviewerLabel || reviewerRole})`,
+        approved_by: reviewerAudit,
         applies_to: { lob: ["MAPD"], states: "ALL", plan_year: 2026 },
       };
 
@@ -328,7 +362,7 @@ export async function handleDecideReviewItem(
           version: publishedUnit.version,
           text: publishedUnit.body,
           effective_date: publishedUnit.effective_date,
-          approver: reviewerName,
+          approver: reviewerAudit,
           supersedes: publishedUnit.supersedes ?? undefined,
         };
         if (existingIdx >= 0) {
@@ -374,14 +408,14 @@ export async function handleDecideReviewItem(
     const nowDisplay = new Date().toLocaleString();
     history.push({
       action: "Approved",
-      by: `${reviewerName} (${reviewerLabel || reviewerRole})`,
+      by: reviewerAudit,
       at: nowDisplay,
       note: notes.trim() || "Approved for publication in knowledge library.",
     });
 
     await repo.updateDraft(draft.draft_id, {
       status: "approved",
-      decided_by: reviewerName,
+      decided_by: reviewerAudit,
       reason: notes.trim() || "Approved for publication in knowledge library.",
       history_json: JSON.stringify(history),
       updated_at: nowIso,
@@ -422,14 +456,14 @@ export async function handleDecideReviewItem(
     const nowDisplay = new Date().toLocaleString();
     history.push({
       action: "Rejected",
-      by: `${reviewerName} (${reviewerLabel || reviewerRole})`,
+      by: reviewerAudit,
       at: nowDisplay,
       note: notes.trim(),
     });
 
     await repo.updateDraft(draft.draft_id, {
       status: "rejected",
-      decided_by: reviewerName,
+      decided_by: reviewerAudit,
       reason: notes.trim(),
       history_json: JSON.stringify(history),
       updated_at: nowIso,
@@ -463,14 +497,14 @@ export async function handleDecideReviewItem(
     const nowDisplay = new Date().toLocaleString();
     history.push({
       action: "Requested changes",
-      by: `${reviewerName} (${reviewerLabel || reviewerRole})`,
+      by: reviewerAudit,
       at: nowDisplay,
       note: notes.trim(),
     });
 
     await repo.updateDraft(draft.draft_id, {
       status: "requested_changes",
-      decided_by: reviewerName,
+      decided_by: reviewerAudit,
       reason: notes.trim(),
       history_json: JSON.stringify(history),
       updated_at: nowIso,

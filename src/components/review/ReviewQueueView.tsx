@@ -267,10 +267,6 @@ export function ReviewQueueView() {
       const res = await submitReviewDecision({
         draftId: activeItem.id,
         action: "approve",
-        reviewerName: person.name,
-        reviewerLabel: person.label,
-        reviewerRole: person.persona,
-        reviewerCapabilities: person.capabilities,
         notes: reviewerNotes,
       });
 
@@ -308,10 +304,6 @@ export function ReviewQueueView() {
       const res = await submitReviewDecision({
         draftId: activeItem.id,
         action: "reject",
-        reviewerName: person.name,
-        reviewerLabel: person.label,
-        reviewerRole: person.persona,
-        reviewerCapabilities: person.capabilities,
         notes: reviewerNotes,
       });
 
@@ -349,10 +341,6 @@ export function ReviewQueueView() {
       const res = await submitReviewDecision({
         draftId: activeItem.id,
         action: "request_changes",
-        reviewerName: person.name,
-        reviewerLabel: person.label,
-        reviewerRole: person.persona,
-        reviewerCapabilities: person.capabilities,
         notes: reviewerNotes,
       });
 

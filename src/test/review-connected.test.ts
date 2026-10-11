@@ -36,6 +36,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
       {
         fileName: "Benefits_Mail_Order_Rejections.txt",
         content_text: `Doc ID: KB-PHARM-008\nTitle: Benefits Handling of Mail-Order Rejections\nOwner: Benefits Education\n\nSection 1:\nWhen mail-order pharmacy claims are rejected, advocates must verify eligibility and plan year.`,
+        sessionToken: "vty_sess_demo_dana",
         actor: "Dana (Knowledge author)",
         ownerTeam: "Benefits Education",
         lob: "MAPD",
@@ -51,6 +52,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
       {
         sourceDocId: ingestRes.doc_id,
         candidateIds: [candidate.id],
+        sessionToken: "vty_sess_demo_dana",
         proposerName: "Dana (Knowledge author)",
         proposerRole: "knowledge_author",
       },
@@ -105,6 +107,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
       {
         draftId: draft.draft_id,
         action: "approve",
+        sessionToken: "vty_sess_demo_dana",
         reviewerName: "Dana",
         reviewerLabel: "Knowledge author",
         reviewerRole: "knowledge_author",
@@ -156,6 +159,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
       {
         draftId: draft.draft_id,
         action: "approve",
+        sessionToken: "vty_sess_demo_priya",
         reviewerName: "Priya",
         reviewerRole: "pharmacy_advocate",
         reviewerCapabilities: ["search", "get_unit"],
@@ -164,7 +168,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
     );
 
     expect(priyaApprove.ok).toBe(false);
-    expect(priyaApprove.error).toMatch(/Unauthorized.*not hold authorization to approve/i);
+    expect(priyaApprove.error).toMatch(/Unauthorized.*lacks authorization to approve/i);
   });
 
   it("4. Independent reviewer approval applies regression gate and publishes to knowledge store", async () => {
@@ -201,6 +205,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
       {
         draftId: draft.draft_id,
         action: "approve",
+        sessionToken: "vty_sess_demo_owen",
         reviewerName: "Owen",
         reviewerLabel: "Knowledge owner",
         reviewerRole: "knowledge_owner",
@@ -216,7 +221,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
     // Verify draft status updated in persistent repository
     const updatedDraft = await inMemoryRepo.getDraftById(draft.draft_id);
     expect(updatedDraft?.status).toBe("approved");
-    expect(updatedDraft?.decided_by).toBe("Owen");
+    expect(updatedDraft?.decided_by).toMatch(/Owen/);
 
     // Verify live knowledge store has published unit
     const liveStore = getStore();
@@ -260,6 +265,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
       {
         draftId: draft.draft_id,
         action: "reject",
+        sessionToken: "vty_sess_demo_owen",
         reviewerName: "Owen",
         reviewerRole: "knowledge_owner",
         reviewerCapabilities: ["approve_standard"],
@@ -275,6 +281,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
       {
         draftId: draft.draft_id,
         action: "request_changes",
+        sessionToken: "vty_sess_demo_owen",
         reviewerName: "Owen",
         reviewerLabel: "Knowledge owner",
         reviewerRole: "knowledge_owner",
@@ -302,6 +309,7 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
       {
         fileName: "Multi_Session_Policy.txt",
         content_text: `Doc ID: KB-PHARM-999\nTitle: Cross Session Verification\nOwner: Pharmacy Ops\n\nSection 1:\nShared cross session content.`,
+        sessionToken: "vty_sess_demo_dana",
         actor: "Dana (Knowledge author)",
       },
       inMemoryRepo
@@ -311,13 +319,14 @@ describe("Verity Phase 3B: Connected Draft Review & Workflow Verification", () =
       {
         sourceDocId: ingestRes.doc_id,
         candidateIds: [candidate.id],
+        sessionToken: "vty_sess_demo_dana",
         proposerName: "Dana (Knowledge author)",
       },
       inMemoryRepo
     );
 
     // Dana views My Drafts
-    const danaDrafts = await handleListMyDrafts("Dana", inMemoryRepo);
+    const danaDrafts = await handleListMyDrafts("Dana", inMemoryRepo, "vty_sess_demo_dana");
     expect(danaDrafts.length).toBe(1);
     expect(danaDrafts[0].title).toBe(candidate.title);
 

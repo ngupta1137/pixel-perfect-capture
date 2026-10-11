@@ -5,11 +5,13 @@ import type { DraftTable } from "../storage/schema";
 export interface ReviewDecisionRequest {
   draftId: string;
   action: "approve" | "reject" | "request_changes";
-  reviewerName: string;
+  sessionToken?: string;
+  notes?: string;
+  /** @deprecated Untrusted caller-supplied fields are ignored by server RBAC */
+  reviewerName?: string;
   reviewerLabel?: string;
   reviewerRole?: string;
   reviewerCapabilities?: string[];
-  notes?: string;
 }
 
 export interface ReviewDecisionResponse {
@@ -34,15 +36,21 @@ export const listReviewQueueFn = createServerFn({ method: "GET" }).handler(
 );
 
 export const listMyDraftsFn = createServerFn({ method: "POST" })
-  .validator((d: { proposerName?: string }) => d)
+  .validator((d: { proposerName?: string; sessionToken?: string }) => d)
   .handler(async ({ data }): Promise<DraftTable[]> => {
     const { handleListMyDrafts } = await import("./review.server");
-    return await handleListMyDrafts(data.proposerName);
+    return await handleListMyDrafts(data.proposerName, undefined, data.sessionToken);
   });
 
 export const decideReviewItemFn = createServerFn({ method: "POST" })
   .validator((d: ReviewDecisionRequest) => d)
   .handler(async ({ data }): Promise<ReviewDecisionResponse> => {
-    const { handleDecideReviewItem } = await import("./review.server");
-    return await handleDecideReviewItem(data);
+    const { handleDecideReviewItem, resolveRequestUser } = await import("./review.server");
+    let callerUser;
+    try {
+      callerUser = await resolveRequestUser(data);
+    } catch (err: any) {
+      return { ok: false, success: false, error: err.message || "Authentication required." };
+    }
+    return await handleDecideReviewItem(data, undefined, callerUser);
   });
