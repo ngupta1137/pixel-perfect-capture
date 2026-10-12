@@ -8,6 +8,15 @@ import { ReviewExtractWorkspace } from "@/components/ingest/ReviewExtractWorkspa
 import { MEMBER_SERVICES_GUIDE_UNITS } from "@/types/ingest";
 import * as verityServices from "@/services/verity";
 
+vi.mock("@tanstack/react-router", async (orig) => ({
+  ...(await orig<typeof import("@tanstack/react-router")>()),
+  useRouterState: ({ select }: { select?: (s: any) => any } = {}) => {
+    const state = { location: { search: {}, pathname: "/work" } };
+    return select ? select(state) : state;
+  },
+  useNavigate: () => vi.fn(),
+}));
+
 const renderWorkPage = (personId = "dana") => {
   const person = findPerson(personId) || PEOPLE[0]!;
   const WorkComponent = Route.options.component!;
