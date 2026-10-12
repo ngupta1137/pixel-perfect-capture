@@ -12,6 +12,7 @@ import { KnowledgeStore } from './workflow.ts';
 import { Verity } from './pipeline.ts';
 import type { KnowledgeUnit } from './types.ts';
 import type { SearchRequest, SearchResponse } from '../services/verity.ts';
+import { questionStore } from './semantic.ts';
 
 export const AS_OF = '2026-10-06'; // same as-of date as the golden set
 
@@ -89,6 +90,7 @@ export function syncPublishedUnitsToStore(s: KnowledgeStore, dbUnits: any[]): vo
   if (changed) {
     (s as any).live = cur;
     (s as any).engineCache = new Verity({ ...(s as any).data, units: cur });
+    questionStore.invalidate();
   }
 }
 
@@ -111,6 +113,7 @@ export function resetStore(): void {
   ownerQueue = new OwnerQueue();
   sessionLog.length = 0;
   callLog.length = 0;
+  questionStore.invalidate();
 }
 
 
@@ -204,6 +207,7 @@ export function serveEngine(req: SearchRequest, via: { iface: 'REST' | 'MCP'; pr
       message: p.message,
       text: p.text,
       owner_team: p.owner_team ?? null,
+      match_diagnostics: p.match_diagnostics,
       next_step: nextStep(p.outcome, req.role, p.owner_team ?? (p.outcome === 'stale' && p.unit_ids[0] ? e.unit(p.unit_ids[0])?.owner ?? null : null)),
       choices: p.outcome === 'needs_clarification' ? [
         { label: "Kentucky (KY)", set: { state: "KY" } },

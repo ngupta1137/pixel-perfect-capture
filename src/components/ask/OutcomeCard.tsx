@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { ArrowRightCircle, Check, Copy, Lock, Phone, Volume2, Square, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { ArrowRightCircle, Check, Copy, Lock, Phone, Volume2, Square, AlertTriangle, CheckCircle2, Terminal, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { type Choice, type Citation, type Part, reportConflictForResolution } from "@/services/verity";
 import { TrustBadge } from "./TrustBadge";
 import { OutcomePill, OUTCOME_META } from "./outcomeMeta";
 import { CHANNELS, useSession } from "@/lib/session";
-import { personaDef } from "@/lib/rights";
+import { personaDef, canViewDiagnostics } from "@/lib/rights";
 import { MessageResponse } from "@/components/ai-elements/message";
+import { TypewriterResponse } from "./TypewriterResponse";
 
 function CitationLine({
   c,
@@ -64,9 +65,9 @@ function VerbatimBox({ text }: { text: string }) {
           {copied ? "Copied" : "Copy"}
         </Button>
       </div>
-      <p aria-readonly="true" className="select-all px-5 py-5 text-lg leading-relaxed">
-        {text}
-      </p>
+      <div aria-readonly="true" className="select-all px-5 py-5 text-lg leading-relaxed">
+        <TypewriterResponse text={text} />
+      </div>
     </div>
   );
 }
@@ -79,6 +80,79 @@ function NextStep({ text }: { text: string }) {
         <span className="font-semibold">Next step: </span>
         {text}
       </p>
+    </div>
+  );
+}
+
+export function MatchDiagnosticsSection({
+  diagnostics,
+  outcome,
+}: {
+  diagnostics?: Part["match_diagnostics"];
+  outcome: Part["outcome"];
+}) {
+  const [open, setOpen] = useState(false);
+  if (!diagnostics) return null;
+
+  const isUnauthorized = outcome === "not_authorized";
+  const safeQuestionId = isUnauthorized ? "Restricted (unauthorized)" : (diagnostics.matchedQuestionId ?? "None");
+
+  return (
+    <div className="mt-4 border-t border-border/70 pt-3" data-testid="match-diagnostics-container">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        aria-label="Toggle match diagnostics"
+        className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-mono text-ink-muted hover:bg-surface-alt hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="flex items-center gap-1.5 font-semibold">
+          <Terminal className="h-3.5 w-3.5 text-brand-green-dark" />
+          <span>Match diagnostics</span>
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="rounded bg-surface-alt px-1.5 py-0.5 text-[10px] uppercase font-bold text-ink border border-border">
+            {diagnostics.matchingMethod} · {diagnostics.similarityScore.toFixed(3)}
+          </span>
+          <ChevronRight className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? "rotate-90" : ""}`} />
+        </span>
+      </button>
+
+      {open && (
+        <div
+          data-testid="match-diagnostics-details"
+          className="mt-2.5 rounded-md border border-border bg-surface-alt/75 p-3 font-mono text-[11px] leading-relaxed text-ink-muted"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+            <div>
+              <span className="text-ink-muted">Similarity score: </span>
+              <span className="font-semibold text-ink">{diagnostics.similarityScore.toFixed(4)} (cosine)</span>
+            </div>
+            <div>
+              <span className="text-ink-muted">Threshold: </span>
+              <span className="font-semibold text-ink">{diagnostics.configuredThreshold.toFixed(2)}</span>
+            </div>
+            <div>
+              <span className="text-ink-muted">Matching method: </span>
+              <span className="font-semibold text-ink">{diagnostics.matchingMethod}</span>
+            </div>
+            <div>
+              <span className="text-ink-muted">Ambiguity outcome: </span>
+              <span className="font-semibold text-ink">{diagnostics.ambiguityOutcome}</span>
+            </div>
+            <div className="col-span-1 sm:col-span-2">
+              <span className="text-ink-muted">Matched question ID: </span>
+              <span className="font-semibold text-ink">{safeQuestionId}</span>
+            </div>
+            {diagnostics.scoreDifference != null && (
+              <div className="col-span-1 sm:col-span-2">
+                <span className="text-ink-muted">Score margin to 2nd candidate: </span>
+                <span className="font-semibold text-ink">{diagnostics.scoreDifference.toFixed(4)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -149,9 +223,13 @@ function Body({
           {c0?.verbatim && part.text ? (
             <VerbatimBox text={part.text} />
           ) : compact ? (
-            <MessageResponse className="text-lg leading-relaxed">{part.text ?? ""}</MessageResponse>
+            <MessageResponse className="text-lg leading-relaxed">
+              <TypewriterResponse text={part.text ?? ""} />
+            </MessageResponse>
           ) : (
-            <p className="text-lg leading-8">{part.text}</p>
+            <div className="text-lg leading-8">
+              <TypewriterResponse text={part.text ?? ""} />
+            </div>
           )}
           {c0 && <CitationLine c={c0} onCite={onCite} minimal={minimal} showOwner={showOwner} />}
         </>
@@ -376,6 +454,12 @@ export function OutcomeCard({
       )}
       {!minimal && part.next_step && part.outcome !== "answer" && (
         <NextStep text={part.next_step} />
+      )}
+      {canViewDiagnostics(person) && !compact && part.match_diagnostics && (
+        <MatchDiagnosticsSection
+          diagnostics={part.match_diagnostics}
+          outcome={part.outcome}
+        />
       )}
       {onRead && !held && (
         <div className="mt-4 flex flex-wrap items-center gap-2">

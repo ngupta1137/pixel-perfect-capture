@@ -86,6 +86,15 @@ export interface TraceStep {
   detail: string;
 }
 
+export interface MatchDiagnostics {
+  similarityScore: number;
+  configuredThreshold: number;
+  matchingMethod: 'embeddings' | 'fuzzy_fallback';
+  matchedQuestionId: string | null;
+  ambiguityOutcome: 'unambiguous' | 'ambiguous' | 'not_applicable';
+  scoreDifference?: number | null;
+}
+
 export interface PartResult {
   part: string;
   outcome: Outcome;
@@ -97,6 +106,7 @@ export interface PartResult {
   exclusions: Exclusion[];
   resolution_path: string[];
   verification: { verbatim_exact: boolean | null; in_scope: boolean };
+  match_diagnostics?: MatchDiagnostics;
 }
 
 export interface ReproRecord {

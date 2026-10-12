@@ -15,6 +15,7 @@ import { redact, safetyCheck, SAFETY_MESSAGE } from './guards.ts';
 import type { Lexicon } from './text.ts';
 import type { Gateway } from './gateway.ts';
 import { runQueryAgent, QUERY_PROMPT_VERSION, type Assist, type AssistPart } from './queryAgent.ts';
+import { matchQuerySemanticSync } from './semantic.ts';
 
 export const ENGINE_VERSION = 'baseline-deterministic-0.1';
 
@@ -159,12 +160,54 @@ export class Verity {
   ): PartResult {
     const exclusions: Exclusion[] = [];
     const path: string[] = [];
-    const base = { part, candidates: [] as Candidate[], exclusions, resolution_path: path };
 
-    // 6. Search body index (entitlement-filtered) and, if needed, routing index
-    // A unit referenced by id is a lookup, not a search (F11). The same
-    // entitlement rule applies: outside the caller's knowledge bases it is
-    // not_authorized, with the routing fields only.
+    // 6. Search body index (entitlement-filtered) and semantic question matching
+    const semanticRes = matchQuerySemanticSync(part, role.knowledge_bases, this.data.units);
+    const matchDiagnostics = {
+      similarityScore: semanticRes.similarityScore,
+      configuredThreshold: semanticRes.threshold,
+      matchingMethod: semanticRes.matchingMethod,
+      matchedQuestionId: semanticRes.outcome === 'not_authorized' ? null : (semanticRes.bestCandidate?.questionId ?? null),
+      ambiguityOutcome: (semanticRes.outcome === 'ambiguous' ? 'ambiguous' : semanticRes.outcome === 'answer' ? 'unambiguous' : 'not_applicable') as const,
+      scoreDifference: semanticRes.scoreDifference,
+    };
+    const base = { part, candidates: [] as Candidate[], exclusions, resolution_path: path, match_diagnostics: matchDiagnostics };
+    if (semanticRes.outcome === 'not_authorized' && semanticRes.bestCandidate) {
+      const r = this.byId.get(semanticRes.bestCandidate.unit_id);
+      if (r) {
+        path.push(`semantic matcher: "${r.title}" in ${r.knowledge_base}, outside entitlement`);
+        const targetRole =
+          r.knowledge_base === 'KB-PHARM' || r.owner?.toLowerCase().includes('pharm')
+            ? 'a Pharmacy advocate'
+            : r.knowledge_base === 'KB-INS' || r.owner?.toLowerCase().includes('insur') || r.owner?.toLowerCase().includes('member')
+            ? 'an Insurance advocate'
+            : `a ${r.owner} advocate`;
+        add(6, 'Search', 'D', `semantic match ${r.unit_id}: not entitled`);
+        return {
+          ...base, outcome: 'not_authorized', unit_ids: [], text: null, owner_team: r.owner,
+          message: `This question is meant for ${targetRole} and is owned by ${r.owner} (${r.knowledge_base}). Transfer or ask that team.`,
+          verification: { verbatim_exact: null, in_scope: true },
+        };
+      }
+    }
+
+    if (semanticRes.outcome === 'ambiguous' && semanticRes.ambiguousChoices.length > 0) {
+      path.push(`semantic matcher: ambiguous candidates (score difference < 0.05)`);
+      add(6, 'Search', 'D', `ambiguous: ${semanticRes.ambiguousChoices.map((c) => c.unit_id).join(' vs ')}`);
+      return {
+        ...base,
+        outcome: 'needs_clarification',
+        unit_ids: [],
+        text: null,
+        message: 'Your question could match multiple topics. Please select which topic you meant:',
+        choices: semanticRes.ambiguousChoices.map((c) => ({
+          label: c.label,
+          set: { chosen_unit_id: c.unit_id } as any,
+        })),
+        verification: { verbatim_exact: null, in_scope: true },
+      };
+    }
+
     const idRef = part.match(/\bU-[A-Z]{2}-\d{3}\b/i)?.[0].toUpperCase();
     const refUnit = idRef ? this.byId.get(idRef) : undefined;
     if (refUnit && !role.knowledge_bases.includes(refUnit.knowledge_base)) {
@@ -179,6 +222,24 @@ export class Verity {
     let candidates = refUnit && refUnit.status === 'approved'
       ? [{ unit_id: refUnit.unit_id, version: refUnit.version, score: 100, coverage: 1, phrase_match: true, anchored: true }]
       : this.index.search(part, role.knowledge_bases);
+
+    if (semanticRes.outcome === 'answer' && semanticRes.bestCandidate) {
+      const semUnit = this.byId.get(semanticRes.bestCandidate.unit_id);
+      if (semUnit && semUnit.status === 'approved' && role.knowledge_bases.includes(semUnit.knowledge_base)) {
+        const topScore = Math.max(10, ...candidates.map((c) => c.score));
+        const semCandidate: Candidate = {
+          unit_id: semUnit.unit_id,
+          version: semUnit.version,
+          score: topScore + 50,
+          coverage: 1,
+          phrase_match: true,
+          anchored: true,
+        };
+        candidates = [semCandidate, ...candidates.filter((c) => c.unit_id !== semUnit.unit_id)];
+        path.push(`semantic match: "${semanticRes.bestCandidate.matchedQuestion}" (${(semanticRes.similarityScore * 100).toFixed(0)}%) -> ${semUnit.unit_id}`);
+      }
+    }
+
     // Query agent proposals (already filtered to real, in-scope, approved ids)
     // go first. They only nominate candidates; steps 7 to 9 still decide.
     if (assistPart && assistPart.unit_ids.length) {
@@ -242,7 +303,14 @@ export class Verity {
         };
       }
       path.push('no entitled unit above coverage threshold; routing index found nothing restricted');
-      return this.abstain(base, 'No approved content found. Logged as a gap for the knowledge team.');
+      const lowConfidenceMsg = "No approved content found. I couldn't find a confident match for that. Could you rephrase or choose from these topics?";
+      const choices = semanticRes.suggestions && semanticRes.suggestions.length > 0
+        ? semanticRes.suggestions.map((s) => ({ label: s.label, set: { query: s.label } as any }))
+        : undefined;
+      return {
+        ...this.abstain(base, lowConfidenceMsg),
+        choices,
+      };
     }
 
     // Same-question cluster: near the top score and sharing a synonym phrase with the top unit.

@@ -58,6 +58,8 @@ export const VIEWS = policy.views as Record<ViewKey, Capability[]>;
 export const findPerson = (id: string | null | undefined) => PEOPLE.find((p) => p.id === id);
 export const can = (p: Person, c: Capability) => p.capabilities.includes(c);
 export const canView = (p: Person, v: ViewKey) => VIEWS[v].some((c) => can(p, c));
+export const canViewDiagnostics = (p: Person) =>
+  !p.memberAudience && (can(p, "view_evals") || can(p, "run_evals"));
 
 /** Pages and the views that open them. A page opens if the person can use any listed view. */
 export const PAGES = [

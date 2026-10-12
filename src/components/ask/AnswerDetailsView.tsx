@@ -56,6 +56,9 @@ import { useSession } from "@/lib/session";
 import { UnitDrawer } from "./AdvocateExtras";
 import { TraceDrawer } from "./TraceDrawer";
 import { classifyGapDomain } from "@/lib/gapClassifier";
+import { TypewriterResponse } from "./TypewriterResponse";
+import { MatchDiagnosticsSection } from "./OutcomeCard";
+import { canViewDiagnostics } from "@/lib/rights";
 
 interface AnswerDetailsViewProps {
   question: string;
@@ -115,7 +118,7 @@ export function AnswerDetailsView({
   onSelectQuestion,
   onChoose,
 }: AnswerDetailsViewProps) {
-  const { persona, can } = useSession();
+  const { person, persona, can } = useSession();
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [editContextOpen, setEditContextOpen] = useState(false);
   const [openCite, setOpenCite] = useState<Citation | null>(null);
@@ -368,9 +371,9 @@ export function AnswerDetailsView({
 
               {/* Answer Body Text */}
               <div className="space-y-5 text-sm text-ink leading-relaxed">
-                <p className="text-[15px] leading-relaxed text-ink">
-                  {content.intro || part?.text}
-                </p>
+                <div className="text-[15px] leading-relaxed text-ink">
+                  <TypewriterResponse text={content.intro || part?.text || ""} />
+                </div>
 
                 {content.keyPoints.length > 0 && (
                   <div className="space-y-2">
@@ -548,6 +551,13 @@ export function AnswerDetailsView({
               </div>
               <p className="text-base font-medium text-red-900">{part?.text}</p>
             </div>
+          )}
+
+          {canViewDiagnostics(person) && part?.match_diagnostics && (
+            <MatchDiagnosticsSection
+              diagnostics={part.match_diagnostics}
+              outcome={part.outcome}
+            />
           )}
 
           {/* Feedback & Report row */}

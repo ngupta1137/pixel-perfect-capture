@@ -23,6 +23,15 @@ export interface Citation {
   text?: string;
 }
 
+export interface MatchDiagnostics {
+  similarityScore: number;
+  configuredThreshold: number;
+  matchingMethod: 'embeddings' | 'fuzzy_fallback';
+  matchedQuestionId: string | null;
+  ambiguityOutcome: 'unambiguous' | 'ambiguous' | 'not_applicable';
+  scoreDifference?: number | null;
+}
+
 export interface Part {
   part: string;
   outcome: Outcome;
@@ -34,6 +43,7 @@ export interface Part {
   /** Choice chips for needs_clarification; picking one sets that context field. */
   choices?: Choice[];
   trust?: "approved" | "stale" | "conflict" | null;
+  match_diagnostics?: MatchDiagnostics;
 }
 
 export interface Choice { label: string; set: { plan_year?: string; state?: string } }
