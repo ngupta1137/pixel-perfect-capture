@@ -73,6 +73,7 @@
         "get_unit",
         "list_changes",
         "report_gap",
+        "view_trace",
         "give_feedback"
       ],
       "citation_detail": "standard",
@@ -91,6 +92,7 @@
         "get_unit",
         "list_changes",
         "report_gap",
+        "view_trace",
         "give_feedback"
       ],
       "citation_detail": "standard",
@@ -155,10 +157,11 @@
     "knowledge_author": {
       "label": "Knowledge author (Knowledge Ops)",
       "group": "Authors and approvers",
-      "entitlement_role": null,
+      "entitlement_role": "pharmacy_advocate",
       "who": "Turns messy source documents into knowledge units and keeps them current.",
       "goal": "Get correct units reviewed fast, and close the gaps people actually ask about.",
       "capabilities": [
+        "search",
         "ingest_source",
         "create_change_notice",
         "propose_unit",
@@ -181,10 +184,12 @@
     "knowledge_owner": {
       "label": "Knowledge owner (domain)",
       "group": "Authors and approvers",
-      "entitlement_role": null,
+      "entitlement_role": "pharmacy_advocate",
       "who": "Accountable for one domain's units, such as Pharmacy Ops or Member Services.",
       "goal": "Approve non-legal changes, clear stale and conflict items, own the backlog of gaps.",
       "capabilities": [
+        "search",
+        "view_trace",
         "view_review_queue",
         "approve_standard",
         "create_change_notice",

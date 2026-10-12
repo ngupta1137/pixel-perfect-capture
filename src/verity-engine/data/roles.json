@@ -36,6 +36,18 @@
         "MAPD",
         "PDP"
       ]
+    },
+    "pharmacy_supervisor": {
+      "label": "Advocate supervisor (Pharmacy)",
+      "knowledge_bases": [
+        "KB-PHARM",
+        "KB-SHARED"
+      ],
+      "audience": "advocate",
+      "lob": [
+        "MAPD",
+        "PDP"
+      ]
     }
   },
   "authority_hierarchy": [

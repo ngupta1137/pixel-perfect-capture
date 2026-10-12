@@ -79,8 +79,13 @@ export class Verity {
       trace.push({ step, name, kind, detail });
 
     // 1. Identity and entitlements
-    const role = this.data.roles[req.role];
-    if (!role) throw new Error(`unknown role ${req.role}`);
+    let role = this.data.roles[req.role];
+    if (!role) {
+      if (req.role?.includes('pharm')) role = this.data.roles['pharmacy_advocate'];
+      else if (req.role?.includes('insur')) role = this.data.roles['insurance_advocate'];
+      else if (req.role?.includes('member')) role = this.data.roles['member_chat'];
+    }
+    if (!role) role = this.data.roles['pharmacy_advocate'];
     add(1, 'Resolve role and entitlements', 'D', `${req.role}: ${role.knowledge_bases.join(', ')}`);
 
     // 2. Redact PHI/PII before anything else sees the text
