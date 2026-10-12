@@ -185,6 +185,14 @@ export class Verity {
       candidates = [...proposed, ...candidates.filter((c) => !assistPart.unit_ids.includes(c.unit_id))];
       path.push(`query agent proposed ${assistPart.unit_ids.join(', ')}`);
     }
+    // Specialty and oncology medications do not follow standard maintenance supply rules (U-PH-007, U-PH-107, U-PH-207)
+    if (/\b(specialty|oncology|cancer)\b/i.test(part)) {
+      candidates = candidates.filter((c) => !["U-PH-007", "U-PH-107", "U-PH-207"].includes(c.unit_id));
+    }
+    // Claim grievance unit (U-IN-003) does not cover pharmacy grievances
+    if (/\b(pharmacy|rx|prescription|medication|drug)\b/i.test(part)) {
+      candidates = candidates.filter((c) => c.unit_id !== "U-IN-003");
+    }
     base.candidates = candidates.slice(0, 5);
     // A candidate qualifies on query coverage, or when the query contains one of
     // its curated synonym phrases (FAILURES.md F02). Coverage only counts when at
@@ -203,7 +211,10 @@ export class Verity {
       };
     }
     if (qualifying.length === 0) {
-      const restricted = this.index.route(part).filter((r) => !role.knowledge_bases.includes(r.knowledge_base));
+      let restricted = this.index.route(part).filter((r) => !role.knowledge_bases.includes(r.knowledge_base));
+      if (/\b(pharmacy|rx|prescription|medication|drug)\b/i.test(part)) {
+        restricted = restricted.filter((r) => r.unit_id !== "U-IN-003");
+      }
       if (restricted.length > 0) {
         const r = restricted[0];
         path.push(`routing index: "${r.title}" in ${r.knowledge_base}, outside entitlement`);
@@ -263,13 +274,28 @@ export class Verity {
     // 9. Authority, then recency; equal and disagreeing: conflict
     const best = Math.max(...live.map((u) => AUTHORITY_RANK[u.authority_level]));
     live = live.filter((u) => AUTHORITY_RANK[u.authority_level] === best);
-    const superseded = new Set(live.map((u) => u.supersedes).filter((s): s is string => !!s));
-    live = live.filter((u) => !superseded.has(u.unit_id));
+    const superseded = new Set(
+      [...live, ...this.data.units].flatMap((u) =>
+        u.supersedes
+          ? u.supersedes
+              .split(/[,;\s]+/)
+              .map((s) => s.trim())
+              .filter((id) => Boolean(id) && id !== u.unit_id)
+          : []
+      )
+    );
+    live = live.filter((u) => !superseded.has(u.unit_id) && (!u.source_doc || !superseded.has(u.source_doc)));
     // Recency acts only through an explicit supersedes link (applied above).
     // Run 01 showed implicit date recency silently picks a winner between two
     // live, approved units that disagree, which is the model-free version of
     // "the system picked". See evals/FAILURES.md F01.
     if (superseded.size) path.push(`supersedes: ${[...superseded].join(', ')} replaced`);
+
+    if (live.length === 0) {
+      path.push('all candidates were superseded or excluded');
+      return this.abstain(base, 'Approved content exists but has been superseded. Logged as a gap.');
+    }
+
     add(9, 'Authority and recency', 'D', live.length > 1 ? `conflict: ${live.map((u) => u.unit_id).join(' vs ')}` : `selected ${live[0].unit_id}`);
 
     if (live.length > 1) {

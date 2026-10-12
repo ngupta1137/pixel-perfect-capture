@@ -62,3 +62,17 @@ export const listPublishedUnitsFn = createServerFn({ method: "GET" }).handler(
   }
 );
 
+export const createConflictReportFn = createServerFn({ method: "POST" })
+  .validator((d: { person: string; unitIds: string[]; query: string; note?: string }) => d)
+  .handler(async ({ data }) => {
+    const { handleCreateConflictReport } = await import("./review.server");
+    return await handleCreateConflictReport(data);
+  });
+
+export const applyConsolidationFn = createServerFn({ method: "POST" })
+  .validator((d: { person: string; supersedesIds?: string }) => d)
+  .handler(async ({ data }) => {
+    const { handleApplyConsolidatingConflictResolution } = await import("./review.server");
+    return await handleApplyConsolidatingConflictResolution(data);
+  });
+

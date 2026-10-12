@@ -1,5 +1,10 @@
 import type { Choice, Citation, Outcome, SearchRequest, SearchResponse } from "./verity";
 
+let storeGetter: (() => any) | null = null;
+export function registerDemoStoreGetter(getter: () => any) {
+  storeGetter = getter;
+}
+
 const ENTITLEMENTS: Record<string, string> = {
   pharmacy_advocate: "KB-PHARM, KB-SHARED",
   insurance_advocate: "KB-INS, KB-SHARED",
@@ -661,7 +666,7 @@ export const UNIT_META: Record<string, UnitMeta> = {
     verifier: "Owen (Knowledge owner)",
     review_date: "2026-11-01",
     applies_to: "Mail order, legacy",
-    channels: ["advocate_view"],
+    channels: ["advocate_view", "member_chat", "voice"],
     content_type: "Procedure",
     lob: "MAPD",
     state: "All states",
@@ -674,6 +679,25 @@ export const UNIT_META: Record<string, UnitMeta> = {
     summary: "Legacy rule stating up to 100-day supply of maintenance medications by mail.",
     key_points: ["Legacy 100-day rule in conflict with 90-day standard U-PH-007"],
     related_unit_ids: ["U-PH-007"],
+  },
+  "U-IN-003": {
+    kb: "KB-INS",
+    verifier: "Olivia (Knowledge owner)",
+    review_date: "2027-02-10",
+    applies_to: "Claims and grievances, all states",
+    channels: ["advocate_view", "member_chat"],
+    content_type: "Procedure",
+    lob: "MAPD",
+    state: "All states",
+    section: "Section 4.1",
+    last_updated: "2026-02-10",
+    next_review: "10 Feb 2027",
+    next_review_status: "Current",
+    approved_by: "Insurance Benefits Ops",
+    approved_on: "10 Feb 2026",
+    summary: "Procedures and timelines for filing a member grievance or appeal regarding a denied claim.",
+    key_points: ["60 calendar days from claim denial to file", "Standard review within 30 days; expedited within 72 hours", "Oral or written submission accepted"],
+    related_unit_ids: ["U-IN-001"],
   },
 };
 
@@ -725,6 +749,36 @@ function match(req: SearchRequest): Fixture {
       intent: "call_closing",
     };
   }
+  if (has("oncology") || (has("specialty") && (has("supply") || has("mail") || has("90") || has("days")))) {
+    return {
+      outcome: "insufficient_evidence",
+      message: "No approved content found for specialty or oncology medications. Logged as a gap for Pharmacy Ops.",
+      text: null,
+      citations: [],
+      intent: "specialty_medication",
+      owner_team: "Pharmacy Ops",
+      next_step: "Say: “Let me check our specialty pharmacy guidelines and follow up with you.” Do not answer from memory. A knowledge gap has been logged for Owen (Pharmacy Ops).",
+    };
+  }
+  if ((has("claim") && (has("grievance") || has("denied") || has("appeal"))) || has("denied claim")) {
+    if (req.role === "pharmacy_advocate" || req.role === "member_chat") {
+      return {
+        outcome: "not_authorized",
+        message: "This is owned by Insurance Benefits Ops (KB-INS). Transfer or route to an insurance advocate.",
+        text: null,
+        owner_team: "Insurance Benefits Ops",
+        next_step: "Warm-transfer to Insurance Benefits Ops, or ask an insurance advocate.",
+        intent: "claim_grievance",
+      };
+    }
+    return {
+      outcome: "answer",
+      message: "Filing a grievance for a denied claim · Insurance Benefits Ops · v1 · effective 2026-02-10",
+      text: "Members have 60 calendar days from the date of the claim denial notice to file a grievance or appeal. Grievances may be submitted verbally through Member Services or in writing via the member portal. Standard claim reviews are completed within 30 calendar days; expedited reviews for urgent medical care are completed within 72 hours.",
+      citations: [cite("U-IN-003", 1, "Filing a grievance for a denied claim", "Insurance Benefits Ops", "2026-02-10", false)],
+      intent: "claim_grievance",
+    };
+  }
   if (has("days supply") || has("how many days") || has("90")) {
     if (!year) return { outcome: "needs_clarification", message: "Which plan year: 2026 or 2027?", text: null, choices: YEAR_CHOICES, intent: "days_supply" };
     if (year === "2027") {
@@ -733,6 +787,29 @@ function match(req: SearchRequest): Fixture {
         message: "Days supply by mail (2027) · Pharmacy Ops · v1 · effective 2027-01-01",
         text: "Maintenance supply by mail is 84 days.",
         citations: [cite("U-PH-207", 1, "Days supply by mail (2027)", "Pharmacy Ops", "2027-01-01", false)],
+        intent: "days_supply",
+      };
+    }
+    // Check if S04 or a superseding unit has been applied
+    const consolidated = storeGetter?.()?.units?.find((u: any) =>
+      (u.unit_id === "U-PH-091" && u.status === "approved") ||
+      u.versions.some((v) =>
+        Boolean(
+          (v as any).supersedes?.includes("U-PH-007") ||
+          (v as any).supersedes?.includes("U-PH-107") ||
+          (v as any).supersedes?.includes("KB-PHARM-0142-A")
+        )
+      )
+    );
+    if (consolidated) {
+      const latest = consolidated.versions[consolidated.versions.length - 1]!;
+      return {
+        outcome: "answer",
+        message: `${consolidated.title} · ${consolidated.owner} · v${latest.version} · effective ${latest.effective_date}`,
+        text: latest.text || "Members on this plan can fill up to a 90-day supply of maintenance medications through mail order. The 100-day extended supply pilot has ended and is not available for 2026. Do not quote 100-day supply.",
+        citations: [
+          cite(consolidated.unit_id, latest.version, consolidated.title, consolidated.owner, latest.effective_date, false, latest.text),
+        ],
         intent: "days_supply",
       };
     }
@@ -928,6 +1005,9 @@ export function seedDemoState(): DemoState {
       ]),
       unit("U-SH-028", "Appeals and grievances filing", "Compliance", true, "approved", [
         { version: 1, effective_date: "2024-01-01", approver: "Rita (Legal)", text: "Members have 60 calendar days from a denial notice to file an appeal in writing or via customer service." },
+      ]),
+      unit("U-IN-003", "Filing a grievance for a denied claim", "Insurance Benefits Ops", false, "approved", [
+        { version: 1, effective_date: "2026-02-10", approver: "Olivia (Knowledge owner)", text: "Members have 60 calendar days from the date of the claim denial notice to file a grievance or appeal. Grievances may be submitted verbally through Member Services or in writing via the member portal. Standard claim reviews are completed within 30 calendar days; expedited reviews for urgent medical care are completed within 72 hours." },
       ]),
       unit("U-PH-206", "Mail order delivery time (2027)", "Pharmacy Ops", false, "approved", [
         { version: 1, effective_date: "2027-01-01", approver: "Owen (Knowledge owner)", text: "6 to 9 business days after the prescription is received." },

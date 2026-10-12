@@ -38,7 +38,7 @@ const STAGES = [
 ] as const;
 
 export function Lifecycle({ d }: { d: ChainDraft }) {
-  const reached = (k: string) => d.history.find((h) => h.status === k);
+  const reached = (k: string) => (d.history || []).find((h) => h.status === k);
   const shown = STAGES.filter((s) => (d.status === "rejected" ? s.key !== "approved" : s.key !== "rejected"));
   const wait = waitingOn(d);
   return (

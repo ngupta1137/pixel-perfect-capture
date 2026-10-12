@@ -50,10 +50,12 @@ import {
   UNIT_META,
   giveFeedback,
   flagAnswer,
+  reportConflictForResolution,
 } from "@/services/verity";
 import { useSession } from "@/lib/session";
 import { UnitDrawer } from "./AdvocateExtras";
 import { TraceDrawer } from "./TraceDrawer";
+import { classifyGapDomain } from "@/lib/gapClassifier";
 
 interface AnswerDetailsViewProps {
   question: string;
@@ -123,6 +125,12 @@ export function AnswerDetailsView({
   const [flagSent, setFlagSent] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showTrace, setShowTrace] = useState(false);
+  const [conflictModalOpen, setConflictModalOpen] = useState(false);
+  const [conflictNote, setConflictNote] = useState("");
+  const [conflictReportedTicket, setConflictReportedTicket] = useState<string | null>(null);
+  const [isSubmittingConflict, setIsSubmittingConflict] = useState(false);
+
+  const gapClassification = classifyGapDomain(question || response.parts[0]?.part || "");
 
   // Determine relevant related questions based on query keywords
   const qLower = question.toLowerCase();
@@ -158,6 +166,24 @@ export function AnswerDetailsView({
     }
   };
 
+  const handleReportConflict = () => {
+    setIsSubmittingConflict(true);
+    try {
+      const unitIds = uniqueCitations.map((c) => c.unit_id);
+      const res = reportConflictForResolution(
+        persona.name,
+        response.request_id,
+        question || part?.part || "",
+        unitIds,
+        conflictNote
+      );
+      setConflictReportedTicket(res.id);
+      setConflictModalOpen(false);
+    } finally {
+      setIsSubmittingConflict(false);
+    }
+  };
+
   // Render Outcome Banner & Content based on outcome
   const isApproved = response.outcome === "answer";
   const isClarify = response.outcome === "needs_clarification";
@@ -167,54 +193,29 @@ export function AnswerDetailsView({
   const isUnauthorized = response.outcome === "not_authorized";
   const isSafety = response.outcome === "safety_escalation";
 
-  // Parse structured sections for approved answers if present
+  // Parse structured sections for approved answers from the real governed text
   const parseAnswerContent = (text: string | null) => {
     if (!text) return { intro: "", keyPoints: [], important: "" };
 
-    // Default formatting for copay assistance question or generic answers
-    if (qLower.includes("copay")) {
-      return {
-        intro:
-          "Yes. There is a copay assistance program for eligible members in the MAPD plan. This program helps reduce the out-of-pocket cost for certain medications.",
-        keyPoints: [
-          "Available for eligible members",
-          "Applies to select medications",
-          "Members need to meet program criteria",
-        ],
-        important:
-          "The program terms, covered medications and eligibility criteria can change. Please check the latest program details before discussing benefits with the member.",
-      };
-    }
+    // Extract real bullet points from markdown if the knowledge unit text contains them.
+    // Do NOT fabricate or hardcode synthetic bullets that are not in the approved unit.
+    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    const bullets: string[] = [];
+    const paragraphs: string[] = [];
 
-    if (qLower.includes("pricing") || qLower.includes("disclaimer")) {
-      return {
-        intro: text,
-        keyPoints: [
-          "Prices shared are estimates based on the current plan",
-          "Final cost is confirmed when the prescription is processed",
-          "Advocates must read verbatim disclosure before quoting costs",
-        ],
-        important:
-          "Prescription copays and deductibles vary depending on member phase, tier, and pharmacy network status.",
-      };
-    }
-
-    if (qLower.includes("mail order") || qLower.includes("delivery")) {
-      return {
-        intro: text,
-        keyPoints: [
-          "Standard delivery window is 7 to 10 business days",
-          "Prescriptions are filled once received and verified",
-          "Tracking details are available in the member portal",
-        ],
-        important:
-          "Rush shipping options may be available for urgent medications upon supervisor approval.",
-      };
+    for (const line of lines) {
+      if (/^[-*•]\s+/.test(line)) {
+        bullets.push(line.replace(/^[-*•]\s+/, ""));
+      } else if (/^\d+\.\s+/.test(line)) {
+        bullets.push(line.replace(/^\d+\.\s+/, ""));
+      } else {
+        paragraphs.push(line);
+      }
     }
 
     return {
-      intro: text,
-      keyPoints: [],
+      intro: paragraphs.join("\n\n") || text,
+      keyPoints: bullets,
       important: "",
     };
   };
@@ -434,26 +435,58 @@ export function AnswerDetailsView({
                 </div>
               </div>
               <p className="text-sm text-ink-muted">
-                Verity does not answer from general knowledge. A knowledge gap has been automatically logged for the knowledge owners.
+                Verity does not answer from general knowledge. A knowledge gap has been automatically logged for{" "}
+                <span className="font-semibold text-ink">
+                  {part?.owner_team || gapClassification.ownerTeam} ({gapClassification.assignedOwner.split(" ")[0]})
+                </span>
+                .
               </p>
+              {part?.next_step && (
+                <div className="mt-2 rounded-lg border border-border/80 bg-surface-alt p-3 text-xs text-ink">
+                  <span className="font-semibold text-ink">Next step: </span>
+                  {part.next_step}
+                </div>
+              )}
             </div>
           )}
 
           {isConflict && (
             <div className="rounded-xl border border-amber-300 bg-amber-50/60 p-5 space-y-4">
-              <div className="flex items-center gap-3 text-amber-900">
-                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex items-center gap-3 text-amber-900">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+                  <div>
+                    <h2 className="text-base font-bold">Conflicting sources — answer withheld</h2>
+                    <p className="text-sm text-amber-800 mt-0.5">
+                      Two approved sources disagree. Verity will not pick an answer. Both owners have been notified.
+                    </p>
+                  </div>
+                </div>
                 <div>
-                  <h2 className="text-base font-bold">Conflicting sources — answer withheld</h2>
-                  <p className="text-sm text-amber-800 mt-0.5">
-                    Two approved sources disagree. Verity will not pick an answer. Both owners have been notified.
-                  </p>
+                  {conflictReportedTicket ? (
+                    <div className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      <span>Reported to Knowledge Ops ({conflictReportedTicket})</span>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => setConflictModalOpen(true)}
+                      className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs rounded-lg px-3.5 py-2 shadow-sm"
+                    >
+                      <AlertTriangle className="h-4 w-4" />
+                      <span>Report for resolution</span>
+                    </Button>
+                  )}
                 </div>
               </div>
+
               <div className="grid gap-3 sm:grid-cols-2 pt-2">
                 {uniqueCitations.map((c) => (
                   <div key={c.unit_id} className="rounded-lg border border-amber-200 bg-white p-3.5 space-y-1">
-                    <p className="font-semibold text-xs text-ink">{c.title}</p>
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-xs text-ink">{c.title}</p>
+                      <span className="font-mono text-[10px] bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-semibold">{c.unit_id}</span>
+                    </div>
                     <p className="text-[11px] text-ink-muted">
                       {c.owner} · v{c.version} · effective {c.effective_date}
                     </p>
@@ -461,6 +494,13 @@ export function AnswerDetailsView({
                   </div>
                 ))}
               </div>
+
+              {conflictReportedTicket && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-3 text-xs text-emerald-900 flex items-center justify-between">
+                  <span>Conflict ticket routed to <strong>Knowledge Ops queue</strong> with both {uniqueCitations.map((c) => c.unit_id).join(" and ")} linked.</span>
+                  <span className="text-[11px] text-emerald-700 font-mono font-semibold">Ticket #{conflictReportedTicket}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -491,6 +531,12 @@ export function AnswerDetailsView({
                 </div>
               </div>
               <p className="text-sm text-ink">{part?.message}</p>
+              {part?.next_step && (
+                <div className="mt-2 rounded-lg border border-border/80 bg-surface-alt p-3 text-xs text-ink">
+                  <span className="font-semibold text-ink">Next step: </span>
+                  {part.next_step}
+                </div>
+              )}
             </div>
           )}
 
@@ -833,6 +879,63 @@ export function AnswerDetailsView({
               }}
             >
               Submit issue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Conflict Resolution Dialog */}
+      <Dialog open={conflictModalOpen} onOpenChange={setConflictModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-900">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              Report conflict for resolution
+            </DialogTitle>
+            <DialogDescription>
+              Routes a conflict ticket to the Knowledge Ops queue with both conflicting units linked for consolidation.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs">
+            <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 space-y-2">
+              <p className="font-semibold text-amber-900">Linked conflicting sources:</p>
+              <ul className="space-y-1.5 text-ink">
+                {uniqueCitations.map((c) => (
+                  <li key={c.unit_id} className="flex items-center justify-between bg-white rounded p-1.5 border border-amber-100">
+                    <div>
+                      <strong className="text-primary font-mono">{c.unit_id}</strong>: {c.title}
+                    </div>
+                    <span className="text-[10px] bg-surface-alt px-1.5 py-0.5 rounded border border-border text-ink-muted">{c.owner}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-ink">
+                Optional note for Knowledge Ops
+              </label>
+              <textarea
+                value={conflictNote}
+                onChange={(e) => setConflictNote(e.target.value)}
+                placeholder="e.g., 90-day maintenance handbook rule conflicts with legacy 100-day memo on home delivery supply limits"
+                className="w-full rounded-md border border-border bg-surface p-2.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-primary min-h-[75px]"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setConflictModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={isSubmittingConflict}
+              onClick={handleReportConflict}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {isSubmittingConflict ? "Submitting..." : "Submit to Knowledge Ops"}
             </Button>
           </DialogFooter>
         </DialogContent>

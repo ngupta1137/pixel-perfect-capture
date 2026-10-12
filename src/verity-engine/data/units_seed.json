@@ -378,7 +378,8 @@
       ],
       "channels": [
         "advocate_view",
-        "member_chat"
+        "member_chat",
+        "voice"
       ],
       "authority_level": "knowledge_article",
       "source_doc": "KB-PHARM-0098",
@@ -629,6 +630,53 @@
       ],
       "owner": "Member Services",
       "approved_by": null,
+      "synthetic": true,
+      "applies_to": {
+        "lob": [
+          "MAPD",
+          "PDP"
+        ],
+        "states": "ALL",
+        "plan_year": 2026
+      }
+    },
+    {
+      "unit_id": "U-IN-003",
+      "title": "Filing a grievance for a denied claim",
+      "type": "procedure",
+      "body": "Members have 60 calendar days from the date of the claim denial notice to file a grievance or appeal. Grievances may be submitted verbally through Member Services or in writing via the member portal. Standard claim reviews are completed within 30 calendar days; expedited reviews for urgent medical care are completed within 72 hours.",
+      "verbatim": false,
+      "spoken_version": "You have sixty calendar days from the denial notice to file a grievance or appeal. You can do that online or right now with an insurance advocate.",
+      "knowledge_base": "KB-INS",
+      "audience": [
+        "advocate",
+        "member"
+      ],
+      "channels": [
+        "advocate_view",
+        "member_chat",
+        "voice"
+      ],
+      "authority_level": "policy",
+      "source_doc": "KB-INS-0057",
+      "source_section": "Claim grievance",
+      "effective_date": "2026-02-10",
+      "review_date": "2027-02-10",
+      "version": 1,
+      "status": "approved",
+      "supersedes": null,
+      "synonyms": [
+        "denied claim",
+        "claim grievance",
+        "claim appeal",
+        "appeal denied claim",
+        "file a grievance about a denied claim",
+        "grievance for a denied claim",
+        "grievance about denied claim",
+        "file a claim grievance"
+      ],
+      "owner": "Insurance Benefits Ops",
+      "approved_by": "Olivia (Knowledge owner)",
       "synthetic": true,
       "applies_to": {
         "lob": [

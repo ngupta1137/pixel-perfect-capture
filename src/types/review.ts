@@ -442,4 +442,39 @@ export const INITIAL_REVIEW_QUEUE: ReviewQueueItem[] = [
       },
     ],
   },
+  {
+    id: "REV-CONF-001",
+    unit_id: "U-PH-007",
+    title: "Conflict Ticket: Days supply by mail (90-day vs 100-day)",
+    preview:
+      "Conflict between U-PH-007 (90-day supply) and U-PH-107 (100-day legacy rule)...",
+    content:
+      "Conflicting source guidance identified between approved units:\n• U-PH-007 (Pharmacy Ops): A 90-day supply is available by mail for most maintenance medications.\n• U-PH-107 (Outbound Pharmacy): Members can get up to a 100-day supply of maintenance medications by mail.\n\nResolution workflow: Knowledge Ops uploads or applies consolidating source document S04 (90-day supply only), marking both U-PH-007 and U-PH-107 superseded. Legal / Knowledge Owner approves the consolidated draft.",
+    source_doc: "Conflict Report: U-PH-007 vs U-PH-107",
+    section: "Mail Order Maintenance Supply",
+    type: "Procedure",
+    status: "Pending review",
+    extracted_on: "12 Oct 2026",
+    lob: "MAPD",
+    state: "All states",
+    suggested_effective_date: "12 Oct 2026",
+    assigned_reviewer: "Knowledge Ops (Owen)",
+    demand: 64,
+    due_date: "2026-10-18",
+    supersedes: "U-PH-007, U-PH-107",
+    key_points: [
+      "Linked Conflicting Unit A: U-PH-007 (Days supply by mail: 90-day)",
+      "Linked Conflicting Unit B: U-PH-107 (Days supply by mail: 100-day, legacy)",
+      "Resolution target: Upload/apply S04 consolidating unit",
+      "Draft unit marks both A and B superseded",
+    ],
+    history: [
+      {
+        action: "Conflict reported for resolution",
+        by: "Priya (Pharmacy advocate)",
+        at: "12 Oct 2026, 10:15 AM",
+        note: "Advocate reported conflicting sources on query 'How many days supply can I get by mail?'. Both units linked.",
+      },
+    ],
+  },
 ];

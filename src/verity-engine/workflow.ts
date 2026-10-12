@@ -100,8 +100,8 @@ export class KnowledgeStore {
 
   /** Ingest a source document: extract candidates and compare with the last snapshot and the approved units. Publishes nothing. */
   ingest(text: string): ExtractionResult {
-    const docId = text.match(/Doc ID:\s*([^|\n]+)/i)?.[1]?.trim();
-    return extract(text, this.live, docId ? this.snapshots.get(docId) : undefined, undefined, this.data.lexicon);
+    const docId = text.match(/(?:Doc ID|Document ID):\s*([^|\n]+)/i)?.[1]?.trim();
+    return extract(text, this.live, docId ? this.snapshots.get(docId) : undefined, docId ?? undefined, this.data.lexicon);
   }
 
   /** Candidate behind a pending revision, so approving it moves the snapshot forward. */
@@ -149,7 +149,7 @@ export class KnowledgeStore {
     const remember = (d: Draft) => { this.pendingSources.set(d.draft_id, c); return d; };
     const base = c.match.status === 'changed' && c.match.unit_id ? this.live.find((u) => u.unit_id === c.match.unit_id) : undefined;
     const unit: KnowledgeUnit = base
-      ? { ...base, body: c.body, status: 'in_review', approved_by: '', source_doc: c.source_doc, source_section: c.source_section }
+      ? { ...base, body: c.body, status: 'in_review', approved_by: '', source_doc: c.source_doc, source_section: c.source_section, supersedes: c.supersedes ?? base.supersedes ?? null }
       : {
           unit_id: this.nextId(c.knowledge_base),
           title: c.title,
@@ -167,7 +167,7 @@ export class KnowledgeStore {
           review_date: c.review_date,
           version: 0,
           status: 'in_review',
-          supersedes: null,
+          supersedes: c.supersedes ?? null,
           synonyms: c.suggested_synonyms,
           owner: c.owner,
           approved_by: '',

@@ -31,6 +31,10 @@ export interface KnowledgeGap {
     type: string;
     similarity: string;
   }[];
+  domain?: "Pharmacy" | "Insurance";
+  knowledge_base?: "KB-PHARM" | "KB-INS";
+  ownerTeam?: string;
+  assignedOwner?: string;
 }
 
 export const SEEDED_KNOWLEDGE_GAPS: KnowledgeGap[] = [
@@ -45,6 +49,10 @@ export const SEEDED_KNOWLEDGE_GAPS: KnowledgeGap[] = [
     status: "Open",
     lob: "MAPD",
     state: "All states",
+    domain: "Pharmacy",
+    knowledge_base: "KB-PHARM",
+    ownerTeam: "Pharmacy Ops",
+    assignedOwner: "Owen (Knowledge owner)",
     summary:
       "Members are asking about coverage criteria and required documentation for GLP-1 medications (e.g., semaglutide, tirzepatide). There is no approved knowledge unit covering this topic.",
     reasons: [
@@ -94,6 +102,10 @@ export const SEEDED_KNOWLEDGE_GAPS: KnowledgeGap[] = [
     status: "In review",
     lob: "MAPD",
     state: "All states",
+    domain: "Pharmacy",
+    knowledge_base: "KB-PHARM",
+    ownerTeam: "Pharmacy Ops",
+    assignedOwner: "Owen (Knowledge owner)",
     summary:
       "Conflicting information across regional policies regarding courier signature requirements and cold-chain storage guidelines for high-cost biologic home delivery.",
     reasons: [
@@ -141,6 +153,10 @@ export const SEEDED_KNOWLEDGE_GAPS: KnowledgeGap[] = [
     status: "Open",
     lob: "Commercial",
     state: "All states",
+    domain: "Insurance",
+    knowledge_base: "KB-INS",
+    ownerTeam: "Insurance Benefits Ops",
+    assignedOwner: "Olivia (Knowledge owner)",
     summary:
       "Members inquiring about lifestyle coaching and nutritional support coverage under the new 2024 wellness benefit package.",
     reasons: [
@@ -182,6 +198,10 @@ export const SEEDED_KNOWLEDGE_GAPS: KnowledgeGap[] = [
     status: "Open",
     lob: "Commercial",
     state: "All states",
+    domain: "Pharmacy",
+    knowledge_base: "KB-PHARM",
+    ownerTeam: "Pharmacy Ops",
+    assignedOwner: "Owen (Knowledge owner)",
     summary:
       "Formulary updates for generic combination inhalers not reflected in existing step therapy protocol unit U-PH-023.",
     reasons: [
@@ -223,6 +243,10 @@ export const SEEDED_KNOWLEDGE_GAPS: KnowledgeGap[] = [
     status: "Planned",
     lob: "Commercial",
     state: "All states",
+    domain: "Insurance",
+    knowledge_base: "KB-INS",
+    ownerTeam: "Insurance Benefits Ops",
+    assignedOwner: "Olivia (Knowledge owner)",
     summary:
       "Direct member reimbursement claim form instructions and mailing addresses require clarification for emergency out-of-network pharmacy fills.",
     reasons: [

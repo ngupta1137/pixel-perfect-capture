@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { ArrowRightCircle, Check, Copy, Lock, Phone, Volume2, Square } from "lucide-react";
+import { ArrowRightCircle, Check, Copy, Lock, Phone, Volume2, Square, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Choice, Citation, Part } from "@/services/verity";
+import { type Choice, type Citation, type Part, reportConflictForResolution } from "@/services/verity";
 import { TrustBadge } from "./TrustBadge";
 import { OutcomePill, OUTCOME_META } from "./outcomeMeta";
 import { CHANNELS, useSession } from "@/lib/session";
@@ -122,7 +122,9 @@ function Body({
   minimal,
   showOwner,
 }: { part: Part; compact: boolean; minimal: boolean; showOwner: boolean } & Hooks) {
+  const { person } = useSession();
   const [handoff, setHandoff] = useState(false);
+  const [reportedConflict, setReportedConflict] = useState<string | null>(null);
   const transfer = (
     <>
       <Button variant="outline" className="mt-4" onClick={() => setHandoff(true)}>
@@ -219,6 +221,36 @@ function Body({
               </div>
             ))}
           </div>
+          {!minimal && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+              <span className="text-xs text-ink-muted">Both owning teams notified. Need resolution?</span>
+              {reportedConflict ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2.5 py-1">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                  Reported to Knowledge Ops ({reportedConflict})
+                </span>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const res = reportConflictForResolution(
+                      person.name,
+                      `req-${Date.now()}`,
+                      part.part,
+                      part.citations.map((c) => c.unit_id),
+                      "Advocate reported conflicting sources on call",
+                    );
+                    setReportedConflict(res.id);
+                  }}
+                  className="gap-1.5 text-xs border-amber-300 bg-amber-50/50 hover:bg-amber-100 text-amber-900"
+                >
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                  Report for resolution
+                </Button>
+              )}
+            </div>
+          )}
         </>
       );
     case "stale":

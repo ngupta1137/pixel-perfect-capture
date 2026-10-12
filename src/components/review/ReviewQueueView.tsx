@@ -43,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useNavigate } from "@tanstack/react-router";
 import { INITIAL_REVIEW_QUEUE, type ReviewQueueItem, type ReviewStatus } from "@/types/review";
 import { useSession } from "@/lib/session";
 import { useDemoStore } from "@/services/demoStore";
@@ -52,16 +53,19 @@ import {
   decideBlocker,
   fetchReviewQueue,
   submitReviewDecision,
+  applyConsolidatingConflictResolution,
 } from "@/services/verity";
 import type { ChainDraft } from "@/services/demoStore";
 
 export function ReviewQueueView() {
+  const navigate = useNavigate();
   const { person, can } = useSession();
   const demoStore = useDemoStore((s) => s);
   
   const [items, setItems] = useState<ReviewQueueItem[]>(INITIAL_REVIEW_QUEUE);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeciding, setIsDeciding] = useState(false);
+  const [isApplyingS04, setIsApplyingS04] = useState(false);
   const [selectedId, setSelectedId] = useState<string>("REV-001");
   const [activeTab, setActiveTab] = useState<"all" | "my_reviews" | "requested_changes" | "approved" | "rejected">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -90,10 +94,11 @@ export function ReviewQueueView() {
     return items.filter((it) => {
       // Tab filter
       if (activeTab === "my_reviews") {
-        const isAssigned =
+        const isAssigned = Boolean(
           it.assigned_reviewer &&
-          it.assigned_reviewer.toLowerCase().includes(person.name.toLowerCase());
-        if (it.status !== "Pending review" && !isAssigned) return false;
+          it.assigned_reviewer.toLowerCase().includes(person.name.toLowerCase())
+        );
+        if (it.status !== "Pending review" || !isAssigned) return false;
       } else if (activeTab === "requested_changes") {
         if (it.status !== "Requested changes") return false;
       } else if (activeTab === "approved") {
@@ -144,6 +149,14 @@ export function ReviewQueueView() {
     )
   );
 
+  const isConflictIncident = Boolean(
+    activeItem && (
+      activeItem.id.startsWith("CONF-") ||
+      activeItem.id === "REV-CONF-001" ||
+      activeItem.title.toLowerCase().includes("conflict")
+    ) && !activeItem.id.startsWith("REV-CONF-S04")
+  );
+
   const proposerName = activeItem?.proposer || (activeItem as any)?.proposed_by || activeItem?.history?.[0]?.by || "";
   const proposerFirst = proposerName.trim().toLowerCase().split(/[\s(]/)[0];
   const reviewerFirst = person.name.trim().toLowerCase().split(/[\s(]/)[0];
@@ -185,7 +198,12 @@ export function ReviewQueueView() {
     return {
       all: items.length,
       my_reviews: items.filter(
-        (it) => it.status === "Pending review" || (it.assigned_reviewer && it.assigned_reviewer.toLowerCase().includes(person.name.toLowerCase()))
+        (it) =>
+          it.status === "Pending review" &&
+          Boolean(
+            it.assigned_reviewer &&
+            it.assigned_reviewer.toLowerCase().includes(person.name.toLowerCase())
+          )
       ).length,
       requested_changes: items.filter((it) => it.status === "Requested changes").length,
       approved: items.filter((it) => it.status === "Approved").length,
@@ -235,6 +253,12 @@ export function ReviewQueueView() {
           if (serverItems.some((it) => it.id === prev)) {
             return prev;
           }
+          const conflictItem = serverItems.find(
+            (it) =>
+              (it.id.startsWith("CONF-") || it.id === "REV-CONF-001" || it.title.toLowerCase().includes("conflict")) &&
+              it.status === "Pending review"
+          );
+          if (conflictItem) return conflictItem.id;
           return serverItems[0]!.id;
         });
       }
@@ -248,6 +272,31 @@ export function ReviewQueueView() {
   useEffect(() => {
     void loadQueue();
   }, []);
+
+  const handleApplyS04 = async () => {
+    setIsApplyingS04(true);
+    setActionError("");
+    setActionSuccess("");
+    try {
+      const res = await applyConsolidatingConflictResolution(person.name);
+      if (!res.ok) {
+        setActionError(res.error || "Failed to apply S04 consolidating unit.");
+        return;
+      }
+      setActionSuccess(
+        res.message ||
+          "Applied S04: Consolidated unit (90-day supply only, superseding U-PH-007 and U-PH-107) created and routed to review queue."
+      );
+      await loadQueue();
+      if (res.draftId) {
+        setSelectedId(res.draftId);
+      }
+    } catch (err: any) {
+      setActionError(err.message || "An unexpected error occurred while applying S04.");
+    } finally {
+      setIsApplyingS04(false);
+    }
+  };
 
   // Approval / Decision Actions (Server-side with maker-checker & regression gate)
   const handleApprove = async () => {
@@ -607,10 +656,15 @@ export function ReviewQueueView() {
                           />
                         </td>
                         <td className="px-3 py-3.5 space-y-1 max-w-[220px]">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-semibold text-ink text-xs line-clamp-1">
                               {item.title}
                             </span>
+                            {(item.id.startsWith("CONF-") || item.id === "REV-CONF-001" || item.title.toLowerCase().includes("conflict")) && !item.id.startsWith("REV-CONF-S04") && (
+                              <span className="inline-flex rounded-full bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.2 text-[9px] font-bold shrink-0">
+                                Conflict Ticket
+                              </span>
+                            )}
                             {item.unit_id && (
                               <span className="font-mono text-[10px] text-ink-muted shrink-0">
                                 ({item.unit_id})
@@ -873,6 +927,67 @@ export function ReviewQueueView() {
               {/* Tab 1: Content */}
               {detailTab === "content" && (
                 <div className="space-y-4 text-xs">
+                  {/* Conflict Resolution Action Box */}
+                  {(activeItem.id.startsWith("REV-CONF") ||
+                    activeItem.id.startsWith("CONF-") ||
+                    activeItem.title.toLowerCase().includes("conflict") ||
+                    Boolean(activeItem.supersedes && activeItem.supersedes.includes(","))) && (
+                    <div className="rounded-lg border border-amber-300 bg-amber-50/70 p-3.5 space-y-3">
+                      <div className="flex items-start gap-2.5">
+                        <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-amber-950 text-xs">Knowledge Conflict Resolution</h4>
+                          <p className="text-[11px] text-amber-900 leading-relaxed">
+                            Conflicting approved guidance detected on mail-order days supply. Resolution workflow: apply consolidating source document <span className="font-mono font-semibold">S04_source_C_resolved_superseding.md</span> (90-day standard only), which marks conflicting units <span className="font-mono font-semibold">U-PH-007</span> and <span className="font-mono font-semibold">U-PH-107</span> superseded.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Conflicting Linked Units & Advocate Notes */}
+                      <div className="rounded border border-amber-200/80 bg-white/80 p-2.5 space-y-2 text-[11px]">
+                        <span className="font-semibold text-amber-900 block text-[10px] uppercase tracking-wide">Linked Conflicting Units</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div className="p-2 rounded bg-amber-50/50 border border-amber-200">
+                            <span className="font-mono font-bold text-amber-900">U-PH-007</span>
+                            <p className="text-[10px] text-ink-muted">Pharmacy Ops · 90-day supply by mail (standard)</p>
+                          </div>
+                          <div className="p-2 rounded bg-amber-50/50 border border-amber-200">
+                            <span className="font-mono font-bold text-amber-900">U-PH-107</span>
+                            <p className="text-[10px] text-ink-muted">Outbound Pharmacy · 100-day supply (pilot/legacy)</p>
+                          </div>
+                        </div>
+                        {activeItem.reviewer_notes && (
+                          <div className="pt-1 text-[11px] text-ink-muted">
+                            <span className="font-semibold text-ink">Advocate Note:</span> "{activeItem.reviewer_notes}"
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          disabled={isApplyingS04}
+                          onClick={handleApplyS04}
+                          className="text-xs h-8 gap-1.5 bg-[#1E5E2E] hover:bg-[#184d25] text-white font-medium"
+                        >
+                          <Sparkles className="h-3.5 w-3.5" />
+                          {isApplyingS04 ? "Applying S04..." : "Apply S04 Consolidating Unit (superseding A & B)"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            void navigate({ to: "/author" });
+                          }}
+                          className="text-xs h-8 gap-1.5 border-amber-300 bg-white hover:bg-amber-100 text-amber-900 font-medium"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          Open in Authoring
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Extracted content */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
@@ -1033,7 +1148,7 @@ export function ReviewQueueView() {
               )}
 
               {/* Governance notice banner if actions are disabled */}
-              {(approveDisabledReason || reviewDisabledReason) && (
+              {!isConflictIncident && (approveDisabledReason || reviewDisabledReason) && (
                 <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-50/80 border border-amber-200 text-amber-900 text-xs">
                   <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
                   <div>
@@ -1065,15 +1180,26 @@ export function ReviewQueueView() {
                 >
                   <MessageSquare className="h-3.5 w-3.5" /> Request changes
                 </Button>
-                <Button
-                  size="sm"
-                  disabled={isDeciding || Boolean(approveDisabledReason)}
-                  title={approveDisabledReason || undefined}
-                  onClick={handleApprove}
-                  className="text-xs h-9 px-4 gap-1.5 bg-[#1E5E2E] hover:bg-[#184d25] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Check className="h-3.5 w-3.5" /> {isDeciding ? "Processing..." : "Approve"}
-                </Button>
+                {isConflictIncident ? (
+                  <Button
+                    size="sm"
+                    disabled={isApplyingS04}
+                    onClick={handleApplyS04}
+                    className="text-xs h-9 px-4 gap-1.5 bg-[#1E5E2E] hover:bg-[#184d25] text-white font-semibold"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" /> {isApplyingS04 ? "Applying S04..." : "Apply S04 Resolution Unit"}
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    disabled={isDeciding || Boolean(approveDisabledReason)}
+                    title={approveDisabledReason || undefined}
+                    onClick={handleApprove}
+                    className="text-xs h-9 px-4 gap-1.5 bg-[#1E5E2E] hover:bg-[#184d25] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Check className="h-3.5 w-3.5" /> {isDeciding ? "Processing..." : "Approve"}
+                  </Button>
+                )}
               </div>
             </>
           ) : (

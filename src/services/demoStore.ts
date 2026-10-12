@@ -2,7 +2,7 @@
 // NOT per person. Switching person never resets it; only resetDemoStore() does.
 import { createContext, createElement, useContext, useSyncExternalStore, type ReactNode } from "react";
 import type { Outcome } from "./verity";
-import { seedDemoState } from "./mockData";
+import { seedDemoState, registerDemoStoreGetter } from "./mockData";
 
 export interface CitedUnit { unit_id: string; version: number; title: string; approver: string | null }
 export interface DemoRequest {
@@ -67,6 +67,7 @@ let state: DemoState = seedDemoState();
 const listeners = new Set<() => void>();
 
 export const getDemoState = () => state;
+registerDemoStoreGetter(getDemoState);
 export function updateDemoState(fn: (s: DemoState) => DemoState) {
   state = fn(state);
   listeners.forEach((l) => l());

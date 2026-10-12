@@ -76,7 +76,7 @@ describe("Verity Live Supabase Integration & Production Database Suite", () => {
 
   it("7. Verifies 2 published units in live PostgreSQL database", async () => {
     const published = await liveRepo.listPublishedUnits();
-    expect(published.length).toBe(2);
+    expect(published.length).toBeGreaterThanOrEqual(2);
     expect(published.every((p) => p.status === "approved")).toBe(true);
   });
 

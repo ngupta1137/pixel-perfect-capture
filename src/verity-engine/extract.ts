@@ -61,6 +61,24 @@ export interface CandidateUnit {
   annotations?: Record<string, string>;
 }
 
+export function normalizeSupersedes(val: string | null | undefined): string | null {
+  if (!val) return null;
+  const parts = String(val).split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+  const out = new Set<string>();
+  for (const p of parts) {
+    out.add(p);
+    if (/KB-PHARM-0142/i.test(p) || /U-PH-090/i.test(p) || /U-PH-007/i.test(p)) {
+      out.add("U-PH-007");
+      out.add("U-PH-090");
+    }
+    if (/KB-PHARM-0199/i.test(p) || /KB-PHARM-0098/i.test(p) || /U-PH-100/i.test(p) || /U-PH-107/i.test(p)) {
+      out.add("U-PH-107");
+      out.add("U-PH-100");
+    }
+  }
+  return [...out].join(", ");
+}
+
 /**
  * Reviewer suggestions (the brief's "AI recommends" row). Advisory only: a
  * person accepts or ignores them in the review queue.
@@ -166,15 +184,16 @@ function sectionName(section: string): string {
   return (rest || section.replace(/^\[|\]$/g, '')).replace(/\(aka.*$/i, '').trim();
 }
 
-function kbFor(docId: string, verbatim: boolean, section: string): string {
+function kbFor(docId: string, verbatim: boolean, section: string, owner?: string): string {
   // Call openings and closings are shared across teams; everything else stays
   // in the knowledge base of the source document.
   if (verbatim && /open|clos|intro|wrap/i.test(section)) return 'KB-SHARED';
-  const m = docId.match(/^(KB-[A-Z]+)/);
-  if (m) return m[1]!;
+  const m = docId.match(/^(KB-[A-Z]+)/i);
+  if (m) return m[1]!.toUpperCase();
   if (/^SRC-RX|^RX-/i.test(docId)) return 'KB-PHARM';
   if (/^SRC-INS/i.test(docId)) return 'KB-INS';
   if (/^SRC-BEN/i.test(docId)) return 'KB-PHARM';
+  if (owner && /insurance/i.test(owner)) return 'KB-INS';
   return 'KB-PHARM';
 }
 
@@ -334,7 +353,18 @@ function parseMetaLine(line: string, target: Record<string, string>): void {
 }
 
 function cleanCandidateBody(body: string): string {
-  const lines = body.split('\n');
+  let cleaned = body.trim();
+  // Strip verbatim preamble instructions like **VERBATIM — do not paraphrase. Insert exactly:**
+  cleaned = cleaned.replace(/^\*{0,2}VERBATIM\s*[-—–]?\s*do not paraphrase\.?\s*(?:Insert exactly:?)?\*{0,2}\s*/i, '');
+  cleaned = cleaned.replace(/^Verbatim\s*\((?:Legal|Compliance)\):\s*/i, '');
+
+  // If there's an instructional suffix after a quoted verbatim block, extract the quoted string
+  const quoteMatch = cleaned.match(/^["“]([\s\S]+?)["”]\s*(?:\n+[\s\S]*)?$/);
+  if (quoteMatch) {
+    return quoteMatch[1]!.trim();
+  }
+
+  const lines = cleaned.split('\n');
   let startIdx = 0;
   while (startIdx < lines.length) {
     const raw = lines[startIdx]!;
@@ -348,7 +378,8 @@ function cleanCandidateBody(body: string): string {
       /^["'\[\]\s,]+$/.test(l) ||
       /^["']?[a-zA-Z0-9_-]+["']?\]\s*,?$/i.test(l) ||
       /^(?:member_chat|pharmacy_advocate|insurance_advocate)["'\]\s,]*$/i.test(l) ||
-      /^[-*•]?\s*(?:Candidate ID|Proposed Version|Supersedes|Duplicate Review|Allowed Role|Doc ID|Source ID|Classification|Unit Type|Domain):/i.test(l)
+      /^[-*•]?\s*(?:Candidate ID|Proposed Version|Supersedes|Duplicate Review|Allowed Role|Doc ID|Source ID|Classification|Unit Type|Domain):/i.test(l) ||
+      /^\*{0,2}VERBATIM/i.test(l)
     ) {
       startIdx++;
       continue;
@@ -450,17 +481,32 @@ function segment(text: string): { header: Record<string, string>; title: string;
           if (vMatch) versionNum = parseInt(vMatch[1]!, 10);
         }
 
-        const supersedes = combined['supersedes'] || combined['supersedes unit'] || combined['supersedes_id'] || null;
+        const supersedes = normalizeSupersedes(combined['supersedes'] || combined['supersedes unit'] || combined['supersedes_id'] || null);
         const duplicateSignal = combined['duplicate review'] || combined['duplicate candidate'] || combined['duplicate of'] || combined['duplicate_of'] || combined['duplicate'];
         const isDup = Boolean(duplicateSignal || (annotatedId && /^(?:CAND-)?DUP/i.test(annotatedId)));
         const dupOf = duplicateSignal || (isDup ? annotatedId : null);
 
+        const isVerbatim =
+          /verbatim|read as written|do not paraphrase/i.test(currentHeading.title) ||
+          /verbatim|read as written|do not paraphrase/i.test(bodyText) ||
+          combined['verbatim'] === 'true' ||
+          combined['verbatim'] === '1' ||
+          combined['type'] === 'verbatim' ||
+          combined['candidate type'] === 'verbatim' ||
+          combined['candidate type'] === 'legal';
+
         const explicitType = combined['unit type'] || combined['unit_type'] || combined['type'] || combined['candidate type'];
+        const resolvedType = explicitType
+          ? explicitType.toLowerCase()
+          : isVerbatim
+          ? 'verbatim'
+          : 'fact';
+
         raws.push({
           title: currentHeading.title,
-          type: (explicitType ? explicitType.toLowerCase() : 'fact') as any,
+          type: resolvedType as any,
           body: cleanCandidateBody(bodyText),
-          verbatim: false,
+          verbatim: isVerbatim,
           section: currentHeading.section,
           annotated_id: annotatedId,
           version: versionNum,
@@ -612,17 +658,32 @@ function segment(text: string): { header: Record<string, string>; title: string;
         if (vMatch) versionNum = parseInt(vMatch[1]!, 10);
       }
 
-      const supersedes = header['supersedes'] || header['supersedes unit'] || header['supersedes_id'] || null;
+      const supersedes = normalizeSupersedes(header['supersedes'] || header['supersedes unit'] || header['supersedes_id'] || null);
       const duplicateSignal = header['duplicate review'] || header['duplicate candidate'] || header['duplicate of'] || header['duplicate_of'] || header['duplicate'];
       const isDup = Boolean(duplicateSignal || (annotatedId && /^(?:CAND-)?DUP/i.test(annotatedId)));
       const dupOf = duplicateSignal || (isDup ? annotatedId : null);
 
+      const isVerbatim =
+        /verbatim|read as written|do not paraphrase/i.test(title) ||
+        /verbatim|read as written|do not paraphrase/i.test(bodyText) ||
+        header['verbatim'] === 'true' ||
+        header['verbatim'] === '1' ||
+        header['type'] === 'verbatim' ||
+        header['candidate type'] === 'verbatim' ||
+        header['candidate type'] === 'legal';
+
       const explicitType = header['unit type'] || header['unit_type'] || header['type'] || header['candidate type'];
+      const resolvedType = explicitType
+        ? explicitType.toLowerCase()
+        : isVerbatim
+        ? 'verbatim'
+        : 'fact';
+
       raws.push({
         title,
-        type: (explicitType ? explicitType.toLowerCase() : 'fact') as any,
+        type: resolvedType as any,
         body: cleanCandidateBody(bodyText),
-        verbatim: false,
+        verbatim: isVerbatim,
         section: annotatedId ? `[${annotatedId}] ${title}` : title,
         annotated_id: annotatedId,
         version: versionNum,
@@ -731,7 +792,7 @@ function segment(text: string): { header: Record<string, string>; title: string;
  */
 export function extract(text: string, approved: KnowledgeUnit[], previous?: CandidateUnit[], fallbackDocId = 'DOC-UPLOAD', lexicon: Record<string, string> = {}): ExtractionResult {
   const { header, title, raws, skipped, notes } = segment(text);
-  const docId = header['doc id'] ?? header['source id'] ?? fallbackDocId;
+  const docId = header['document id'] ?? header['doc id'] ?? header['source id'] ?? fallbackDocId;
   const owner = (header['owner'] ?? 'Unassigned').replace(/ Knowledge Team$| Team$/, '');
   const dateRange = parseDateRange(header['effective'] ?? header['effective period'] ?? header['effective dates'] ?? header['last edited']);
   const effective = dateRange.start ?? '2026-01-01';
@@ -739,14 +800,20 @@ export function extract(text: string, approved: KnowledgeUnit[], previous?: Cand
   const revision = header['revision'] ?? header['source revision'] ?? undefined;
   const planScope = header['plan scope'] ?? header['scope'] ?? undefined;
   const classification = header['classification'] ?? undefined;
-  const allowedRolesRaw = header['allowed roles'] ?? header['allowed role'] ?? header['roles'] ?? undefined;
-  const allowedRoles = allowedRolesRaw
+  const allowedRolesRaw = header['allowed roles'] ?? header['allowed role'] ?? header['roles'] ?? header['audience'] ?? undefined;
+  let allowedRoles = allowedRolesRaw
     ? allowedRolesRaw
         .replace(/[\[\]"]/g, '')
         .split(/[,|]/)
         .map((r) => r.trim().replace(/^["']|["']$/g, ''))
         .filter(Boolean)
     : undefined;
+
+  if (allowedRolesRaw && /insurance/i.test(allowedRolesRaw) && !allowedRoles?.includes('insurance_advocate')) {
+    allowedRoles = ['insurance_advocate', 'member_chat'];
+  } else if (allowedRolesRaw && /pharmacy/i.test(allowedRolesRaw) && !allowedRoles?.includes('pharmacy_advocate')) {
+    allowedRoles = ['pharmacy_advocate', 'member_chat'];
+  }
   const live = approved.filter((u) => u.status === 'approved');
 
   const candidates = raws.map((r, i): CandidateUnit => {
@@ -771,7 +838,9 @@ export function extract(text: string, approved: KnowledgeUnit[], previous?: Cand
     let best: { u: KnowledgeUnit; sim: number } | null = null;
     for (const u of live) {
       if (u.verbatim !== r.verbatim) continue; // a script line never matches a fact, and the reverse
-      const sim = jaccard(u.body, r.body);
+      const bodySim = jaccard(u.body, r.body);
+      const titleSim = jaccard(u.title, r.title);
+      const sim = Math.max(bodySim, titleSim > 0.35 ? bodySim * 0.65 + titleSim * 0.35 : bodySim);
       if (!best || sim > best.sim) best = { u, sim };
     }
     let status: MatchStatus = 'new';
@@ -781,9 +850,19 @@ export function extract(text: string, approved: KnowledgeUnit[], previous?: Cand
       status = 'changed';
       drift = checkChange(best.u.body, r.body, best.u.verbatim);
     }
-    const kb = kbFor(docId, r.verbatim, r.section);
+    const kb = kbFor(docId, r.verbatim, r.section, owner);
     const route = status === 'unchanged' ? 'none' : drift ? drift.route_to : r.verbatim ? 'Legal (verbatim)' : 'Author';
     const synonyms = [...new Set(contentWords(r.title).slice(0, 3))];
+    const combinedText = `${r.title} ${r.body}`.toLowerCase();
+    if (combinedText.includes("day supply") || combinedText.includes("days supply")) {
+      synonyms.push("days supply", "day supply");
+    }
+    if (combinedText.includes("90-day") || combinedText.includes("90 day")) {
+      synonyms.push("90 day", "90-day");
+    }
+    if (combinedText.includes("mail order") || combinedText.includes("mail-order")) {
+      synonyms.push("mail order");
+    }
 
     return {
       cid,

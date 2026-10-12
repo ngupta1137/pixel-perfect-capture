@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Lock, ShieldAlert, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,8 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RequirePage } from "@/components/shell/Denied";
 import { Chip, Lifecycle, WordDiff } from "@/components/authoring/Chain";
 import { useSession } from "@/lib/session";
-import { useDemoStore, type ChainDraft } from "@/services/demoStore";
-import { decideBlocker, decideChainDraft, editDraftWording, startReview } from "@/services/verity";
+import { useDemoStore, type ChainDraft, type ChainStatus, updateDemoState } from "@/services/demoStore";
+import {
+  decideBlocker,
+  decideChainDraft,
+  editDraftWording,
+  startReview,
+  fetchReviewQueue,
+} from "@/services/verity";
 
 export const Route = createFileRoute("/legal")({
   head: () => ({
@@ -39,6 +45,72 @@ export const Route = createFileRoute("/legal")({
 function LegalPage() {
   const drafts = useDemoStore((s) => s.chainDrafts);
   const units = useDemoStore((s) => s.units);
+
+  useEffect(() => {
+    async function syncQueue() {
+      try {
+        const items = await fetchReviewQueue();
+        const legalItems = items.filter(
+          (it) =>
+            it.type === "Legal" ||
+            it.assigned_reviewer?.toLowerCase().includes("legal") ||
+            it.title.toLowerCase().includes("consolidated") ||
+            it.id.startsWith("REV-CONF-S04")
+        );
+        if (legalItems.length > 0) {
+          updateDemoState((s) => {
+            const newChain = [...s.chainDrafts];
+            for (const item of legalItems) {
+              const existingIdx = newChain.findIndex(
+                (d) => d.id === item.id || d.unit_id === item.unit_id
+              );
+              const isApproved = item.status === "Approved";
+              const isRejected = item.status === "Rejected";
+              const mapped: ChainDraft = {
+                id: item.id,
+                cid: item.id,
+                unit_id: item.unit_id || "U-PH-091",
+                title: item.title,
+                current_text:
+                  item.section || "Conflicting versions between U-PH-007 (90-day) and U-PH-107 (100-day)",
+                proposed_text: item.content,
+                verbatim: item.type === "Legal",
+                route: "legal",
+                owner_team: item.lob || "Pharmacy Ops",
+                effective_date: item.suggested_effective_date || "2026-03-01",
+                tags:
+                  item.key_points && item.key_points.length > 0
+                    ? item.key_points
+                    : ["90-day supply authoritative", "100-day pilot discontinued", "Supersedes U-PH-007 and U-PH-107"],
+                proposed_by: (item as any).proposer || "Owen (Knowledge owner)",
+                status: isApproved ? "approved" : isRejected ? "rejected" : "in_review",
+                gate: { checked: 27, blocking: [] },
+                reason: item.reviewer_notes || null,
+                decided_by: isApproved ? item.assigned_reviewer : null,
+                history: (item.history || []).map((h) => ({
+                  status: (h.action?.toLowerCase().includes("approve") ? "approved" : "proposed") as ChainStatus,
+                  at: h.at || new Date().toISOString(),
+                  by: h.by || "Owen (Knowledge owner)",
+                  note: h.note,
+                })),
+                supersedes: item.supersedes,
+              };
+              if (existingIdx >= 0) {
+                newChain[existingIdx] = { ...mapped, ...newChain[existingIdx] };
+              } else {
+                newChain.unshift(mapped);
+              }
+            }
+            return { ...s, chainDrafts: newChain };
+          });
+        }
+      } catch (err) {
+        console.warn("Could not sync review queue into legal page:", err);
+      }
+    }
+    void syncQueue();
+  }, []);
+
   const open = drafts.filter((d) => d.status === "proposed" || d.status === "in_review");
   const decided = drafts.filter((d) => d.status === "approved" || d.status === "rejected");
   return (
@@ -134,7 +206,7 @@ function DraftCard({ d }: { d: ChainDraft }) {
           {d.route === "legal" ? "Needs Legal" : `Needs owner (${d.owner_team})`}
         </Chip>
         {d.verbatim && <Chip tone="bad">Verbatim</Chip>}
-        {d.tags.map((t) => (
+        {(d.tags || []).map((t) => (
           <Chip key={t} tone="info">
             {t}
           </Chip>

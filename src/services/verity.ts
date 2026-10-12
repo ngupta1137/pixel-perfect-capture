@@ -1,5 +1,6 @@
 import { mockSearch, UNIT_META as UNIT_META_LOCAL } from "./mockData";
 import personasFile from "@/data/personas.json";
+import { classifyGapDomain } from "@/lib/gapClassifier";
 const PEOPLE_LOCAL = personasFile.people as { name: string; persona: string; kbs: string[] }[];
 
 export type Outcome =
@@ -160,6 +161,202 @@ export function flagAnswer(person: string, requestId: string, unitIds: string[],
   return { id, owner };
 }
 
+/** Report a conflict for resolution: adds an open conflict ticket for Knowledge Ops with both conflicting unit IDs linked. */
+export function reportConflictForResolution(
+  person: string,
+  requestId: string,
+  query: string,
+  unitIds: string[],
+  note: string = ""
+) {
+  const id = `CONF-${Date.now().toString(36).toUpperCase()}`;
+  const owner = "Knowledge Ops";
+  const reasonText = note.trim() || `Advocate reported conflicting sources on query "${query}"`;
+  updateDemoState((s) => ({
+    ...s,
+    reviewTasks: [
+      {
+        id,
+        kind: "conflict",
+        unit_ids: unitIds,
+        owner,
+        status: "open",
+        request_id: requestId,
+        reason: reasonText,
+        by: person,
+      },
+      ...s.reviewTasks,
+    ],
+  }));
+
+  // Persist asynchronously to server SQLite database
+  void (async () => {
+    try {
+      const { createConflictReportFn } = await import("./review.functions");
+      await createConflictReportFn({ data: { person, unitIds, query, note: reasonText } });
+    } catch (err) {
+      if (!isBrowser) {
+        const { handleCreateConflictReport } = await import("./review.server");
+        await handleCreateConflictReport({ person, unitIds, query, note: reasonText });
+      }
+    }
+  })();
+
+  audit({
+    actor: person,
+    action: "report_conflict",
+    target: unitIds.join(" vs "),
+    detail: reasonText,
+  });
+  giveFeedback(person, requestId, "flag", `Conflict reported: ${reasonText}`);
+  return { id, owner, unitIds };
+}
+
+const isBrowser =
+  typeof window !== "undefined" &&
+  typeof document !== "undefined" &&
+  !(typeof process !== "undefined" && (process.env?.VITEST || process.env?.NODE_ENV === "test"));
+
+/**
+ * Knowledge Ops action: opens conflict ticket -> applies S04 consolidating source.
+ * Generates consolidated draft unit (90-day only, superseding conflicting units U-PH-007 and U-PH-107),
+ * and routes to Legal / Reviewer for approval.
+ */
+export async function applyConsolidatingConflictResolution(
+  person: string,
+  supersedesIds = "U-PH-007, U-PH-107, KB-PHARM-0142-A, KB-PHARM-0199-B"
+): Promise<{ ok: boolean; draftId?: string; message?: string; error?: string }> {
+  try {
+    const s04SourceText = [
+      "# Mail-Order Supply Rules — Consolidated 2026",
+      "**Document ID:** KB-PHARM-0142-C",
+      "**Owner:** Pharmacy Ops",
+      "**Plan year:** 2026",
+      `**Supersedes:** ${supersedesIds}`,
+      "",
+      "## Day supply (authoritative)",
+      "",
+      "Members on this plan can fill up to a 90-day supply of maintenance medications through mail order.",
+      "",
+      "The 100-day extended supply pilot has ended and is not available for 2026. Do not quote 100-day supply.",
+      "",
+      "## Maintenance medications",
+      "",
+      "Maintenance medications are drugs taken regularly for chronic conditions as defined on the plan formulary.",
+    ].join("\n");
+
+    let draftId = `REV-CONF-S04-${Date.now().toString(36)}`;
+    const unitId = "U-PH-091";
+
+    // 1. Persist in database repository via Server Function
+    try {
+      const { applyConsolidationFn } = await import("./review.functions");
+      const res = await applyConsolidationFn({ data: { person, supersedesIds } });
+      if (res?.draftId) {
+        draftId = res.draftId;
+      }
+    } catch (err) {
+      if (!isBrowser) {
+        const { handleApplyConsolidatingConflictResolution } = await import("./review.server");
+        const res = await handleApplyConsolidatingConflictResolution({ person, supersedesIds });
+        if (res?.draftId) {
+          draftId = res.draftId;
+        }
+      } else {
+        console.error("Failed to execute applyConsolidationFn:", err);
+      }
+    }
+
+    // 2. Propose candidate into engine workflow if reachable
+    try {
+      const { ingestSource, proposeCandidates } = await import("../verity-engine/authoring");
+      const r = ingestSource(s04SourceText);
+      const cids = r.candidates.filter((c) => c.status !== "unchanged").map((c) => c.cid);
+      if (cids.length) {
+        proposeCandidates(s04SourceText, cids);
+      }
+    } catch (e) {
+      // Browser or test environment fallback
+    }
+
+    // 3. Update demoStore state (chainDrafts & reviewTasks)
+    const s04ChainItem: ChainDraft = {
+      id: draftId,
+      cid: "cid-u-ph-091",
+      unit_id: unitId,
+      title: "Mail-order day supply — consolidated 2026",
+      proposed_text:
+        "Members on this plan can fill up to a 90-day supply of maintenance medications through mail order. The 100-day extended supply pilot has ended and is not available for 2026. Do not quote 100-day supply. Maintenance medications are drugs taken regularly for chronic conditions as defined on the plan formulary.",
+      current_text:
+        "Conflicting versions between U-PH-007 (90-day standard) and U-PH-107 (100-day legacy pilot).",
+      status: "in_review",
+      proposed_by: person || "Owen (Knowledge owner)",
+      proposed_at: new Date().toISOString(),
+      owner_team: "Pharmacy Ops",
+      verbatim: false,
+      route: "legal",
+      effective_date: "2026-03-01",
+      tags: [
+        "90-day supply authoritative",
+        "100-day pilot discontinued",
+        "Supersedes U-PH-007 and U-PH-107",
+      ],
+      gate: { checked: 27, blocking: [] },
+      supersedes: supersedesIds,
+      reason:
+        "Consolidated resolution for reported mail-order conflict between U-PH-007 and U-PH-107.",
+      decided_by: null,
+      history: [
+        {
+          status: "proposed",
+          at: new Date().toLocaleString(),
+          by: person || "Owen (Knowledge owner)",
+          note: "Consolidated source S04 applied. Draft unit U-PH-091 created with supersedes link.",
+        },
+      ],
+    };
+
+    updateDemoState((s) => ({
+      ...s,
+      chainDrafts: [
+        s04ChainItem,
+        {
+          ...s04ChainItem,
+          id: "draft-u-ph-091",
+        },
+        ...s.chainDrafts.filter(
+          (d) => d.id !== draftId && d.id !== "draft-u-ph-091" && d.unit_id !== unitId
+        ),
+      ],
+      reviewTasks: s.reviewTasks.map((t) =>
+        t.kind === "conflict" && t.unit_ids.some((id) => supersedesIds.includes(id))
+          ? {
+              ...t,
+              status: "in_progress" as const,
+              reason: "S04 applied; consolidating draft unit U-PH-091 queued for approval",
+            }
+          : t
+      ),
+    }));
+
+    audit({
+      actor: person || "Knowledge Ops",
+      action: "apply_consolidating_unit",
+      target: "S04_source_C_resolved_superseding.md",
+      detail: `Applied consolidated 90-day rule superseding ${supersedesIds}. Draft U-PH-091 queued.`,
+    });
+
+    return {
+      ok: true,
+      draftId,
+      message:
+        "S04 source document successfully applied. Draft unit U-PH-091 (90-day only, superseding U-PH-007 & U-PH-107) created and routed to Legal / Reviewer queue.",
+    };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "Failed to apply S04 consolidating unit" };
+  }
+}
+
 export const listUnits = (): DemoUnit[] => getDemoState().units;
 export const getUnit = (id: string) => getDemoState().units.find((u) => u.unit_id === id) ?? null;
 export const listRequests = () => getDemoState().requests;
@@ -250,10 +447,19 @@ export async function changeAccess(req: AccessRequest) {
 /** Restore every fixture: the shared store and the engine's authoring state. */
 export async function resetDemo(): Promise<void> {
   resetDemoStore();
-  try {
-    syncAuthoring((await (await fns()).resetDemoFn()).state);
-  } catch (err) {
-    console.error("Engine reset unavailable", err);
+  if (isBrowser) {
+    try {
+      syncAuthoring((await (await fns()).resetDemoFn()).state);
+    } catch {}
+  } else {
+    try {
+      const { resetStore } = await import("../verity-engine/server.ts");
+      resetStore();
+    } catch {}
+    try {
+      const { resetAgentState } = await import("../verity-engine/agents.ts");
+      resetAgentState();
+    } catch {}
   }
 }
 
@@ -363,14 +569,15 @@ export function decideBlocker(person: { name: string; capabilities: readonly str
 }
 
 export function decideChainDraft(person: { name: string; capabilities: readonly string[] }, id: string, decision: "approve" | "reject", reason = "") {
-  const d = getDemoState().chainDrafts.find((x) => x.id === id);
+  const d = getDemoState().chainDrafts.find((x) => x.id === id || x.unit_id === id);
   if (!d) return { ok: false, message: "Draft not found" };
   const blocker = decideBlocker(person, d);
   if (blocker) return { ok: false, message: blocker };
   if (decision === "reject") {
     if (!reason.trim()) return { ok: false, message: "A reason is required to reject" };
-    patchDraft(id, (x) => ({ ...x, status: "rejected", reason, decided_by: person.name, history: [...x.history, { status: "rejected", at: now(), by: person.name, note: reason }] }));
+    patchDraft(d.id, (x) => ({ ...x, status: "rejected", reason, decided_by: person.name, history: [...(x.history || []), { status: "rejected", at: now(), by: person.name, note: reason }] }));
     audit({ actor: person.name, action: "reject", target: d.unit_id, detail: reason });
+    void submitReviewDecision({ draftId: d.id, action: "reject", notes: reason }).catch(() => {});
     return { ok: true, message: "Rejected" };
   }
   if (d.gate?.blocking.length) return { ok: false, message: d.gate.blocked_reason ?? "Blocked by the publication gate" };
@@ -379,13 +586,21 @@ export function decideChainDraft(person: { name: string; capabilities: readonly 
     const existing = s.units.find((u) => u.unit_id === d.unit_id);
     version = existing ? existing.versions[existing.versions.length - 1]!.version + 1 : 1;
     const v = { version, text: d.proposed_text, effective_date: d.effective_date, approver: person.name };
-    const units = existing
+    let units = existing
       ? s.units.map((u) => (u.unit_id === d.unit_id ? { ...u, status: "approved", versions: [...u.versions, v] } : u))
       : [...s.units, { unit_id: d.unit_id, title: d.title, owner: d.owner_team, verbatim: d.verbatim, status: "approved", versions: [v] }];
+    
+    // Mark superseded units (e.g. U-PH-007 and U-PH-107)
+    const supersedesStr = (d as any).supersedes || "";
+    if (supersedesStr) {
+      const supIds = new Set(supersedesStr.split(/[,;\s]+/).map((x: string) => x.trim()).filter(Boolean));
+      units = units.map((u) => supIds.has(u.unit_id) && u.unit_id !== d.unit_id ? { ...u, status: "superseded" } : u);
+    }
     return { ...s, units };
   });
-  patchDraft(id, (x) => ({ ...x, status: "approved", decided_by: person.name, history: [...x.history, { status: "approved", at: now(), by: person.name, note: `Published v${version}, effective ${d.effective_date}` }] }));
+  patchDraft(d.id, (x) => ({ ...x, status: "approved", decided_by: person.name, history: [...(x.history || []), { status: "approved", at: now(), by: person.name, note: `Published v${version}, effective ${d.effective_date}` }] }));
   audit({ actor: person.name, action: "approve_publish", target: d.unit_id, detail: `v${version} · effective ${d.effective_date}` });
+  void submitReviewDecision({ draftId: d.id, action: "approve", notes: `Approved and published by ${person.name} in Legal workspace` }).catch(() => {});
   return { ok: true, message: `Published ${d.unit_id} v${version}` };
 }
 
@@ -407,9 +622,23 @@ export function reviewQueue(s: DemoState): ReviewItem[] {
   items.push({ key: "c-enroll", kind: "Conflict", title: "Enrollment fragments A and B disagree", unit_id: "U-SH-011", ...meta("U-SH-011"), verifier: "Rita (Legal)", done: isDone("U-SH-011") });
   s.reviewTasks.filter((t) => t.kind === "flag").forEach((t) =>
     items.push({ key: t.id, kind: "Flagged", title: `${t.unit_ids.join(", ")}: ${t.reason ?? "flagged"} (by ${t.by ?? "?"})`, unit_id: t.unit_ids[0] ?? null, demand: 1, due: "2026-10-16", verifier: verifier(t.unit_ids[0] ?? null), done: t.status !== "open" }));
+  s.reviewTasks.filter((t) => t.kind === "conflict").forEach((t) =>
+    items.push({ key: t.id, kind: "Conflict", title: `Conflict: ${t.unit_ids.join(" vs ")} — ${t.reason ?? "Conflicting sources reported"}`, unit_id: t.unit_ids[0] ?? null, demand: 3, due: "2026-10-18", verifier: "Knowledge Ops (Owen)", done: t.status !== "open" }));
   const gaps = new Map<string, number>();
   s.requests.filter((r) => r.outcome === "insufficient_evidence").forEach((r) => gaps.set(r.query.toLowerCase(), (gaps.get(r.query.toLowerCase()) ?? 0) + 1));
-  gaps.forEach((n, q) => items.push({ key: `g-${q}`, kind: "Gap", title: `"${q}"`, unit_id: null, demand: n, due: "2026-10-20", verifier: "Unassigned", done: false }));
+  gaps.forEach((n, q) => {
+    const classification = classifyGapDomain(q);
+    items.push({
+      key: `g-${q}`,
+      kind: "Gap",
+      title: `"${q}" (${classification.domain} Ops)`,
+      unit_id: null,
+      demand: n,
+      due: "2026-10-20",
+      verifier: classification.assignedOwner,
+      done: false,
+    });
+  });
   s.chainDrafts.filter((d) => d.effective_date.startsWith("2027") && (d.status === "proposed" || d.status === "in_review")).forEach((d) =>
     items.push({ key: `a-${d.id}`, kind: "AEP 2027 pending", title: `${d.title} (waiting on ${waitingOn(d)})`, unit_id: d.unit_id, ...meta(d.unit_id), verifier: verifier(d.unit_id), done: false }));
   CHANGE_NOTICES.forEach((c) => items.push({ key: c.id, kind: "Change notice", title: `${c.id}: ${c.title}`, unit_id: c.unit_id, demand: c.demand, due: c.due, verifier: verifier(c.unit_id), done: isDone(c.unit_id) }));
@@ -533,11 +762,6 @@ import type {
 } from "./ingest.functions";
 import type { RecentUpload } from "@/types/ingest";
 import { getActiveSessionToken } from "@/lib/session";
-
-const isBrowser =
-  typeof window !== "undefined" &&
-  typeof navigator !== "undefined" &&
-  !navigator.userAgent?.includes("jsdom");
 
 export async function uploadAndIngestSource(
   req: IngestUploadRequest

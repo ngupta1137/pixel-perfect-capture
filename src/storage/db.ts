@@ -6,6 +6,14 @@ import { runMigrations } from "./migrations";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+// Safe loading of local environment in Node runtime if process.env is unpopulated
+try {
+  if (typeof process !== "undefined" && typeof (process as any).loadEnvFile === "function") {
+    try { (process as any).loadEnvFile(".env.local"); } catch {}
+    try { (process as any).loadEnvFile(".env"); } catch {}
+  }
+} catch {}
+
 let dbInstance: Kysely<DatabaseSchema> | null = null;
 let migrationPromise: Promise<void> | null = null;
 let activeDatabaseType: "postgres" | "sqlite" = "sqlite";

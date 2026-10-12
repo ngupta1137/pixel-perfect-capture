@@ -12,20 +12,23 @@ import {
   resolveRequestUser,
   type AuthenticatedUser,
 } from "./auth.server";
+import { classifyGapDomain } from "../lib/gapClassifier";
 
 export { resolveRequestUser };
 
 /**
- * Seed initial operational drafts into the persistent database if the table is empty.
+ * Seed initial operational drafts into the persistent database if missing.
  * This guarantees the review queue and drafts are backed by real SQLite records.
  */
 export async function seedInitialDraftsIfEmpty(repo: StorageRepository = repository): Promise<void> {
   try {
     const existing = await repo.listDrafts();
-    if (existing.length > 0) return;
+    const existingIds = new Set(existing.map((d) => d.draft_id));
+    const missing = INITIAL_REVIEW_QUEUE.filter((it) => !existingIds.has(it.id));
+    if (missing.length === 0) return;
 
     const now = new Date();
-    const seeds = INITIAL_REVIEW_QUEUE.map((it, idx) => {
+    const seeds = missing.map((it, idx) => {
       const isLegal =
         it.assigned_reviewer?.toLowerCase().includes("legal") ||
         (it.type === "Policy" && idx === 2);
@@ -36,6 +39,8 @@ export async function seedInitialDraftsIfEmpty(repo: StorageRepository = reposit
         Approved: "approved",
         Rejected: "rejected",
       };
+
+      const isConflict = it.id.startsWith("REV-CONF") || it.id.startsWith("CONF-");
 
       return {
         draft_id: it.id,
@@ -48,7 +53,7 @@ export async function seedInitialDraftsIfEmpty(repo: StorageRepository = reposit
         candidate_type: it.type || "Policy",
         verbatim: isLegal ? 1 : 0,
         route_to: (isLegal ? "legal" : "owner") as "owner" | "legal",
-        owner_team: "Pharmacy Ops",
+        owner_team: isConflict ? "Knowledge Ops" : "Pharmacy Ops",
         knowledge_base: "KB-PHARM",
         effective_date: it.suggested_effective_date || "2026-01-01",
         tags_json: JSON.stringify(it.key_points || []),
@@ -56,6 +61,7 @@ export async function seedInitialDraftsIfEmpty(repo: StorageRepository = reposit
         status: statusMap[it.status] || "proposed",
         reason: it.reviewer_notes || null,
         decided_by: it.status === "Approved" ? "Owen (Knowledge owner)" : null,
+        supersedes: it.supersedes || null,
         gate_json: JSON.stringify({ checked: 27, blocking: [] }),
         history_json: JSON.stringify(
           it.history || [
@@ -111,10 +117,27 @@ export function draftTableToReviewQueueItem(
 
   const status: ReviewStatus = statusMap[draft.status] || "Pending review";
   const isLegal = draft.verbatim === 1 || draft.route_to === "legal";
-  const isDemo = !draft.source_doc_id || draft.draft_id.startsWith("REV-");
+  const isInsurance =
+    draft.knowledge_base === "KB-INS" ||
+    draft.owner_team?.toLowerCase().includes("insurance") ||
+    classifyGapDomain(draft.title + " " + (draft.proposed_text || "")).domain === "Insurance";
+  const isConflict =
+    draft.draft_id.startsWith("CONF-") ||
+    draft.draft_id.startsWith("REV-CONF-001") ||
+    draft.owner_team === "Knowledge Ops" ||
+    draft.title.toLowerCase().includes("conflict");
+  const isDemo = !draft.source_doc_id || draft.draft_id.startsWith("REV-") || draft.draft_id.startsWith("CONF-");
   const section =
     candidateMeta?.source_section ||
     (isDemo ? "Section 4.2" : "Section 1");
+
+  const assignedReviewer = isLegal
+    ? "Rita (Legal / Compliance approver)"
+    : isConflict
+    ? "Knowledge Ops (Owen)"
+    : isInsurance
+    ? "Olivia (Knowledge owner)"
+    : "Owen (Knowledge owner)";
 
   return {
     id: draft.draft_id,
@@ -127,9 +150,9 @@ export function draftTableToReviewQueueItem(
         ? draft.proposed_text.slice(0, 107) + "..."
         : draft.proposed_text,
     content: draft.proposed_text,
-    source_doc: docTitle || draft.source_doc_id || "Member Services Guide v3",
-    section,
-    type: (draft.candidate_type as any) || "Policy",
+    source_doc: docTitle || draft.source_doc_id || (isConflict ? "Conflict Report: U-PH-007 vs U-PH-107" : "Member Services Guide v3"),
+    section: isConflict ? "Mail Order Maintenance Supply" : section,
+    type: (draft.candidate_type as any) || (isConflict ? "Procedure" : "Policy"),
     status,
     extracted_on: new Date(draft.created_at).toLocaleDateString("en-GB", {
       day: "2-digit",
@@ -141,8 +164,8 @@ export function draftTableToReviewQueueItem(
     suggested_effective_date: draft.effective_date || "2026-01-01",
     key_points: keyPoints.length > 0 ? keyPoints : [draft.title],
     reviewer_notes: draft.reason || undefined,
-    assigned_reviewer: isLegal ? "Rita (Legal / Compliance approver)" : "Owen (Knowledge owner)",
-    demand: 38,
+    assigned_reviewer: assignedReviewer,
+    demand: isConflict ? 64 : 38,
     due_date: "2026-02-15",
     version: draft.version || 1,
     version_id: draft.version_id || undefined,
@@ -150,6 +173,163 @@ export function draftTableToReviewQueueItem(
     duplicate_of: draft.duplicate_of || undefined,
     is_duplicate_review: Boolean(draft.duplicate_of || draft.unit_id?.includes("DUP")),
     history,
+  };
+}
+
+/**
+ * Handle persistent conflict ticket creation in Knowledge Ops review queue.
+ */
+export async function handleCreateConflictReport(
+  req: {
+    person: string;
+    unitIds: string[];
+    query: string;
+    note?: string;
+  },
+  repo: StorageRepository = repository
+): Promise<{ ok: boolean; ticketId: string }> {
+  const ticketId = `CONF-${Date.now().toString(36).toUpperCase()}`;
+  const reasonText = (req.note || "").trim() || `Advocate reported conflicting sources on query "${req.query}"`;
+  const unitList = req.unitIds.length > 0 ? req.unitIds.join(", ") : "U-PH-007, U-PH-107";
+  const title = `Conflict Ticket: Days supply by mail (90-day vs 100-day)`;
+
+  await repo.createDrafts([
+    {
+      draft_id: ticketId,
+      candidate_id: null,
+      source_doc_id: null,
+      unit_id: unitList,
+      title,
+      proposed_text: [
+        "Conflicting source guidance identified between approved units:",
+        "• U-PH-007 (Pharmacy Ops): A 90-day supply is available by mail for most maintenance medications.",
+        "• U-PH-107 (Outbound Pharmacy): Members can get up to a 100-day supply of maintenance medications by mail.",
+        "",
+        `Advocate Note: "${reasonText}"`,
+        "",
+        "Resolution workflow: Knowledge Ops opens ticket and applies consolidating source document S04 (90-day supply only), marking both U-PH-007 and U-PH-107 superseded. Legal / Reviewer approves the consolidated draft.",
+      ].join("\n"),
+      current_text: `Conflicting units: ${unitList}`,
+      candidate_type: "Procedure",
+      verbatim: 0,
+      route_to: "owner",
+      owner_team: "Knowledge Ops",
+      knowledge_base: "KB-PHARM",
+      effective_date: "2026-03-01",
+      tags_json: JSON.stringify([
+        `Conflicting: ${unitList}`,
+        `Reported by ${req.person}`,
+        "Resolution: Upload or apply S04 consolidating unit",
+      ]),
+      proposed_by: `${req.person} (Pharmacy advocate)`,
+      status: "proposed",
+      reason: reasonText,
+      decided_by: null,
+      gate_json: JSON.stringify({ checked: 27, blocking: [] }),
+      history_json: JSON.stringify([
+        {
+          action: "Conflict reported for resolution",
+          by: `${req.person} (Pharmacy advocate)`,
+          at: new Date().toLocaleString(),
+          note: reasonText,
+        },
+      ]),
+      supersedes: unitList,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  ]);
+
+  return { ok: true, ticketId };
+}
+
+/**
+ * Knowledge Ops action: opens conflict ticket -> applies S04 consolidating source.
+ * Generates consolidated draft unit (90-day only, superseding conflicting units U-PH-007 and U-PH-107),
+ * persists it in PostgreSQL/SQLite database, and routes to Legal for approval.
+ */
+export async function handleApplyConsolidatingConflictResolution(
+  req: {
+    person: string;
+    supersedesIds?: string;
+  },
+  repo: StorageRepository = repository
+): Promise<{ ok: boolean; draftId: string; message: string }> {
+  const draftId = `REV-CONF-S04-${Date.now().toString(36)}`;
+  const unitId = "U-PH-091";
+  const supersedesIds =
+    req.supersedesIds || "U-PH-007, U-PH-107, KB-PHARM-0142-A, KB-PHARM-0199-B";
+
+  // 1. Persist the consolidating draft into database (source_doc_id: null, candidate_id: null)
+  await repo.createDrafts([
+    {
+      draft_id: draftId,
+      candidate_id: null,
+      source_doc_id: null,
+      unit_id: unitId,
+      title: "Mail-order day supply — consolidated 2026",
+      proposed_text:
+        "Members on this plan can fill up to a 90-day supply of maintenance medications through mail order. The 100-day extended supply pilot has ended and is not available for 2026. Do not quote 100-day supply. Maintenance medications are drugs taken regularly for chronic conditions as defined on the plan formulary.",
+      current_text:
+        "Conflicting versions between U-PH-007 (90-day standard) and U-PH-107 (100-day legacy pilot).",
+      candidate_type: "Policy",
+      verbatim: 0,
+      route_to: "legal",
+      owner_team: "Pharmacy Ops",
+      knowledge_base: "KB-PHARM",
+      effective_date: "2026-03-01",
+      tags_json: JSON.stringify([
+        "90-day supply authoritative",
+        "100-day pilot discontinued",
+        "Supersedes U-PH-007 and U-PH-107",
+      ]),
+      proposed_by: req.person || "Owen (Knowledge owner)",
+      status: "proposed",
+      reason:
+        "Consolidated resolution for reported mail-order conflict between U-PH-007 and U-PH-107.",
+      supersedes: supersedesIds,
+      decided_by: null,
+      gate_json: JSON.stringify({ checked: 27, blocking: [] }),
+      history_json: JSON.stringify([
+        {
+          action: "S04 applied by Knowledge Ops",
+          by: req.person || "Owen (Knowledge owner)",
+          at: new Date().toLocaleString(),
+          note: "Consolidated source S04 applied. Draft unit U-PH-091 created with supersedes link.",
+        },
+      ]),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  ]);
+
+  // 2. Mark any open conflict tickets in the repository as resolved
+  try {
+    const existingDrafts = await repo.listDrafts();
+    for (const d of existingDrafts) {
+      if (
+        (d.draft_id.startsWith("CONF-") ||
+          d.draft_id === "REV-CONF-001" ||
+          (d.unit_id && d.unit_id.includes("U-PH-007") && d.unit_id.includes("U-PH-107"))) &&
+        d.draft_id !== draftId
+      ) {
+        if (d.status === "proposed") {
+          await repo.updateDraft(d.draft_id, {
+            status: "approved",
+            decided_by: req.person || "Owen (Knowledge owner)",
+            reason: `Resolved by applying S04 consolidating unit (${unitId} proposed).`,
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to mark conflict drafts resolved in repository:", err);
+  }
+
+  return {
+    ok: true,
+    draftId,
+    message: `Applied S04: Consolidated unit ${unitId} created and routed to Legal Approver (Rita).`,
   };
 }
 
@@ -168,9 +348,24 @@ export async function handleListReviewQueue(
 
   for (const doc of docs) {
     docMap.set(doc.id, { title: doc.title, lob: doc.lob });
-    const cands = await repo.getCandidatesByDocId(doc.id);
-    for (const c of cands) {
-      candidateMap.set(c.id, { source_section: c.source_section, source_reference: c.source_reference });
+  }
+
+  // Only query candidate metadata for the documents actually referenced by drafts
+  const referencedDocIds = [
+    ...new Set(drafts.map((d) => d.source_doc_id).filter(Boolean)),
+  ] as string[];
+
+  if (referencedDocIds.length > 0) {
+    const candidateResults = await Promise.all(
+      referencedDocIds.map((docId) => repo.getCandidatesByDocId(docId))
+    );
+    for (const cands of candidateResults) {
+      for (const c of cands) {
+        candidateMap.set(c.id, {
+          source_section: c.source_section,
+          source_reference: c.source_reference,
+        });
+      }
     }
   }
 
@@ -319,25 +514,41 @@ export async function handleDecideReviewItem(
       publishedUnit = {
         unit_id: draft.unit_id,
         title: draft.title,
-        type: (draft.candidate_type.toLowerCase() as any) || "fact",
+        type: (draft.candidate_type.toLowerCase() as any) || (existingLive?.type ?? "fact"),
         body: draft.proposed_text,
         verbatim: Boolean(draft.verbatim),
-        spoken_version: null,
-        knowledge_base: draft.knowledge_base || "KB-PHARM",
-        audience: ["advocate"],
-        channels: ["advocate_view", "member_chat", "voice"],
-        authority_level: draft.verbatim ? "legal_approved" : "knowledge_article",
-        source_doc: draft.source_doc_id || "Governed Document Ingestion",
-        source_section: "Section 1",
+        spoken_version: existingLive?.spoken_version || null,
+        knowledge_base: draft.knowledge_base || existingLive?.knowledge_base || "KB-PHARM",
+        audience: existingLive?.audience ?? (draft.verbatim ? ["advocate", "member"] : ["advocate"]),
+        channels: existingLive?.channels ?? ["advocate_view", "member_chat", "voice"],
+        authority_level: draft.verbatim ? "legal_approved" : (existingLive?.authority_level ?? "knowledge_article"),
+        source_doc: draft.source_doc_id || existingLive?.source_doc || "Governed Document Ingestion",
+        source_section: existingLive?.source_section || "Section 1",
         effective_date: draft.effective_date || "2026-01-01",
         review_date: "2027-01-01",
-        version: draft.version || (existingLive ? existingLive.version + 1 : 1),
+        version: draft.version && draft.version > (existingLive?.version ?? 0)
+          ? draft.version
+          : (existingLive ? existingLive.version + 1 : 1),
         status: "approved",
         supersedes: draft.supersedes || null,
-        synonyms: [draft.title],
-        owner: draft.owner_team || "Pharmacy Ops",
+        synonyms: existingLive?.synonyms ?? (() => {
+          const syns: string[] = [draft.title];
+          try {
+            const parsed = JSON.parse(draft.tags_json || "[]");
+            if (Array.isArray(parsed)) syns.push(...parsed);
+          } catch {}
+          const combined = `${draft.title} ${draft.proposed_text}`.toLowerCase();
+          if (combined.includes("day supply") || combined.includes("days supply")) {
+            syns.push("days supply", "day supply", "90 day", "100 day");
+          }
+          if (combined.includes("mail order") || combined.includes("mail-order")) {
+            syns.push("mail order");
+          }
+          return [...new Set(syns)];
+        })(),
+        owner: draft.owner_team || existingLive?.owner || "Pharmacy Ops",
         approved_by: reviewerAudit,
-        applies_to: { lob: ["MAPD"], states: "ALL", plan_year: 2026 },
+        applies_to: existingLive?.applies_to ?? { lob: ["MAPD"], states: "ALL", plan_year: 2026 },
       };
 
       const afterUnits = [...currentLive.filter((u) => u.unit_id !== draft.unit_id), publishedUnit];
@@ -358,7 +569,18 @@ export async function handleDecideReviewItem(
 
       // Sync in-memory demoStore
       updateDemoState((s) => {
-        const existingIdx = s.units.findIndex((u) => u.unit_id === draft.unit_id);
+        const supersededIds = new Set(
+          (publishedUnit.supersedes ? publishedUnit.supersedes.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean) : [])
+        );
+
+        let updated = s.units.map((u) => {
+          if (supersededIds.has(u.unit_id) || (u.source_doc && supersededIds.has(u.source_doc))) {
+            return { ...u, status: "superseded" };
+          }
+          return u;
+        });
+
+        const existingIdx = updated.findIndex((u) => u.unit_id === draft.unit_id);
         const newVersion = {
           version: publishedUnit.version,
           text: publishedUnit.body,
@@ -367,29 +589,36 @@ export async function handleDecideReviewItem(
           supersedes: publishedUnit.supersedes ?? undefined,
         };
         if (existingIdx >= 0) {
-          const updated = [...s.units];
           const cur = updated[existingIdx]!;
           updated[existingIdx] = {
             ...cur,
+            status: "approved",
             versions: [...cur.versions, newVersion],
           };
-          return { ...s, units: updated };
         } else {
-          return {
-            ...s,
-            units: [
-              ...s.units,
-              {
-                unit_id: draft.unit_id,
-                title: draft.title,
-                owner: draft.owner_team || "Pharmacy Ops",
-                verbatim: Boolean(draft.verbatim),
-                status: "approved",
-                versions: [newVersion],
-              },
-            ],
-          };
+          updated.push({
+            unit_id: draft.unit_id,
+            title: draft.title,
+            owner: draft.owner_team || "Pharmacy Ops",
+            verbatim: Boolean(draft.verbatim),
+            status: "approved",
+            versions: [newVersion],
+          });
         }
+
+        // Close any conflict tasks that referenced these superseded units
+        const updatedTasks = s.reviewTasks.map((t) => {
+          if (t.kind === "conflict" && t.unit_ids.some((id) => supersededIds.has(id))) {
+            return { ...t, status: "done" as const };
+          }
+          return t;
+        });
+
+        return {
+          ...s,
+          units: updated,
+          reviewTasks: updatedTasks,
+        };
       });
     } catch (err: any) {
       return {

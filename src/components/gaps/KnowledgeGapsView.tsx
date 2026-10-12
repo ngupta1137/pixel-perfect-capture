@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/select";
 import { SEEDED_KNOWLEDGE_GAPS, type KnowledgeGap, type GapType } from "@/types/gaps";
 import { useDemoStore } from "@/services/demoStore";
+import { classifyGapDomain } from "@/lib/gapClassifier";
 
 interface KnowledgeGapsViewProps {
   onCreateUnit?: (gap?: KnowledgeGap) => void;
@@ -38,6 +39,7 @@ interface KnowledgeGapsViewProps {
 
 export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
   const [activeTab, setActiveTab] = useState<"All" | GapType>("All");
+  const [selectedDomain, setSelectedDomain] = useState<"all" | "Pharmacy" | "Insurance">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLob, setSelectedLob] = useState("all");
   const [selectedState, setSelectedState] = useState("all");
@@ -56,10 +58,11 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
       .forEach((r, idx) => {
         // avoid duplicating if query exists
         if (!SEEDED_KNOWLEDGE_GAPS.some((g) => g.topic.toLowerCase() === r.query.toLowerCase())) {
+          const classification = classifyGapDomain(r.query);
           liveGaps.push({
             id: `LIVE-GAP-${idx + 1}`,
             topic: r.query,
-            description: `Session query logged as ${r.outcome.replace(/_/g, " ")}.`,
+            description: `Session query logged as ${r.outcome.replace(/_/g, " ")}. Logged in ${classification.domain} knowledge queue (${classification.ownerTeam}).`,
             type: r.outcome === "conflict" ? "Conflicting" : r.outcome === "stale" ? "Outdated" : "Insufficient",
             severity: "High",
             lastIdentified: new Date(r.at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
@@ -67,12 +70,21 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
             status: "Open",
             lob: r.context.lob || "MAPD",
             state: r.context.state || "All states",
-            summary: `Identified from live search by ${r.person}. Outcome: ${r.outcome}`,
-            reasons: ["Live session query without approved coverage", "High priority advocate query"],
+            domain: classification.domain,
+            knowledge_base: classification.kb,
+            ownerTeam: classification.ownerTeam,
+            assignedOwner: classification.assignedOwner,
+            summary: `Identified from live search by ${r.person}. Outcome: ${r.outcome}. Auto-routed to ${classification.domain} knowledge queue (${classification.kb}) for ${classification.assignedOwner}.`,
+            reasons: ["Live session query without approved coverage", `Intelligently routed to ${classification.ownerTeam} queue`, "High priority advocate query"],
             activity: [
               {
                 user: r.person,
                 action: "Logged during search",
+                date: new Date(r.at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+              },
+              {
+                user: "System (Intelligent Router)",
+                action: `Classified as ${classification.domain} and routed to ${classification.assignedOwner}`,
                 date: new Date(r.at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
               },
             ],
@@ -88,12 +100,18 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
       insufficient: allGaps.filter((g) => g.type === "Insufficient").length,
       conflicting: allGaps.filter((g) => g.type === "Conflicting").length,
       outdated: allGaps.filter((g) => g.type === "Outdated").length,
+      pharmacy: allGaps.filter((g) => (g.domain || classifyGapDomain(g.topic).domain) === "Pharmacy").length,
+      insurance: allGaps.filter((g) => (g.domain || classifyGapDomain(g.topic).domain) === "Insurance").length,
     };
   }, [allGaps]);
 
   const filteredGaps = useMemo(() => {
     return allGaps.filter((g) => {
       if (activeTab !== "All" && g.type !== activeTab) return false;
+      if (selectedDomain !== "all") {
+        const d = g.domain || classifyGapDomain(g.topic).domain;
+        if (d !== selectedDomain) return false;
+      }
       if (selectedLob !== "all" && g.lob !== selectedLob) return false;
       if (selectedSeverity !== "all" && g.severity.toLowerCase() !== selectedSeverity.toLowerCase()) return false;
       if (searchQuery.trim()) {
@@ -102,7 +120,7 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
       }
       return true;
     });
-  }, [allGaps, activeTab, selectedLob, selectedSeverity, searchQuery]);
+  }, [allGaps, activeTab, selectedDomain, selectedLob, selectedSeverity, searchQuery]);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -222,7 +240,7 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
 
       {/* Filter Bar */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative min-w-[280px] flex-1">
+        <div className="relative min-w-[240px] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
           <Input
             placeholder="Search gaps by topic, keyword..."
@@ -230,6 +248,20 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-9 pl-9 text-xs"
           />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-ink-muted">Domain / Queue</span>
+          <Select value={selectedDomain} onValueChange={(val: any) => setSelectedDomain(val)}>
+            <SelectTrigger className="h-9 w-40 text-xs font-medium">
+              <SelectValue placeholder="All domains" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All domains ({counts.all})</SelectItem>
+              <SelectItem value="Pharmacy">Pharmacy · Owen ({counts.pharmacy})</SelectItem>
+              <SelectItem value="Insurance">Insurance · Olivia ({counts.insurance})</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex items-center gap-2">
@@ -301,6 +333,7 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
                     />
                   </th>
                   <th className="px-4 py-3">Topic / question</th>
+                  <th className="px-4 py-3">Domain / Queue</th>
                   <th className="px-4 py-3">Gap type</th>
                   <th className="px-4 py-3">Severity</th>
                   <th className="px-4 py-3">Last identified</th>
@@ -327,6 +360,19 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
                       <td className="px-4 py-3.5 min-w-[220px]">
                         <p className="font-semibold text-ink text-[13px]">{gap.topic}</p>
                         <p className="mt-0.5 text-xs text-ink-muted line-clamp-1">{gap.description}</p>
+                      </td>
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        {(gap.domain || classifyGapDomain(gap.topic).domain) === "Insurance" ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                            <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                            Insurance · Olivia
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                            Pharmacy · Owen
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         {getGapTypeBadge(gap.type)}
@@ -450,6 +496,16 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
                 <div>
                   <h3 className="font-semibold text-ink mb-2">Details</h3>
                   <dl className="grid grid-cols-2 gap-y-2.5 text-xs">
+                    <dt className="text-ink-muted">Knowledge domain</dt>
+                    <dd className="font-semibold text-right text-ink">
+                      {selectedGap.domain ?? classifyGapDomain(selectedGap.topic).domain} ({selectedGap.knowledge_base ?? classifyGapDomain(selectedGap.topic).kb})
+                    </dd>
+
+                    <dt className="text-ink-muted">Assigned owner</dt>
+                    <dd className="font-semibold text-right text-[#1E5E2E]">
+                      {selectedGap.assignedOwner ?? classifyGapDomain(selectedGap.topic).assignedOwner}
+                    </dd>
+
                     <dt className="text-ink-muted">Gap type</dt>
                     <dd className="font-medium text-right">{getGapTypeBadge(selectedGap.type)}</dd>
 

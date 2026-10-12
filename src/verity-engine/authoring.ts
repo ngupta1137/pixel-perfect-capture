@@ -9,6 +9,7 @@ import type {
   AccessRequest, AccessView, InsightsView, SuggestionView,
   ActionResult, AuthoringState, CandidateView, DecideRequest, DraftView, GapCluster, IngestView, SampleSource, UnitRow,
 } from "../services/authoring.ts";
+import { classifyGapDomain } from "../lib/gapClassifier.ts";
 
 const docs = sourceDocs as Record<string, string>;
 const RX = docs["rx_education_script_A.md"] ?? "";
@@ -62,6 +63,28 @@ const SAMPLES: SampleSource[] = [
       "",
       "[MAIL ORDER]",
       "Explain mail order benefits: meds delivered to home, 90-day supply available for most maintenance medications, possible savings vs. retail. Do NOT quote $ unless the pricing tool shows member-specific cost.",
+    ].join("\n"),
+  },
+  {
+    id: "s04-resolved",
+    label: "S04: Resolved mail order (superseding)",
+    hint: "Applies consolidated 90-day maintenance policy superseding conflicting units U-PH-007 and U-PH-107.",
+    text: [
+      "# Mail-Order Supply Rules — Consolidated 2026",
+      "**Document ID:** KB-PHARM-0142-C",
+      "**Owner:** Pharmacy Ops",
+      "**Plan year:** 2026",
+      "**Supersedes:** KB-PHARM-0142-A, KB-PHARM-0199-B, U-PH-007, U-PH-107",
+      "",
+      "## Day supply (authoritative)",
+      "",
+      "Members on this plan can fill up to a 90-day supply of maintenance medications through mail order.",
+      "",
+      "The 100-day extended supply pilot has ended and is not available for 2026. Do not quote 100-day supply.",
+      "",
+      "## Maintenance medications",
+      "",
+      "Maintenance medications are drugs taken regularly for chronic conditions as defined on the plan formulary.",
     ].join("\n"),
   },
 ];
@@ -138,6 +161,13 @@ function gaps(): GapCluster[] {
   return report.clusters.map((c) => {
     const near = c.nearest_existing_unit ? live.find((u) => u.unit_id === c.nearest_existing_unit!.unit_id) : undefined;
     const first = c.questions[0]?.text ?? c.cluster_id;
+    const clusterText = [c.draft_unit?.title, ...(c.questions ?? []).map((q) => q.text)].filter(Boolean).join(" ");
+    const classification = classifyGapDomain(clusterText);
+    const kb = near?.knowledge_base ?? (c.suggested_owner?.toLowerCase().includes("insurance") ? "KB-INS" : classification.kb);
+    const owner = near?.owner ?? (c.suggested_owner || classification.ownerTeam);
+    const suggestedOwner = c.suggested_owner
+      ? (c.suggested_owner.toLowerCase().includes("insurance") ? "Olivia (Knowledge owner)" : "Owen (Knowledge owner)")
+      : classification.assignedOwner;
     return {
       cluster_id: c.cluster_id,
       demand: c.demand,
@@ -145,13 +175,13 @@ function gaps(): GapCluster[] {
       gap_type: c.gap_type,
       nearest: c.nearest_existing_unit ? { unit_id: c.nearest_existing_unit.unit_id, title: c.nearest_existing_unit.title, owner: c.nearest_existing_unit.owner } : null,
       suggested_title: c.draft_unit.title ?? first.charAt(0).toUpperCase() + first.slice(1),
-      knowledge_base: near?.knowledge_base ?? "KB-PHARM",
-      owner: near?.owner ?? "Knowledge Ops",
+      knowledge_base: kb,
+      owner: owner,
       synonyms: c.draft_unit.synonyms ?? c.questions.map((q) => q.text),
       proposed_draft: gapDrafts.get(c.cluster_id) ?? null,
       first_seen: c.first_seen ?? null,
       age_days: c.age_days ?? null,
-      suggested_owner: c.suggested_owner ?? "Knowledge Ops (triage)",
+      suggested_owner: suggestedOwner,
       claimed_by: ownerQueue.gapClaim(c.cluster_id)?.by ?? null,
     };
   });
