@@ -14,6 +14,8 @@ import {
 } from "./auth.server";
 import { classifyGapDomain } from "../lib/gapClassifier";
 import { STATES } from "../verity-engine/extract";
+import { checkChange, normalizeForHash, hash } from "../verity-engine/drift";
+import { calculateSha256 } from "./ingestion/hasher";
 
 export { resolveRequestUser };
 
@@ -42,18 +44,28 @@ export async function seedInitialDraftsIfEmpty(repo: StorageRepository = reposit
       };
 
       const isConflict = it.id.startsWith("REV-CONF") || it.id.startsWith("CONF-");
+      const currentText = it.current_text || null;
+      const annotationsObj = {
+        ...(it.verbatim_drift ? { verbatim_drift: true } : {}),
+        ...(it.drift ? { drift: it.drift } : {}),
+        ...(currentText ? { current_text: currentText } : {}),
+        ...(it.drift?.sha256_before ? { sha256_before: it.drift.sha256_before } : {}),
+        ...(it.drift?.sha256_after ? { sha256_after: it.drift.sha256_after } : {}),
+        ...(it.drift?.hash_before ? { hash_before: it.drift.hash_before } : {}),
+        ...(it.drift?.hash_after ? { hash_after: it.drift.hash_after } : {}),
+      };
 
       return {
         draft_id: it.id,
         candidate_id: null,
-        source_doc_id: null,
+        source_doc_id: it.source_id || (it.id === "REV-S06-001" ? "SRC-S06-REVISED" : null),
         unit_id: it.unit_id || `U-PH-${String(idx + 1).padStart(3, "0")}`,
         title: it.title,
         proposed_text: it.content,
-        current_text: null,
+        current_text: currentText,
         candidate_type: it.type || "Policy",
-        verbatim: isLegal ? 1 : 0,
-        route_to: (isLegal ? "legal" : "owner") as "owner" | "legal",
+        verbatim: (isLegal || it.verbatim) ? 1 : 0,
+        route_to: (isLegal || it.verbatim_drift) ? "legal" : "owner",
         owner_team: isConflict ? "Knowledge Ops" : "Pharmacy Ops",
         knowledge_base: "KB-PHARM",
         effective_date: it.suggested_effective_date || "2026-01-01",
@@ -63,7 +75,7 @@ export async function seedInitialDraftsIfEmpty(repo: StorageRepository = reposit
         reason: it.reviewer_notes || null,
         decided_by: it.status === "Approved" ? "Owen (Knowledge owner)" : null,
         supersedes: it.supersedes || null,
-        gate_json: JSON.stringify({ checked: 27, blocking: [] }),
+        gate_json: JSON.stringify(it.gate || { checked: 27, blocking: [] }),
         history_json: JSON.stringify(
           it.history || [
             {
@@ -76,6 +88,7 @@ export async function seedInitialDraftsIfEmpty(repo: StorageRepository = reposit
         ),
         created_at: new Date(now.getTime() - (idx + 1) * 3600000).toISOString(),
         updated_at: new Date(now.getTime() - (idx + 1) * 3600000).toISOString(),
+        annotations_json: Object.keys(annotationsObj).length > 0 ? JSON.stringify(annotationsObj) : null,
       };
     });
 
@@ -117,7 +130,40 @@ export function draftTableToReviewQueueItem(
   };
 
   const status: ReviewStatus = statusMap[draft.status] || "Pending review";
-  const isLegal = draft.verbatim === 1 || draft.route_to === "legal";
+  let annotations: Record<string, any> = {};
+  try {
+    annotations = JSON.parse(draft.annotations_json || "{}");
+  } catch {}
+
+  let gate: any = undefined;
+  try {
+    gate = JSON.parse(draft.gate_json || "{}");
+  } catch {}
+
+  const isLegal = draft.verbatim === 1 || draft.route_to === "legal" || draft.candidate_type === "Legal";
+  const currentText = draft.current_text || annotations.current_text || null;
+
+  const hasVerbatimDrift = Boolean(
+    annotations.verbatim_drift ||
+    (isLegal && currentText && normalizeForHash(currentText) !== normalizeForHash(draft.proposed_text)) ||
+    (isLegal && draft.title.toLowerCase().includes("revised"))
+  );
+
+  let drift = annotations.drift || null;
+  if (!drift && currentText && normalizeForHash(currentText) !== normalizeForHash(draft.proposed_text)) {
+    drift = checkChange(currentText, draft.proposed_text, isLegal);
+  }
+  if (drift) {
+    if (!drift.sha256_before && currentText) {
+      drift.sha256_before = annotations.sha256_before || calculateSha256(Buffer.from(currentText, "utf-8"));
+    }
+    if (!drift.sha256_after) {
+      drift.sha256_after = annotations.sha256_after || calculateSha256(Buffer.from(draft.proposed_text, "utf-8"));
+    }
+    if (!drift.hash_before && currentText) drift.hash_before = hash(currentText);
+    if (!drift.hash_after) drift.hash_after = hash(draft.proposed_text);
+  }
+
   const isInsurance =
     draft.knowledge_base === "KB-INS" ||
     draft.owner_team?.toLowerCase().includes("insurance") ||
@@ -132,13 +178,26 @@ export function draftTableToReviewQueueItem(
     candidateMeta?.source_section ||
     (isDemo ? "Section 4.2" : "Section 1");
 
-  const assignedReviewer = isLegal
+  const assignedReviewer = (isLegal || hasVerbatimDrift)
     ? "Rita (Legal / Compliance approver)"
     : isConflict
     ? "Knowledge Ops (Owen)"
     : isInsurance
     ? "Olivia (Knowledge owner)"
     : "Owen (Knowledge owner)";
+
+  const effectiveGate = gate?.blocking?.length
+    ? gate
+    : hasVerbatimDrift
+    ? {
+        checked: 27,
+        blocking: [
+          "verbatim_drift",
+          "Contradicts approved verbatim unit: Legal re-approval required before publish (deterministic hash mismatch)",
+        ],
+        blocked_reason: "Blocked: contradicts approved verbatim unit. Exact wording altered — requires Legal Approver sign-off.",
+      }
+    : gate;
 
   return {
     id: draft.draft_id,
@@ -151,9 +210,11 @@ export function draftTableToReviewQueueItem(
         ? draft.proposed_text.slice(0, 107) + "..."
         : draft.proposed_text,
     content: draft.proposed_text,
+    current_text: currentText,
     source_doc: docTitle || draft.source_doc_id || (isConflict ? "Conflict Report: U-PH-007 vs U-PH-107" : "S01_source_Rx_Education_Script_Mail_Order_2026.docx"),
     section: isConflict ? "Mail Order Maintenance Supply" : section,
     type: (draft.candidate_type as any) || (isConflict ? "Procedure" : "Policy"),
+    verbatim: isLegal ? 1 : 0,
     status,
     extracted_on: new Date(draft.created_at).toLocaleDateString("en-GB", {
       day: "2-digit",
@@ -173,6 +234,9 @@ export function draftTableToReviewQueueItem(
     supersedes: draft.supersedes || undefined,
     duplicate_of: draft.duplicate_of || undefined,
     is_duplicate_review: Boolean(draft.duplicate_of || draft.unit_id?.includes("DUP")),
+    verbatim_drift: hasVerbatimDrift,
+    drift: drift || undefined,
+    gate: effectiveGate,
     history,
   };
 }
@@ -388,7 +452,7 @@ export async function handleListMyDrafts(
   const allDrafts = await repo.listDrafts();
   
   // Real drafts proposed from ingested source documents
-  const authorDrafts = allDrafts.filter((d) => d.source_doc_id !== null);
+  const authorDrafts = allDrafts.filter((d) => d.source_doc_id !== null && !d.draft_id.startsWith("REV-"));
   if (!proposerName || !proposerName.trim()) return authorDrafts;
 
   const targetFirst = proposerName.trim().toLowerCase().split(/[\s(]/)[0];

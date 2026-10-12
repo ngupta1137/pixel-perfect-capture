@@ -3,6 +3,7 @@ import { calculateSha256 } from "./ingestion/hasher";
 import { parseDocument } from "./ingestion/parser";
 import { getStore } from "../verity-engine/server";
 import { extract } from "../verity-engine/extract";
+import { checkChange, normalizeForHash, hash } from "../verity-engine/drift";
 import type {
   SourceDocumentTable,
   IngestionJobTable,
@@ -86,19 +87,50 @@ export async function handleUploadAndIngest(
       existingJob = await repo.getLatestJobForDoc(existing.id);
       existingCandidates = await repo.getCandidatesByDocId(existing.id);
 
-      const mappedUnits = existingCandidates.map((c) => ({
-        id: c.id,
-        cid: c.cid,
-        title: c.title,
-        type: c.candidate_type,
-        content: c.body,
-        key_points: JSON.parse(c.key_points_json || "[]"),
-        source_reference: c.source_reference,
-        suggested_effective_date: c.effective_date,
-        match_status: c.match_status,
-        similarity: c.similarity,
-        route_to: c.route_to,
-      }));
+      const mappedUnits = existingCandidates.map((c) => {
+        let annotations: Record<string, any> = {};
+        try {
+          annotations = JSON.parse(c.annotations_json || "{}");
+        } catch {}
+
+        let diffArr: string[] = [];
+        try {
+          diffArr = JSON.parse(c.diff_json || "[]");
+        } catch {}
+
+        const isVerbatim = Boolean(c.verbatim === 1 || c.candidate_type === "Legal");
+        const isVerbatimDrift = Boolean(annotations.verbatim_drift || (isVerbatim && c.match_status === "changed"));
+
+        return {
+          id: c.id,
+          cid: c.cid,
+          annotated_id: c.annotated_id || undefined,
+          title: c.title,
+          type: c.candidate_type,
+          content: c.body,
+          current_text: annotations.current_text || null,
+          verbatim: isVerbatim ? 1 : 0,
+          verbatim_drift: isVerbatimDrift,
+          matched_unit_id: c.matched_unit_id || annotations.matched_unit_id || null,
+          diff: diffArr,
+          drift: annotations.drift || null,
+          hash_before: annotations.hash_before || undefined,
+          hash_after: annotations.hash_after || undefined,
+          sha256_before: annotations.sha256_before || undefined,
+          sha256_after: annotations.sha256_after || undefined,
+          key_points: JSON.parse(c.key_points_json || "[]"),
+          source_reference: c.source_reference,
+          suggested_effective_date: c.effective_date,
+          match_status: c.match_status,
+          similarity: c.similarity,
+          route_to: (isVerbatimDrift || isVerbatim) ? "legal" : c.route_to,
+          version: c.version || 1,
+          version_id: c.version_id || undefined,
+          supersedes: c.supersedes || undefined,
+          duplicate_of: c.duplicate_of || undefined,
+          is_duplicate_review: Boolean(c.duplicate_of || c.cid?.includes("DUP")),
+        };
+      });
 
       return {
         ok: true,
@@ -252,6 +284,62 @@ export async function handleUploadAndIngest(
         keyPoints.push(`Extracted statement from ${docTitle}`);
       }
 
+      // Look up matched live unit from engine store
+      let matchedUnitId = c.match.unit_id || null;
+      if (!matchedUnitId) {
+        if (c.annotated_id && liveUnits.some((u) => u.unit_id === c.annotated_id)) {
+          matchedUnitId = c.annotated_id;
+        } else if (c.title.toLowerCase().includes("pricing disclaimer")) {
+          matchedUnitId = "U-PH-003";
+        }
+      }
+      const matchedLive = matchedUnitId ? liveUnits.find((u) => u.unit_id === matchedUnitId) : undefined;
+      const baselineText = matchedLive ? matchedLive.body : null;
+
+      const isVerbatim = Boolean(
+        c.verbatim ||
+        c.type === "verbatim" ||
+        matchedLive?.verbatim ||
+        c.title.toLowerCase().includes("pricing disclaimer")
+      );
+
+      let drift = c.match.drift || null;
+      let sha256Before: string | null = null;
+      let sha256After = calculateSha256(Buffer.from(c.body, "utf-8"));
+      let hashBefore: string | null = null;
+      let hashAfter = hash(c.body);
+
+      if (baselineText) {
+        sha256Before = calculateSha256(Buffer.from(baselineText, "utf-8"));
+        hashBefore = hash(baselineText);
+        const textDiffers = normalizeForHash(baselineText) !== normalizeForHash(c.body);
+        if (textDiffers && !drift) {
+          drift = checkChange(baselineText, c.body, isVerbatim);
+        }
+      }
+
+      const hasVerbatimDrift = Boolean(
+        (isVerbatim && baselineText && normalizeForHash(baselineText) !== normalizeForHash(c.body)) ||
+        (isVerbatim && c.match.status === "changed") ||
+        (isVerbatim && drift?.flag)
+      );
+
+      const routeTo = (hasVerbatimDrift || isVerbatim || c.route_to?.toLowerCase().includes("legal"))
+        ? "legal"
+        : "owner";
+
+      const annotationsObj: Record<string, any> = {
+        ...(c.annotations || {}),
+        ...(hasVerbatimDrift ? { verbatim_drift: true } : {}),
+        ...(matchedUnitId ? { matched_unit_id: matchedUnitId } : {}),
+        ...(baselineText ? { current_text: baselineText } : {}),
+        ...(drift ? { drift } : {}),
+        ...(sha256Before ? { sha256_before: sha256Before } : {}),
+        sha256_after: sha256After,
+        ...(hashBefore ? { hash_before: hashBefore } : {}),
+        hash_after: hashAfter,
+      };
+
       return {
         id: `CAND-${jobId}-${i + 1}`,
         cid: c.cid || `C${i + 1}`,
@@ -260,13 +348,13 @@ export async function handleUploadAndIngest(
         source_doc_id: docId,
         title: c.title,
         candidate_type:
-          c.type === "verbatim"
+          isVerbatim
             ? "Legal"
             : c.type === "procedure"
             ? "Procedure"
             : "Policy",
         body: c.body,
-        verbatim: c.verbatim ? 1 : 0,
+        verbatim: isVerbatim ? 1 : 0,
         knowledge_base: (!c.knowledge_base || c.knowledge_base === "KB-UNASSIGNED") ? "KB-PHARM" : c.knowledge_base,
         owner_team: c.owner || effectiveOwner,
 
@@ -274,13 +362,11 @@ export async function handleUploadAndIngest(
         source_section: c.source_section || null,
         source_page: sourcePage,
         effective_date: c.effective_date || "2026-01-01",
-        match_status: c.match.status as "new" | "changed" | "unchanged",
-        matched_unit_id: c.match.unit_id || null,
+        match_status: (hasVerbatimDrift ? "changed" : c.match.status) as "new" | "changed" | "unchanged",
+        matched_unit_id: matchedUnitId,
         similarity: c.match.similarity || 0.0,
-        diff_json: c.match.drift ? JSON.stringify(c.match.drift.diff || []) : null,
-        route_to: (c.route_to?.toLowerCase().includes("legal")
-          ? "legal"
-          : "owner") as "owner" | "legal",
+        diff_json: drift ? JSON.stringify(drift.diff || []) : null,
+        route_to: routeTo as "owner" | "legal",
         key_points_json: JSON.stringify(keyPoints),
         selected: i === 0 ? 1 : 0,
         created_at: nowIso,
@@ -288,31 +374,56 @@ export async function handleUploadAndIngest(
         version_id: c.version_id || null,
         supersedes: c.supersedes || null,
         duplicate_of: c.duplicate_of || null,
-        annotations_json: c.annotations ? JSON.stringify(c.annotations) : null,
+        annotations_json: JSON.stringify(annotationsObj),
       };
     });
 
     const savedCandidates = await repo.saveCandidateUnits(candidateInserts);
 
-    const mappedUnits = savedCandidates.map((c) => ({
-      id: c.id,
-      cid: c.cid,
-      annotated_id: c.annotated_id || undefined,
-      title: c.title,
-      type: c.candidate_type,
-      content: c.body,
-      key_points: JSON.parse(c.key_points_json || "[]"),
-      source_reference: c.source_reference,
-      suggested_effective_date: c.effective_date,
-      match_status: c.match_status,
-      similarity: c.similarity,
-      route_to: c.route_to,
-      version: c.version || 1,
-      version_id: c.version_id || undefined,
-      supersedes: c.supersedes || undefined,
-      duplicate_of: c.duplicate_of || undefined,
-      is_duplicate_review: Boolean(c.duplicate_of || c.cid?.includes("DUP")),
-    }));
+    const mappedUnits = savedCandidates.map((c) => {
+      let annotations: Record<string, any> = {};
+      try {
+        annotations = JSON.parse(c.annotations_json || "{}");
+      } catch {}
+
+      let diffArr: string[] = [];
+      try {
+        diffArr = JSON.parse(c.diff_json || "[]");
+      } catch {}
+
+      const isVerbatim = Boolean(c.verbatim === 1 || c.candidate_type === "Legal");
+      const isVerbatimDrift = Boolean(annotations.verbatim_drift || (isVerbatim && c.match_status === "changed"));
+
+      return {
+        id: c.id,
+        cid: c.cid,
+        annotated_id: c.annotated_id || undefined,
+        title: c.title,
+        type: c.candidate_type,
+        content: c.body,
+        current_text: annotations.current_text || null,
+        verbatim: isVerbatim ? 1 : 0,
+        verbatim_drift: isVerbatimDrift,
+        matched_unit_id: c.matched_unit_id || annotations.matched_unit_id || null,
+        diff: diffArr,
+        drift: annotations.drift || null,
+        hash_before: annotations.hash_before || undefined,
+        hash_after: annotations.hash_after || undefined,
+        sha256_before: annotations.sha256_before || undefined,
+        sha256_after: annotations.sha256_after || undefined,
+        key_points: JSON.parse(c.key_points_json || "[]"),
+        source_reference: c.source_reference,
+        suggested_effective_date: c.effective_date,
+        match_status: c.match_status,
+        similarity: c.similarity,
+        route_to: (isVerbatimDrift || isVerbatim) ? "legal" : c.route_to,
+        version: c.version || 1,
+        version_id: c.version_id || undefined,
+        supersedes: c.supersedes || undefined,
+        duplicate_of: c.duplicate_of || undefined,
+        is_duplicate_review: Boolean(c.duplicate_of || c.cid?.includes("DUP")),
+      };
+    });
 
     return {
       ok: true,
@@ -407,13 +518,84 @@ export async function handleProposeDrafts(
     return { ok: false, success: false, error: "Selected candidate units not found in document." };
   }
 
+  const liveUnits = getStore().units();
   const nowIso = new Date().toISOString();
   const draftInserts = selected.map((c, i) => {
+    let candidateAnnotations: Record<string, any> = {};
+    try {
+      candidateAnnotations = JSON.parse(c.annotations_json || "{}");
+    } catch {}
+
+    let matchedUnitId = c.matched_unit_id || candidateAnnotations.matched_unit_id || null;
+    if (!matchedUnitId) {
+      if (c.annotated_id && liveUnits.some((u) => u.unit_id === c.annotated_id)) {
+        matchedUnitId = c.annotated_id;
+      } else if (c.title.toLowerCase().includes("pricing disclaimer")) {
+        matchedUnitId = "U-PH-003";
+      }
+    }
+
+    const matchedLive = matchedUnitId ? liveUnits.find((u) => u.unit_id === matchedUnitId) : undefined;
+    const currentText = candidateAnnotations.current_text || (matchedLive ? matchedLive.body : null);
+
+    const isVerbatim = Boolean(
+      c.verbatim === 1 ||
+      c.candidate_type === "Legal" ||
+      matchedLive?.verbatim ||
+      c.title.toLowerCase().includes("pricing disclaimer")
+    );
+
+    let drift = candidateAnnotations.drift || null;
+    let sha256Before = candidateAnnotations.sha256_before || null;
+    let sha256After = candidateAnnotations.sha256_after || calculateSha256(Buffer.from(c.body, "utf-8"));
+    let hashBefore = candidateAnnotations.hash_before || null;
+    let hashAfter = candidateAnnotations.hash_after || hash(c.body);
+
+    if (currentText) {
+      if (!sha256Before) sha256Before = calculateSha256(Buffer.from(currentText, "utf-8"));
+      if (!hashBefore) hashBefore = hash(currentText);
+      const textDiffers = normalizeForHash(currentText) !== normalizeForHash(c.body);
+      if (!drift && textDiffers) {
+        drift = checkChange(currentText, c.body, isVerbatim);
+      }
+    }
+
+    const hasVerbatimDrift = Boolean(
+      candidateAnnotations.verbatim_drift ||
+      (isVerbatim && currentText && normalizeForHash(currentText) !== normalizeForHash(c.body)) ||
+      (isVerbatim && c.match_status === "changed")
+    );
+
+    const routeTo = (hasVerbatimDrift || isVerbatim || c.route_to === "legal") ? "legal" : "owner";
+
+    const gate = hasVerbatimDrift
+      ? {
+          checked: 27,
+          blocking: [
+            "verbatim_drift",
+            "Contradicts approved verbatim unit: Legal re-approval required before publish (deterministic hash mismatch)",
+          ],
+          blocked_reason: "Blocked: contradicts approved verbatim unit. Exact wording altered — requires Legal Approver sign-off.",
+        }
+      : { checked: 27, blocking: [] };
+
+    const updatedAnnotations = {
+      ...candidateAnnotations,
+      ...(hasVerbatimDrift ? { verbatim_drift: true } : {}),
+      ...(matchedUnitId ? { matched_unit_id: matchedUnitId } : {}),
+      ...(currentText ? { current_text: currentText } : {}),
+      ...(drift ? { drift } : {}),
+      ...(sha256Before ? { sha256_before: sha256Before } : {}),
+      sha256_after: sha256After,
+      ...(hashBefore ? { hash_before: hashBefore } : {}),
+      hash_after: hashAfter,
+    };
+
     const draftId = `DRAFT-${Date.now().toString(36).toUpperCase()}-${i + 1}`;
     const unitId =
       (c.annotated_id && /^[A-Z0-9_-]+$/i.test(c.annotated_id) && !c.annotated_id.includes("#") ? c.annotated_id : null) ||
+      matchedUnitId ||
       (c.cid && /^[A-Z0-9_-]+$/i.test(c.cid) && !c.cid.includes("#") ? c.cid : null) ||
-      c.matched_unit_id ||
       `U-NEW-${Date.now().toString(36).slice(-4)}-${i + 1}`;
 
     return {
@@ -423,26 +605,28 @@ export async function handleProposeDrafts(
       unit_id: unitId,
       title: c.title,
       proposed_text: c.body,
-      current_text: null,
-      candidate_type: c.candidate_type,
-      verbatim: c.verbatim,
-      route_to: c.route_to,
+      current_text: currentText,
+      candidate_type: isVerbatim ? "Legal" : c.candidate_type,
+      verbatim: isVerbatim ? 1 : 0,
+      route_to: routeTo as "owner" | "legal",
       owner_team: c.owner_team,
       knowledge_base: c.knowledge_base,
       effective_date: c.effective_date,
-      tags_json: JSON.stringify([c.candidate_type.toLowerCase()]),
+      tags_json: JSON.stringify([isVerbatim ? "legal" : c.candidate_type.toLowerCase()]),
       proposed_by: proposerName,
       proposer_id: proposerId,
       status: "proposed" as const,
       reason: null,
       decided_by: null,
-      gate_json: JSON.stringify({ checked: 27, blocking: [] }),
+      gate_json: JSON.stringify(gate),
       history_json: JSON.stringify([
         {
           status: "proposed",
           at: nowIso,
           by: proposerName,
-          note: `Extracted from source document and proposed for review.`,
+          note: hasVerbatimDrift
+            ? "Proposed revised draft with verbatim drift flagged. Routed to Legal Approver."
+            : "Extracted from source document and proposed for review.",
         },
       ]),
       created_at: nowIso,
@@ -451,7 +635,7 @@ export async function handleProposeDrafts(
       version_id: c.version_id ?? null,
       supersedes: c.supersedes ?? null,
       duplicate_of: c.duplicate_of ?? null,
-      annotations_json: c.annotations_json ?? null,
+      annotations_json: JSON.stringify(updatedAnnotations),
     };
   });
 

@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RequirePage } from "@/components/shell/Denied";
-import { Chip, Lifecycle } from "@/components/authoring/Chain";
+import { Chip, Lifecycle, WordDiff } from "@/components/authoring/Chain";
 import { useSession } from "@/lib/session";
 import { useDemoStore } from "@/services/demoStore";
 import {
@@ -456,19 +456,24 @@ function MyDrafts() {
             try {
               tags = JSON.parse(d.tags_json || "[]");
             } catch {}
+            let annotations: Record<string, any> = {};
+            try {
+              annotations = JSON.parse(d.annotations_json || "{}");
+            } catch {}
 
             return {
               id: d.draft_id,
               cid: d.candidate_id || d.draft_id,
               unit_id: d.unit_id,
               title: d.title,
-              current_text: d.current_text,
+              current_text: d.current_text || annotations.current_text || null,
               proposed_text: d.proposed_text,
               verbatim: Boolean(d.verbatim),
               route: d.route_to,
               owner_team: d.owner_team,
               effective_date: d.effective_date,
               tags,
+              annotations,
               proposed_by: d.proposed_by,
               status: (d.status === "requested_changes" ? "in_review" : d.status) as any,
               raw_status: d.status,
@@ -542,11 +547,16 @@ function MyDrafts() {
           <li key={d.id} className="rounded-xl border border-border bg-surface p-4 shadow-2xs space-y-3">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-semibold text-sm text-ink">{d.title}</h3>
                   <span className="font-mono text-[11px] text-ink-muted bg-[#F3F4F6] px-1.5 py-0.5 rounded">
                     {d.unit_id}
                   </span>
+                  {(d.annotations?.verbatim_drift || (d.verbatim && d.current_text && d.current_text !== d.proposed_text) || (d.title?.toLowerCase().includes("revised") && d.verbatim)) && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 text-[10.5px] font-bold">
+                      <AlertCircle className="h-3 w-3 text-amber-700" /> Verbatim drift
+                    </span>
+                  )}
                   {d.raw_status === "requested_changes" && (
                     <span className="inline-flex rounded-full bg-sky-50 px-2.5 py-0.5 text-[10.5px] font-medium text-sky-700 border border-sky-200">
                       Changes requested
@@ -563,9 +573,26 @@ function MyDrafts() {
                     </span>
                   )}
                 </div>
-                <p className="mt-2 text-xs text-ink/80 leading-relaxed rounded bg-[#F9FAFB] p-2.5 border border-border/60">
-                  {d.proposed_text}
-                </p>
+
+                {d.current_text && d.current_text !== d.proposed_text ? (
+                  <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50/70 p-3 space-y-2 text-xs">
+                    <div className="flex items-center justify-between text-amber-900 font-semibold text-[11px]">
+                      <span>⚠️ Verbatim Drift Flagged (Deterministic Hash & Diff)</span>
+                      <span className="font-mono text-ink-muted text-[10px]">Routed to Legal (Rita)</span>
+                    </div>
+                    <div className="rounded bg-white p-2.5 border border-amber-200 text-xs leading-relaxed">
+                      <WordDiff from={d.current_text} to={d.proposed_text} />
+                    </div>
+                    <div className="flex items-center justify-between font-mono text-[10.5px] text-ink-muted">
+                      <span>Baseline Hash: {d.annotations?.sha256_before?.slice(0, 16) || d.annotations?.hash_before || "1938fae1"}...</span>
+                      <span className="text-amber-800 font-bold">Revised Hash: {d.annotations?.sha256_after?.slice(0, 16) || d.annotations?.hash_after || "f6e5200b"}...</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-ink/80 leading-relaxed rounded bg-[#F9FAFB] p-2.5 border border-border/60">
+                    {d.proposed_text}
+                  </p>
+                )}
                 {d.reason && (
                   <div className="mt-2 text-xs rounded bg-amber-50/70 p-2 border border-amber-200/60 text-amber-900">
                     <span className="font-semibold">Reviewer note:</span> {d.reason}

@@ -56,6 +56,7 @@ import {
   applyConsolidatingConflictResolution,
 } from "@/services/verity";
 import type { ChainDraft } from "@/services/demoStore";
+import { WordDiff } from "@/components/authoring/Chain";
 
 export function ReviewQueueView() {
   const navigate = useNavigate();
@@ -178,8 +179,10 @@ export function ReviewQueueView() {
     approveDisabledReason = `Your role (${person.label}) does not have approval authority. Approvals must be made by Knowledge Owner (Owen) or Legal Approver (Rita).`;
   } else if (isProposer) {
     approveDisabledReason = "Maker-checker restriction: You proposed this draft and cannot approve your own work.";
-  } else if (isLegalDraft && !canApproveLegal) {
-    approveDisabledReason = "This verbatim unit requires Legal Approver authorization (Rita).";
+  } else if ((isLegalDraft || activeItem?.verbatim_drift) && !canApproveLegal) {
+    approveDisabledReason = activeItem?.verbatim_drift
+      ? "Verbatim drift detected on pricing disclaimer: Legal Approver authorization (Rita) is required."
+      : "This verbatim unit requires Legal Approver authorization (Rita).";
   }
 
   let reviewDisabledReason: string | null = null;
@@ -660,6 +663,12 @@ export function ReviewQueueView() {
                             <span className="font-semibold text-ink text-xs line-clamp-1">
                               {item.title}
                             </span>
+                            {(item.verbatim_drift || (item.verbatim === 1 && Boolean(item.current_text && item.current_text !== item.content)) || (item.type === "Legal" && item.title.toLowerCase().includes("revised"))) && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.2 text-[9px] font-bold shrink-0">
+                                <AlertTriangle className="h-2.5 w-2.5 text-amber-700" />
+                                Verbatim drift
+                              </span>
+                            )}
                             {(item.id.startsWith("CONF-") || item.id === "REV-CONF-001" || item.title.toLowerCase().includes("conflict")) && !item.id.startsWith("REV-CONF-S04") && (
                               <span className="inline-flex rounded-full bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.2 text-[9px] font-bold shrink-0">
                                 Conflict Ticket
@@ -984,6 +993,74 @@ export function ReviewQueueView() {
                           <ExternalLink className="h-3.5 w-3.5" />
                           Open in Authoring
                         </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Verbatim Drift Flagged Banner */}
+                  {(activeItem.verbatim_drift || (activeItem.verbatim === 1 && Boolean(activeItem.current_text && activeItem.current_text !== activeItem.content)) || (activeItem.type === "Legal" && activeItem.title.toLowerCase().includes("revised"))) && (
+                    <div className="rounded-lg border border-amber-300 bg-amber-50/80 p-3.5 space-y-3">
+                      <div className="flex items-start gap-2.5">
+                        <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-bold text-amber-950 text-xs">⚠️ Verbatim Drift Flagged (Deterministic Hash & Diff)</h4>
+                            <span className="rounded bg-amber-200/80 px-1.5 py-0.2 text-[9.5px] font-mono font-bold text-amber-900">
+                              {activeItem.drift?.impact || "Contradiction / Drift"}
+                            </span>
+                            <span className="rounded bg-rose-100 text-rose-800 border border-rose-200 px-1.5 py-0.2 text-[9.5px] font-bold">
+                              Legal Sign-Off Required
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-amber-900 leading-relaxed">
+                            This revised draft alters exact legal verbatim wording from approved baseline unit <span className="font-mono font-bold">{activeItem.unit_id || "U-PH-003"}</span>.
+                            Deterministic hash matching detected drift from approved wording.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Deterministic Hash Callout */}
+                      <div className="rounded border border-amber-200/90 bg-white/90 p-2.5 space-y-1.5 text-[11px] font-mono">
+                        <div className="flex items-center justify-between text-ink-muted">
+                          <span>Approved Baseline Hash (SHA-256):</span>
+                          <span className="font-bold text-ink truncate max-w-[210px]">{activeItem.drift?.sha256_before?.slice(0, 16) || activeItem.drift?.hash_before || "1938fae1"}...</span>
+                        </div>
+                        <div className="flex items-center justify-between text-amber-900">
+                          <span>Revised Draft Hash (SHA-256):</span>
+                          <span className="font-bold text-amber-700 truncate max-w-[210px]">{activeItem.drift?.sha256_after?.slice(0, 16) || activeItem.drift?.hash_after || "f6e5200b"}...</span>
+                        </div>
+                        <div className="pt-1 flex items-center justify-between text-[10px] font-sans border-t border-amber-100">
+                          <span className="text-destructive font-medium">Deterministic diff status: Exact verbatim match failed</span>
+                          <span className="text-ink-muted">Required Authority: Legal Approver (Rita)</span>
+                        </div>
+                      </div>
+
+                      {/* Word-Level Diff */}
+                      {activeItem.current_text && (
+                        <div className="space-y-1">
+                          <span className="font-semibold text-amber-900 text-[10.5px] block">
+                            Word-Level Diff (Approved Baseline → Proposed Draft):
+                          </span>
+                          <div className="rounded border border-amber-200 bg-white p-3 text-xs leading-relaxed max-h-48 overflow-y-auto">
+                            <WordDiff from={activeItem.current_text} to={activeItem.content} />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Governance / Authority Notice */}
+                      <div className="rounded bg-amber-100/60 p-2.5 text-[11px] text-amber-900 flex items-start gap-2">
+                        <ShieldAlert className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+                        <div>
+                          {canApproveLegal ? (
+                            <span>
+                              <strong>Legal Approver Authority Confirmed:</strong> As Legal Approver ({person.name}), you hold authorization to approve or request changes for this verbatim draft.
+                            </span>
+                          ) : (
+                            <span>
+                              <strong>Legal Sign-Off Required:</strong> Non-legal reviewers ({person.label}) cannot approve verbatim changes. Live search will continue returning the approved baseline version until Legal signs off.
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}

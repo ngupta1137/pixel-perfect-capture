@@ -32,7 +32,24 @@ export interface ReviewQueueItem {
   version_id?: string | undefined;
   supersedes?: string | undefined;
   duplicate_of?: string | undefined;
-  is_duplicate_review?: boolean | undefined;
+  current_text?: string | null | undefined;
+  verbatim_drift?: boolean | undefined;
+  drift?: {
+    flag: boolean;
+    kind?: string;
+    impact?: string;
+    diff?: string[];
+    route_to?: string;
+    hash_before?: string;
+    hash_after?: string;
+    sha256_before?: string;
+    sha256_after?: string;
+  } | undefined;
+  gate?: {
+    checked: number;
+    blocking: string[];
+    blocked_reason?: string;
+  } | undefined;
   history?: undefined | {
     action: string;
     by: string;
@@ -107,6 +124,73 @@ export const INITIAL_REVIEW_QUEUE: ReviewQueueItem[] = [
         by: "Priya (Pharmacy advocate)",
         at: "12 Oct 2026, 10:15 AM",
         note: "Advocate reported conflicting sources on query 'How many days supply can I get by mail?'. Both units linked.",
+      },
+    ],
+  },
+  {
+    id: "REV-S06-001",
+    unit_id: "U-PH-003",
+    source_id: "SRC-S06-REVISED",
+    title: "Home delivery pricing disclaimer (verbatim — REVISED)",
+    preview:
+      "Any home delivery cost I share today is an estimate under your current benefits and may change with formulary updates...",
+    content:
+      "Any home delivery cost I share today is an estimate under your current benefits and may change with formulary updates, pharmacy choice, or plan changes.",
+    current_text:
+      "The prices I share today are estimates based on your current plan and may change. Your final cost will be confirmed when your prescription is processed.",
+    source_doc: "S06_source_Home_Delivery_REVISED.md",
+    section: "Section 2: Pricing disclaimer",
+    type: "Legal",
+    verbatim: 1,
+    status: "Pending review",
+    extracted_on: "12 Oct 2026",
+    lob: "MAPD",
+    state: "All states",
+    suggested_effective_date: "01 Jan 2027",
+    proposer: "Dana (Knowledge author)",
+    assigned_reviewer: "Rita (Legal / Compliance approver)",
+    demand: 52,
+    due_date: "2026-10-25",
+    verbatim_drift: true,
+    gate: {
+      checked: 27,
+      blocking: [
+        "verbatim_drift",
+        "Contradicts approved verbatim unit: Legal re-approval required before publish (deterministic hash mismatch)",
+      ],
+      blocked_reason:
+        "Blocked: contradicts approved verbatim unit. Exact wording altered — requires Legal Approver sign-off.",
+    },
+    drift: {
+      flag: true,
+      kind: "drift",
+      impact: "contradiction",
+      route_to: "Legal (verbatim)",
+      hash_before: "1938fae1",
+      hash_after: "f6e5200b",
+      sha256_before: "a7b3c2e1d0f852934ec71002381ab84b",
+      sha256_after: "3e5d7a9b1c2f84092bb5941031920d8a",
+      diff: [
+        "the prices i share today are estimates based on->any home delivery cost i share today is an estimate under",
+        "plan->benefits",
+        "+with",
+        "+formulary updates",
+        "+pharmacy choice or",
+        "+plan",
+        "-your final cost will be confirmed when your prescription is processed",
+      ],
+    },
+    key_points: [
+      "Alters exact legal wording on pricing disclaimer (U-PH-003)",
+      "Deterministic hash drift detected between baseline and revised text",
+      "Requires Legal Approver (Rita) sign-off before publication",
+    ],
+    history: [
+      {
+        action: "Proposed draft",
+        by: "Dana (Knowledge author)",
+        at: "12 Oct 2026, 11:00 AM",
+        note: "Extracted from S06_source_Home_Delivery_REVISED.md. Verbatim drift flagged on deterministic hash.",
       },
     ],
   },

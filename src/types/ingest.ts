@@ -16,13 +16,23 @@ export interface ExtractedUnit {
   title: string;
   type: "Policy" | "Procedure" | "Guidance" | "Benefit Details" | "FAQ" | "Legal";
   content: string;
+  current_text?: string | null | undefined;
   key_points: string[];
   source_reference: string;
   suggested_effective_date: string;
   selected?: boolean | undefined;
   match_status?: "new" | "changed" | "unchanged" | undefined;
+  matched_unit_id?: string | null | undefined;
   similarity?: number | undefined;
   route_to?: "owner" | "legal" | undefined;
+  verbatim?: number | boolean | undefined;
+  verbatim_drift?: boolean | undefined;
+  diff?: string[] | undefined;
+  drift?: any | undefined;
+  hash_before?: string | undefined;
+  hash_after?: string | undefined;
+  sha256_before?: string | undefined;
+  sha256_after?: string | undefined;
 }
 
 export const INITIAL_RECENT_UPLOADS: RecentUpload[] = [

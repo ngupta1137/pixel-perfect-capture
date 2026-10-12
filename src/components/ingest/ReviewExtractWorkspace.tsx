@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   X,
   Filter,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ import {
 import { MEMBER_SERVICES_GUIDE_UNITS, type ExtractedUnit } from "@/types/ingest";
 import { useSession } from "@/lib/session";
 import { proposeCandidates, submitProposedDrafts, updateCandidate, type Candidate } from "@/services/verity";
+import { WordDiff } from "@/components/authoring/Chain";
 
 interface ReviewExtractWorkspaceProps {
   documentTitle?: string;
@@ -180,17 +182,37 @@ export function ReviewExtractWorkspace({
         });
       }
 
-      const toPropose: Candidate[] = selectedUnits.map((u) => ({
-        cid: u.cid ?? u.id,
-        title: u.title,
-        text: u.content,
-        status: "new",
-        route: u.type === "Legal" ? "legal" : "owner",
-        owner_team: "Pharmacy Ops",
-        effective_date: u.suggested_effective_date,
-        tags: [u.type.toLowerCase()],
-        gate: { checked: 27, blocking: [] },
-      }));
+      const toPropose: Candidate[] = selectedUnits.map((u) => {
+        const isVerbatim = u.type === "Legal" || u.verbatim === 1 || Boolean(u.verbatim);
+        const hasDrift = Boolean(
+          u.verbatim_drift ||
+          (isVerbatim && u.match_status === "changed") ||
+          (isVerbatim && u.current_text && u.current_text !== u.content)
+        );
+
+        return {
+          cid: u.cid ?? u.id,
+          title: u.title,
+          text: u.content,
+          status: hasDrift ? "changed_flagged" : u.match_status === "changed" ? "changed" : "new",
+          route: (hasDrift || isVerbatim) ? "legal" : (u.route_to === "legal" ? "legal" : "owner"),
+          target_unit_id: u.matched_unit_id || undefined,
+          owner_team: (hasDrift || isVerbatim) ? "Legal" : "Pharmacy Ops",
+          verbatim: isVerbatim,
+          effective_date: u.suggested_effective_date,
+          tags: [u.type.toLowerCase()],
+          gate: hasDrift
+            ? {
+                checked: 27,
+                blocking: [
+                  "verbatim_drift",
+                  "Contradicts approved verbatim unit: Legal re-approval required before publish",
+                ] as any,
+                blocked_reason: "Blocked: contradicts approved verbatim unit. Exact wording altered — requires Legal Approver sign-off.",
+              }
+            : { checked: 27, blocking: [] },
+        };
+      });
 
       proposeCandidates(person.name, toPropose);
       onSubmitForReview(selectedUnits);
@@ -461,15 +483,23 @@ export function ReviewExtractWorkspace({
                     </p>
                   </div>
 
-                  <span
-                    className={`shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                      unit.type === "Policy"
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : "bg-sky-50 text-sky-700 border border-sky-200"
-                    }`}
-                  >
-                    {unit.type}
-                  </span>
+                  {unit.verbatim_drift || (unit.type === "Legal" && (unit.match_status === "changed" || Boolean(unit.current_text && unit.current_text !== unit.content))) ? (
+                    <span className="shrink-0 text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3 text-amber-700" /> Verbatim drift
+                    </span>
+                  ) : (
+                    <span
+                      className={`shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                        unit.type === "Policy"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : unit.type === "Legal"
+                          ? "bg-purple-50 text-purple-700 border border-purple-200"
+                          : "bg-sky-50 text-sky-700 border border-sky-200"
+                      }`}
+                    >
+                      {unit.type}
+                    </span>
+                  )}
                 </div>
               );
             })}
@@ -524,6 +554,53 @@ export function ReviewExtractWorkspace({
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
+
+              {/* Verbatim Drift Alert Banner */}
+              {(activeUnit.verbatim_drift || (activeUnit.type === "Legal" && (activeUnit.match_status === "changed" || Boolean(activeUnit.current_text && activeUnit.current_text !== activeUnit.content)))) && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50/80 p-3 space-y-2.5">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-amber-950 text-xs">
+                          ⚠️ Verbatim Drift Flagged (Deterministic Hash & Diff)
+                        </span>
+                        <span className="rounded bg-amber-200/80 px-1.5 py-0.2 text-[9.5px] font-mono font-bold text-amber-900">
+                          Legal Gate Active
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-amber-900 leading-relaxed">
+                        Exact legal wording altered from approved baseline unit ({activeUnit.matched_unit_id || "U-PH-003"}).
+                        Publication gate requires <strong>Legal Approver (Rita)</strong> sign-off before publishing.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Deterministic Hash Callout */}
+                  <div className="rounded border border-amber-200/90 bg-white/90 p-2 space-y-1 font-mono text-[10.5px]">
+                    <div className="flex items-center justify-between text-ink-muted">
+                      <span>Baseline Hash (SHA-256):</span>
+                      <span className="font-bold text-ink truncate max-w-[170px]">{activeUnit.sha256_before?.slice(0, 16) || activeUnit.hash_before || "1938fae1"}...</span>
+                    </div>
+                    <div className="flex items-center justify-between text-amber-900">
+                      <span>Revised Hash (SHA-256):</span>
+                      <span className="font-bold text-amber-700 truncate max-w-[170px]">{activeUnit.sha256_after?.slice(0, 16) || activeUnit.hash_after || "f6e5200b"}...</span>
+                    </div>
+                  </div>
+
+                  {/* Word-level diff */}
+                  {activeUnit.current_text && (
+                    <div className="space-y-1">
+                      <span className="font-semibold text-amber-900 text-[10px] block uppercase tracking-wide">
+                        Word-level Diff (Baseline → Proposed):
+                      </span>
+                      <div className="rounded border border-amber-200 bg-white p-2.5 text-xs leading-relaxed max-h-36 overflow-y-auto">
+                        <WordDiff from={activeUnit.current_text} to={activeUnit.content} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-3 text-xs">
                 {/* Title */}
