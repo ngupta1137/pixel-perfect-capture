@@ -90,7 +90,16 @@ export function enrichUnit(u: DemoUnit): EnrichedKnowledgeUnit {
   const effective_date_formatted = formatUnitDate(rawEffective);
   const last_updated_formatted = formatUnitDate(rawLastUpdated);
 
-  const status = normalizeStatus(u.status);
+  const rawStatus = normalizeStatus(u.status);
+  const reviewDate = (u as any).review_date || meta?.review_date;
+  const isDateOverdue = Boolean(reviewDate && reviewDate < "2026-10-06");
+  const isOverdue =
+    meta?.next_review_status === "Overdue" ||
+    u.status === "stale" ||
+    rawStatus === "Stale" ||
+    isDateOverdue;
+
+  const status: KnowledgeStatus = isOverdue ? "Stale" : rawStatus;
   const isApproved = status === "Approved" || status === "Stale";
 
   const approved_on_formatted = isApproved ? formatUnitDate(rawApprovedOn) : "—";
@@ -111,7 +120,7 @@ export function enrichUnit(u: DemoUnit): EnrichedKnowledgeUnit {
   const section = meta?.section ?? `Section ${versionNum}.0`;
 
   const next_review = meta?.next_review ?? formatUnitDate(meta?.review_date ?? "2025-01-01");
-  const next_review_status = meta?.next_review_status ?? (status === "Stale" ? "Overdue" : "Current");
+  const next_review_status = status === "Stale" ? "Overdue" : (meta?.next_review_status ?? "Current");
 
   const approved_by = isApproved
     ? (meta?.approved_by ?? latestV?.approver ?? (u.owner === "Legal" || u.verbatim ? "Rita (Legal)" : "Pharmacy Ops"))

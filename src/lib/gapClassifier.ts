@@ -30,6 +30,15 @@ export function classifyGapDomain(text: string): GapDomainClassification {
 
   // Insurance keywords and phrases
   const insuranceKeywords = [
+    "insurance",
+    "insurance benefit",
+    "insurance benefits",
+    "insurance policy",
+    "health insurance",
+    "insurance coverage",
+    "benefit",
+    "benefits",
+    "coverage",
     "denied claim",
     "claim grievance",
     "claim appeal",
@@ -58,6 +67,7 @@ export function classifyGapDomain(text: string): GapDomainClassification {
     "coinsurance",
     "medical necessity",
     "medical benefit",
+    "medical",
     "inpatient",
     "outpatient",
     "hospital",
@@ -67,6 +77,7 @@ export function classifyGapDomain(text: string): GapDomainClassification {
 
   // Pharmacy keywords and phrases
   const pharmacyKeywords = [
+    "pharmacy",
     "specialty oncology",
     "oncology",
     "cancer drug",
@@ -86,6 +97,7 @@ export function classifyGapDomain(text: string): GapDomainClassification {
     "tier",
     "formulary",
     "mail order",
+    "mail-order",
     "days supply",
     "90-day",
     "100-day",
@@ -104,6 +116,7 @@ export function classifyGapDomain(text: string): GapDomainClassification {
     "centerwell",
     "luminexa",
     "pricing disclaimer",
+    "disclaimer",
     "cold chain",
     "refrigerated",
     "rx",
@@ -123,11 +136,13 @@ export function classifyGapDomain(text: string): GapDomainClassification {
     }
   }
 
-  // Claims, claim grievances, appeals, out-of-pocket, or general benefit queries prioritize Insurance
+  // Strong keyword checks
   const hasStrongInsuranceTerm =
-    /\b(claim|claims|grievance|appeal|denial|denied|out-of-pocket|moop|deductible|pcp|id card|reimbursement)\b/i.test(q);
+    /\b(insurance|benefit|benefits|coverage|claim|claims|appeal|denial|denied|out-of-pocket|moop|deductible|pcp|id card|reimbursement|medical|inpatient|outpatient|hospital|surgery|doctor|physician|dental|vision|hearing)\b/i.test(q);
+  const hasStrongPharmacyTerm =
+    /\b(pharmacy|rx|drug|drugs|medication|medications|medicine|medicines|prescription|prescriptions|formulary|mail order|90-day|disclaimer)\b/i.test(q);
 
-  if (hasStrongInsuranceTerm && !q.includes("pharmacy grievance")) {
+  if (hasStrongInsuranceTerm && !hasStrongPharmacyTerm && !q.includes("pharmacy grievance")) {
     return {
       domain: "Insurance",
       kb: "KB-INS",
@@ -139,7 +154,19 @@ export function classifyGapDomain(text: string): GapDomainClassification {
     };
   }
 
-  if (insScore > pharmScore) {
+  if (hasStrongPharmacyTerm && !hasStrongInsuranceTerm) {
+    return {
+      domain: "Pharmacy",
+      kb: "KB-PHARM",
+      ownerTeam: "Pharmacy Ops",
+      assignedOwner: "Owen (Knowledge owner)",
+      assignedAuthor: "Dana (Knowledge author)",
+      confidence: 0.95,
+      reason: "Classified as Pharmacy domain (Pharmacy Ops)",
+    };
+  }
+
+  if (insScore > pharmScore && !q.includes("pharmacy grievance")) {
     return {
       domain: "Insurance",
       kb: "KB-INS",

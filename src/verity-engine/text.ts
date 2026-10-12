@@ -13,6 +13,7 @@ export const STOPWORDS = new Set([
   'do', 'does', 'did', 'can', 'could', 'will', 'would', 'should', 'may', 'might',
   'what', 'how', 'when', 'where', 'which', 'who', 'why', 'many', 'much',
   'say', 'tell', 'know', 'need', 'want', 'wants', 'get', 'please', 'about', 'any',
+  'summarize', 'summarise', 'summary', 'paraphrase', 'explain', 'quote', 'repeat', 'read',
   // contractions typed without apostrophes (F10)
   'whats', 'hows', 'wheres', 'whens', 'whos', 'im', 'ive', 'dont', 'doesnt', 'didnt', 'cant', 'wont', 'isnt', 'arent', 'theres', 'thats', 'shes', 'hes', 'theyre', 'youre',
 ]);

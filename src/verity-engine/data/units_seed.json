@@ -184,6 +184,8 @@
       "status": "approved",
       "supersedes": null,
       "synonyms": [
+        "disclaimer",
+        "pricing disclaimer",
         "rx pricing disclaimer",
         "price disclaimer",
         "cost disclaimer"

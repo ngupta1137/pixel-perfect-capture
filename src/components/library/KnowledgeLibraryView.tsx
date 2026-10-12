@@ -20,6 +20,8 @@ import {
   Pencil,
   ArrowUpDown,
   RotateCcw,
+  Clock,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,7 +48,7 @@ import {
   type LineOfBusiness,
 } from "@/lib/library";
 import { useDemoStore } from "@/services/demoStore";
-import { listUnits, fetchPublishedLibraryUnits } from "@/services/verity";
+import { listUnits, fetchPublishedLibraryUnits, markUnitStale, reverifyUnit } from "@/services/verity";
 import { AddKnowledgeMenu } from "./AddKnowledgeMenu";
 import { KnowledgeDetailPanel } from "./KnowledgeDetailPanel";
 import { ViewSourceModal } from "./ViewSourceModal";
@@ -129,8 +131,13 @@ export function KnowledgeLibraryView() {
       }
 
       // Status filter
-      if (statusFilter !== "All" && u.status !== statusFilter) {
-        return false;
+      if (statusFilter !== "All") {
+        if (statusFilter === "Stale") {
+          const isStale = u.status === "Stale" || u.next_review_status === "Overdue";
+          if (!isStale) return false;
+        } else if (u.status !== statusFilter) {
+          return false;
+        }
       }
 
       // Content type filter
@@ -250,6 +257,54 @@ export function KnowledgeLibraryView() {
         <div className="flex items-center gap-2">
           <AddKnowledgeMenu />
         </div>
+      </div>
+
+      {/* Quick Status Section Tabs */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border pb-3">
+        {[
+          { label: "All", value: "All" },
+          { label: "Approved", value: "Approved" },
+          { label: "Stale", value: "Stale" },
+          { label: "Under review", value: "Under review" },
+          { label: "Conflict", value: "Conflict" },
+        ].map((tab) => {
+          const isActive = statusFilter === tab.value;
+          const count =
+            tab.value === "All"
+              ? allUnits.length
+              : tab.value === "Stale"
+              ? allUnits.filter((u) => u.status === "Stale" || u.next_review_status === "Overdue").length
+              : allUnits.filter((u) => u.status === tab.value).length;
+
+          return (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => {
+                setStatusFilter(tab.value);
+                setCurrentPage(1);
+              }}
+              className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                isActive
+                  ? "bg-[#1E5E2E] text-white shadow-sm"
+                  : "bg-surface text-ink-muted hover:bg-muted hover:text-ink border border-border"
+              }`}
+            >
+              <span>{tab.label}</span>
+              <span
+                className={`rounded-full px-1.5 py-0.2 text-[10px] font-semibold ${
+                  isActive
+                    ? "bg-white/20 text-white"
+                    : tab.value === "Stale" && count > 0
+                    ? "bg-[#FEE2E2] text-[#DC2626]"
+                    : "bg-muted text-ink-muted"
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Search and Filters Bar */}
@@ -601,6 +656,24 @@ export function KnowledgeLibraryView() {
                               >
                                 <Flag className="h-3.5 w-3.5" />
                                 <span>Flag for review</span>
+                              </DropdownMenuItem>
+
+                              <DropdownMenuSeparator />
+
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  if (u.status === "Stale" || u.next_review_status === "Overdue") {
+                                    reverifyUnit(person.name, u.unit_id);
+                                    toast.success(`Unit ${u.unit_id} re-verified.`);
+                                  } else {
+                                    markUnitStale(u.unit_id, person.name);
+                                    toast.warning(`Unit ${u.unit_id} marked as Stale.`);
+                                  }
+                                }}
+                                className="gap-2 cursor-pointer text-[#B45309]"
+                              >
+                                <Clock className="h-3.5 w-3.5" />
+                                <span>{u.status === "Stale" || u.next_review_status === "Overdue" ? "Re-verify unit (Mark current)" : "Mark as Stale (Review due)"}</span>
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>

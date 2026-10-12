@@ -62,7 +62,7 @@ export const canView = (p: Person, v: ViewKey) => VIEWS[v].some((c) => can(p, c)
 /** Pages and the views that open them. A page opens if the person can use any listed view. */
 export const PAGES = [
   { to: "/", label: "Ask", views: ["ask"] },
-  { to: "/work", label: "My work", views: ["author_ingest"] },
+  { to: "/work", label: "My work", views: ["author_ingest", "author_gaps"] },
   { to: "/legal", label: "Legal queue", views: ["author_queue"] },
   { to: "/review", label: "Review queue", views: ["author_queue", "needs_review"] },
   {
@@ -97,13 +97,15 @@ export type PagePath = (typeof PAGES)[number]["to"];
 
 export const pageFor = (to: PagePath) => PAGES.find((p) => p.to === to)!;
 export const canOpen = (p: Person, to: PagePath) => {
+  if (to === "/legal") return p.capabilities.includes("approve_legal");
   const pg = pageFor(to);
   return ("public" in pg && pg.public) || pg.views.some((v) => canView(p, v));
 };
 /** Capabilities that would open a page, for the Denied message. */
-export const pageCaps = (to: PagePath): Capability[] => [
-  ...new Set(pageFor(to).views.flatMap((v) => VIEWS[v])),
-];
+export const pageCaps = (to: PagePath): Capability[] => {
+  if (to === "/legal") return ["approve_legal"];
+  return [...new Set(pageFor(to).views.flatMap((v) => VIEWS[v]))];
+};
 export const navFor = (p: Person) => PAGES.filter((pg) => canOpen(p, pg.to));
 
 const ROLE_HOME_PREFERENCE: Record<string, PagePath[]> = {

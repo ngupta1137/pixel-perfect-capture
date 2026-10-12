@@ -30,6 +30,12 @@ export function ScopeChips({ kbs }: { kbs: string[] }) {
   );
 }
 
+const HIDDEN_PERSONA_NAMES = new Set(["Sam", "Agent Assist", "Casey"]);
+const HIDDEN_PERSONA_KEYS = new Set(["advocate_supervisor", "ai_agent", "compliance_auditor"]);
+
+export const isDemoVisiblePerson = (p: { name: string; persona: string }) =>
+  !HIDDEN_PERSONA_NAMES.has(p.name) && !HIDDEN_PERSONA_KEYS.has(p.persona);
+
 export function PersonaPicker() {
   const { person, setPersona } = useSession();
   const navigate = useNavigate();
@@ -49,6 +55,8 @@ export function PersonaPicker() {
       }
     }
   };
+
+  const visiblePeople = PEOPLE.filter(isDemoVisiblePerson);
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -83,13 +91,16 @@ export function PersonaPicker() {
         <DropdownMenuLabel className="text-xs font-semibold text-ink-muted">
           Switch persona
         </DropdownMenuLabel>
-        {GROUPS.map((g) => (
-          <DropdownMenuGroup key={g}>
-            <DropdownMenuSeparator />
-            <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
-              {g}
-            </div>
-            {PEOPLE.filter((p) => p.group === g).map((p) => {
+        {GROUPS.map((g) => {
+          const groupPeople = visiblePeople.filter((p) => p.group === g);
+          if (groupPeople.length === 0) return null;
+          return (
+            <DropdownMenuGroup key={g}>
+              <DropdownMenuSeparator />
+              <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+                {g}
+              </div>
+              {groupPeople.map((p) => {
               const isSelected = p.id === person.id;
               const pAvatar = getAvatarUrl(p.id);
               return (
@@ -134,7 +145,8 @@ export function PersonaPicker() {
               );
             })}
           </DropdownMenuGroup>
-        ))}
+        );
+      })}
       </DropdownMenuContent>
     </DropdownMenu>
   );

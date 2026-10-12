@@ -14,15 +14,18 @@ import {
 import { getAvatarUrl } from "@/lib/avatars";
 import { Button } from "@/components/ui/button";
 
+import { isDemoVisiblePerson } from "@/components/shell/PersonaPicker";
+
 export function Denied({ capabilities, to }: { capabilities: string[]; to?: PagePath }) {
   const { person, setPersona } = useSession();
   const targetPage = to ? pageFor(to) : null;
   const pageLabel = targetPage?.label ?? "this workspace";
 
-  // Find all authorized demo personas that can open this page
-  const authorizedPeople: Person[] = to
+  // Find all authorized demo personas that can open this page (excluding hidden demo personas)
+  const authorizedPeople: Person[] = (to
     ? PEOPLE.filter((p) => canOpen(p, to))
-    : PEOPLE.filter((p) => capabilities.some((c) => p.capabilities.includes(c as Capability)));
+    : PEOPLE.filter((p) => capabilities.some((c) => p.capabilities.includes(c as Capability)))
+  ).filter(isDemoVisiblePerson);
 
   // Deduplicate representative authorized personas by persona role
   const representativeAuthorized = authorizedPeople.reduce<Person[]>((acc, curr) => {

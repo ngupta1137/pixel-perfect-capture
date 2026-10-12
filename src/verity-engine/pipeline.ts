@@ -261,7 +261,7 @@ export class Verity {
       if (u.effective_date > asOf) { exclusions.push({ unit_id: u.unit_id, reason: 'not yet effective' }); return false; }
       return true;
     });
-    const stale = new Set(live.filter((u) => u.review_date < asOf).map((u) => u.unit_id));
+    const stale = new Set(live.filter((u) => u.review_date < asOf || u.status === 'stale').map((u) => u.unit_id));
     add(7, 'Eligibility', 'D', `${live.length} eligible${stale.size ? `; past review date: ${[...stale].join(', ')}` : ''}`);
 
     // 8. Applicability: lob, state, plan year, audience, channel

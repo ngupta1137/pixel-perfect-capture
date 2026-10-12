@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Check, ShieldCheck } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { ScopeChips } from "@/components/shell/PersonaPicker";
+import { ScopeChips, isDemoVisiblePerson } from "@/components/shell/PersonaPicker";
 import { useSession } from "@/lib/session";
 import { CAPABILITY_TEXT, GROUPS, NEVER_TOGETHER, PEOPLE, personaDef, type Capability, type Person } from "@/lib/rights";
 
@@ -65,7 +65,7 @@ function RightsPage() {
           {GROUPS.map((grp) => (
             <tbody key={grp}>
               <tr className="border-t border-border bg-surface-alt"><td colSpan={caps.length + 1} className="sticky left-0 px-3 py-1 text-xs font-bold uppercase text-ink-muted">{grp}</td></tr>
-              {PEOPLE.filter((p) => p.group === grp).map((p) => {
+              {PEOPLE.filter((p) => p.group === grp && isDemoVisiblePerson(p)).map((p) => {
                 const me = p.id === person.id;
                 return (
                   <tr key={p.id} className={`border-t border-border ${me ? "bg-accent ring-2 ring-inset ring-primary" : ""}`} aria-current={me ? "true" : undefined}>

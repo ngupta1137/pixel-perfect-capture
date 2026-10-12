@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouterState } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { ArrowLeft, FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -53,29 +53,30 @@ export const Route = createFileRoute("/work")({
 
 function WorkPage() {
   const { person } = useSession();
+  const searchTab = useRouterState({
+    select: (s) => (s.location.search as any)?.tab,
+  });
+
   const getSearchTab = () => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("tab") === "gaps" || window.location.search.includes("gaps")) {
-        return "gaps";
-      }
+    if (searchTab === "gaps" && person.capabilities.includes("view_gaps")) {
+      return "gaps";
     }
-    return "sources";
+    if (searchTab === "drafts" && (person.capabilities.includes("ingest_source") || person.capabilities.includes("propose_unit"))) {
+      return "drafts";
+    }
+    if (searchTab === "sources" && person.capabilities.includes("ingest_source")) {
+      return "sources";
+    }
+    if (person.capabilities.includes("ingest_source")) return "sources";
+    if (person.capabilities.includes("view_gaps")) return "gaps";
+    return "drafts";
   };
 
   const [tab, setTab] = useState<"sources" | "drafts" | "gaps" | "insights">(getSearchTab());
 
   useEffect(() => {
-    const handleUrlChange = () => {
-      const currentTab = getSearchTab();
-      if (currentTab === "gaps") {
-        setTab("gaps");
-      }
-    };
-    handleUrlChange();
-    window.addEventListener("popstate", handleUrlChange);
-    return () => window.removeEventListener("popstate", handleUrlChange);
-  }, []);
+    setTab(getSearchTab());
+  }, [searchTab, person.id]);
 
   // Ingestion workflow steps: "upload" | "review_extract" | "review_units"
   const [ingestStep, setIngestStep] = useState<"upload" | "review_extract" | "review_units">("upload");
@@ -341,34 +342,42 @@ function WorkPage() {
       {/* Tabs */}
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
         <TabsList className="bg-[#F3F4F6] p-1 border border-border">
-          <TabsTrigger
-            value="sources"
-            onClick={() => setTab("sources")}
-            className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs cursor-pointer"
-          >
-            Sources
-          </TabsTrigger>
-          <TabsTrigger
-            value="drafts"
-            onClick={() => setTab("drafts")}
-            className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs cursor-pointer"
-          >
-            My drafts
-          </TabsTrigger>
-          <TabsTrigger
-            value="gaps"
-            onClick={() => setTab("gaps")}
-            className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs cursor-pointer"
-          >
-            Gaps
-          </TabsTrigger>
-          <TabsTrigger
-            value="insights"
-            onClick={() => setTab("insights")}
-            className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs cursor-pointer"
-          >
-            Insights
-          </TabsTrigger>
+          {person.capabilities.includes("ingest_source") && (
+            <TabsTrigger
+              value="sources"
+              onClick={() => setTab("sources")}
+              className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs cursor-pointer"
+            >
+              Sources
+            </TabsTrigger>
+          )}
+          {(person.capabilities.includes("ingest_source") || person.capabilities.includes("propose_unit")) && (
+            <TabsTrigger
+              value="drafts"
+              onClick={() => setTab("drafts")}
+              className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs cursor-pointer"
+            >
+              My drafts
+            </TabsTrigger>
+          )}
+          {person.capabilities.includes("view_gaps") && (
+            <TabsTrigger
+              value="gaps"
+              onClick={() => setTab("gaps")}
+              className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs cursor-pointer"
+            >
+              Gaps
+            </TabsTrigger>
+          )}
+          {person.capabilities.includes("view_search_insights") && (
+            <TabsTrigger
+              value="insights"
+              onClick={() => setTab("insights")}
+              className="text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-2xs cursor-pointer"
+            >
+              Insights
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Tab 1: Sources / Ingest Workflow */}
@@ -420,9 +429,12 @@ function WorkPage() {
         {/* Tab 3: Gaps */}
         <TabsContent value="gaps" className="mt-6">
           <KnowledgeGapsView
-            onCreateUnit={() => {
+            onCreateUnit={(gap) => {
               setTab("sources");
               setIngestStep("upload");
+              if (gap?.topic) {
+                setActiveSourceTitle(`Source for: ${gap.topic}`);
+              }
             }}
           />
         </TabsContent>

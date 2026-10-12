@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search,
   Plus,
@@ -33,13 +33,25 @@ import { SEEDED_KNOWLEDGE_GAPS, type KnowledgeGap, type GapType } from "@/types/
 import { useDemoStore } from "@/services/demoStore";
 import { classifyGapDomain } from "@/lib/gapClassifier";
 
+import { useSession } from "@/lib/session";
+
 interface KnowledgeGapsViewProps {
   onCreateUnit?: (gap?: KnowledgeGap) => void;
 }
 
 export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
+  const { person } = useSession();
+  const getPersonaDomain = (): "all" | "Pharmacy" | "Insurance" => {
+    if (!person) return "all";
+    const hasPharm = person.kbs?.includes("KB-PHARM");
+    const hasIns = person.kbs?.includes("KB-INS");
+    if (hasPharm && !hasIns) return "Pharmacy";
+    if (hasIns && !hasPharm) return "Insurance";
+    return "all";
+  };
+
   const [activeTab, setActiveTab] = useState<"All" | GapType>("All");
-  const [selectedDomain, setSelectedDomain] = useState<"all" | "Pharmacy" | "Insurance">("all");
+  const [selectedDomain, setSelectedDomain] = useState<"all" | "Pharmacy" | "Insurance">(getPersonaDomain());
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLob, setSelectedLob] = useState("all");
   const [selectedState, setSelectedState] = useState("all");
@@ -47,6 +59,10 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
   const [selectedGapIds, setSelectedGapIds] = useState<string[]>([]);
   const [selectedGap, setSelectedGap] = useState<KnowledgeGap | null>(SEEDED_KNOWLEDGE_GAPS[0] ?? null);
   const [detailTab, setDetailTab] = useState<"Overview" | "Search insights" | "Related content">("Overview");
+
+  useEffect(() => {
+    setSelectedDomain(getPersonaDomain());
+  }, [person.id]);
 
   const demoRequests = useDemoStore((s) => s.requests);
 
@@ -121,6 +137,12 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
       return true;
     });
   }, [allGaps, activeTab, selectedDomain, selectedLob, selectedSeverity, searchQuery]);
+
+  useEffect(() => {
+    if (filteredGaps.length > 0 && (!selectedGap || !filteredGaps.some((g) => g.id === selectedGap.id))) {
+      setSelectedGap(filteredGaps[0] ?? null);
+    }
+  }, [filteredGaps, selectedGap]);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -547,13 +569,23 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
                   </div>
                 </div>
 
+                {/* Source Document Guidance */}
+                <div className="rounded-lg border border-[#FDE68A] bg-[#FEF3C7]/40 p-3 text-xs space-y-1.5">
+                  <p className="font-semibold text-[#92400E] flex items-center gap-1.5">
+                    <AlertCircle className="h-4 w-4" /> Source document required
+                  </p>
+                  <p className="text-[11px] text-[#92400E]/90 leading-relaxed">
+                    This knowledge gap requires an uploaded policy or handbook document to extract and propose verified knowledge units.
+                  </p>
+                </div>
+
                 {/* Sticky Action Button */}
                 <Button
                   type="button"
                   onClick={() => onCreateUnit?.(selectedGap)}
                   className="w-full h-9 bg-[#1E5E2E] text-xs font-medium text-white hover:bg-[#184d25] cursor-pointer"
                 >
-                  <Plus className="mr-1.5 h-4 w-4" /> Create knowledge unit
+                  <Plus className="mr-1.5 h-4 w-4" /> Upload source document to close gap
                 </Button>
               </div>
             )}

@@ -1,6 +1,7 @@
 import { mockSearch, UNIT_META as UNIT_META_LOCAL } from "./mockData";
 import personasFile from "@/data/personas.json";
 import { classifyGapDomain } from "@/lib/gapClassifier";
+const UNIT_META = UNIT_META_LOCAL;
 const PEOPLE_LOCAL = personasFile.people as { name: string; persona: string; kbs: string[] }[];
 
 export type Outcome =
@@ -376,6 +377,17 @@ export function giveFeedback(person: string, requestId: string, rating: "up" | "
   audit({ actor: person, action: `feedback:${rating}`, target: requestId, detail: note ?? "" });
 }
 
+export function markUnitStale(unitId: string, actor: string = "User"): void {
+  updateDemoState((s) => ({
+    ...s,
+    units: s.units.map((u) => (u.unit_id === unitId ? { ...u, status: "stale" } : u)),
+  }));
+  if (UNIT_META[unitId]) {
+    UNIT_META[unitId].next_review_status = "Overdue";
+  }
+  audit({ actor, action: "mark_stale", target: unitId, detail: "Manually marked as stale; review overdue" });
+}
+
 /** Fold an authoring snapshot from the engine into the shared store. */
 function syncAuthoring(a: AuthoringState) {
   updateDemoState((s) => {
@@ -651,9 +663,14 @@ export function reviewQueue(s: DemoState): ReviewItem[] {
 export function reverifyUnit(person: string, unitId: string) {
   updateDemoState((s) => ({
     ...s,
+    units: s.units.map((u) => (u.unit_id === unitId ? { ...u, status: "approved" } : u)),
     reverified: [{ unit_id: unitId, by: person, at: now() }, ...s.reverified],
     reviewTasks: s.reviewTasks.map((t) => (t.unit_ids.includes(unitId) ? { ...t, status: "done" } : t)),
   }));
+  if (UNIT_META[unitId]) {
+    UNIT_META[unitId].next_review_status = "Current";
+    UNIT_META[unitId].next_review = "31 Dec 2027";
+  }
   audit({ actor: person, action: "reverify", target: unitId, detail: "Re-verified" });
 }
 

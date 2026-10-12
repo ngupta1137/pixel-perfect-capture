@@ -28,6 +28,7 @@ import type { EnrichedKnowledgeUnit } from "@/lib/library";
 import { useSession } from "@/lib/session";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
+import { markUnitStale, reverifyUnit } from "@/services/verity";
 
 interface KnowledgeDetailPanelProps {
   unit: EnrichedKnowledgeUnit;
@@ -390,7 +391,7 @@ export function KnowledgeDetailPanel({
       </div>
 
       {/* Panel Bottom Actions */}
-      <div className="border-t border-border p-4">
+      <div className="border-t border-border p-4 space-y-2.5">
         <div className="flex items-center gap-2.5">
           <Button
             variant="outline"
@@ -414,6 +415,36 @@ export function KnowledgeDetailPanel({
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             Edit (if permitted)
           </Button>
+        </div>
+
+        <div>
+          {unit.status === "Stale" || unit.next_review_status === "Overdue" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                reverifyUnit(person.name, unit.unit_id);
+                toast.success(`Unit ${unit.unit_id} re-verified. Review date extended.`);
+              }}
+              className="w-full text-xs font-medium text-[#1E5E2E] border-[#1E5E2E]/30 bg-[#EAF7EE] hover:bg-[#EAF7EE]/80"
+            >
+              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-[#1E5E2E]" />
+              Re-verify unit (Mark Current)
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                markUnitStale(unit.unit_id, person.name);
+                toast.warning(`Unit ${unit.unit_id} marked as Stale (Review due).`);
+              }}
+              className="w-full text-xs font-medium text-[#B45309] border-[#FDE68A] bg-[#FEF3C7]/40 hover:bg-[#FEF3C7]"
+            >
+              <Clock className="mr-1.5 h-3.5 w-3.5 text-[#B45309]" />
+              Mark as Stale (Review due)
+            </Button>
+          )}
         </div>
       </div>
     </aside>
