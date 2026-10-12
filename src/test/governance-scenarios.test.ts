@@ -9,6 +9,7 @@ import type { SearchRequest } from '../services/verity.ts';
 
 describe('Verity — 11 Required Governance Scenarios Acceptance Test Suite', () => {
   beforeEach(async () => {
+    await repository.resetPublishedUnitsToSeed();
     resetDemoStore();
     resetStore();
     await ensureStoreHydrated();

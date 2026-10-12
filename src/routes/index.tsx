@@ -19,7 +19,10 @@ import {
   ShieldCheck,
   Stethoscope,
   Contact,
+  Lock,
+  PhoneCall,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { OutcomeCard } from "@/components/ask/OutcomeCard";
 import { TraceDrawer } from "@/components/ask/TraceDrawer";
@@ -78,40 +81,131 @@ export const Route = createFileRoute("/")({
   component: GuardedAskPage,
 });
 
-const SUGGESTED_QUESTIONS = [
+interface SuggestedQuestion {
+  query: string;
+  label: string;
+  description?: string;
+  icon: any;
+  restricted?: boolean;
+}
+
+const INSURANCE_SUGGESTED_QUESTIONS: SuggestedQuestion[] = [
   {
-    query: "Rx pricing disclaimer",
-    label: "Rx pricing disclaimer",
-    icon: Paperclip,
-  },
-  {
-    query: "how long does mail order delivery take",
-    label: "Mail order benefits",
-    icon: Truck,
-  },
-  {
-    query: "how many days supply can I get by mail",
-    label: "How many days supply can I get by mail?",
-    icon: CalendarDays,
-  },
-  {
-    query: "ID card replacement",
-    label: "How do I get a replacement ID card?",
+    query: "replace id card",
+    label: "Replacement member ID card",
+    description: "Insurance Happy Path · Member Services (KB-INS)",
     icon: Contact,
   },
   {
-    query: "is there a copay assistance program",
-    label: "Is there a copay assistance program?",
+    query: "pcp change",
+    label: "Change primary care provider (PCP)",
+    description: "Insurance Happy Path · Benefits Ops (KB-INS)",
+    icon: Stethoscope,
+  },
+  {
+    query: "what do i say at the start of the call",
+    label: "Call opening & recorded line notice",
+    description: "Shared Verbatim · Compliance (KB-SHARED)",
     icon: ShieldCheck,
   },
   {
     query: "closing statement",
-    label: "How do I change my primary care provider?",
-    icon: Stethoscope,
+    label: "Call closing statement",
+    description: "Shared Verbatim · Compliance (KB-SHARED)",
+    icon: PhoneCall,
+  },
+  {
+    query: "Rx pricing disclaimer",
+    label: "Rx pricing disclaimer",
+    description: "Pharmacy domain · Restricted (Transfer to Pharmacy)",
+    icon: Lock,
+    restricted: true,
+  },
+  {
+    query: "how many days supply can I get by mail",
+    label: "Mail order days supply",
+    description: "Pharmacy domain · Restricted (Transfer to Pharmacy)",
+    icon: Lock,
+    restricted: true,
   },
 ];
 
-const DEFAULT_RECENT_SEARCHES = [
+const PHARMACY_SUGGESTED_QUESTIONS: SuggestedQuestion[] = [
+  {
+    query: "Rx pricing disclaimer",
+    label: "Rx pricing disclaimer",
+    description: "Pharmacy Happy Path · Verbatim (KB-PHARM)",
+    icon: Paperclip,
+  },
+  {
+    query: "how long does mail order delivery take",
+    label: "Mail order delivery turnaround",
+    description: "Pharmacy Happy Path · Standard 7–10 days (KB-PHARM)",
+    icon: Truck,
+  },
+  {
+    query: "how many days supply can I get by mail",
+    label: "Days supply by mail (90 vs 100 days)",
+    description: "Conflict demo · Dual-source conflict routing",
+    icon: CalendarDays,
+  },
+  {
+    query: "is there a copay assistance program",
+    label: "Copay assistance program",
+    description: "Applicability demo · State-specific clarification (KY)",
+    icon: ShieldCheck,
+  },
+  {
+    query: "is there a shipping fee for mail order",
+    label: "Mail order shipping cost",
+    description: "Stale review demo · Expired review flag",
+    icon: Clock,
+  },
+  {
+    query: "replace id card",
+    label: "Replacement member ID card",
+    description: "Insurance domain · Restricted (Transfer to Insurance)",
+    icon: Lock,
+    restricted: true,
+  },
+];
+
+const MEMBER_SUGGESTED_QUESTIONS: SuggestedQuestion[] = [
+  {
+    query: "how long does mail order delivery take",
+    label: "Mail order delivery time",
+    description: "Prescription delivery arrival estimates",
+    icon: Truck,
+  },
+  {
+    query: "how many days supply can I get by mail",
+    label: "Days supply by mail",
+    description: "Prescription maintenance supply allowance",
+    icon: CalendarDays,
+  },
+  {
+    query: "replace id card",
+    label: "How do I get a replacement ID card?",
+    description: "Order a replacement member card",
+    icon: Contact,
+  },
+  {
+    query: "closing statement",
+    label: "Call closing statement",
+    description: "Plan membership reassurance",
+    icon: PhoneCall,
+  },
+];
+
+const DEFAULT_RECENT_SEARCHES_INSURANCE = [
+  { query: "replace id card", time: "2 mins ago" },
+  { query: "pcp change", time: "15 mins ago" },
+  { query: "what do i say at the start of the call", time: "35 mins ago" },
+  { query: "closing statement", time: "1 hour ago" },
+  { query: "Rx pricing disclaimer", time: "3 hours ago" },
+];
+
+const DEFAULT_RECENT_SEARCHES_PHARMACY = [
   { query: "is there a copay assistance program", time: "2 mins ago" },
   { query: "I have chest pain, can you rush my heart pills", time: "12 mins ago" },
   { query: "how many days supply can I get by mail", time: "24 mins ago" },
@@ -119,12 +213,20 @@ const DEFAULT_RECENT_SEARCHES = [
   { query: "Rx pricing disclaimer", time: "3 hours ago" },
 ];
 
-const DEFAULT_BROWSE_KNOWLEDGE = [
-  { unit_id: "U-PH-003", title: "Pricing disclaimer (Rx)" },
-  { unit_id: "U-PH-006", title: "Mail order benefits" },
+const DEFAULT_BROWSE_KNOWLEDGE_INSURANCE = [
+  { unit_id: "U-IN-001", title: "Replacement member ID card" },
+  { unit_id: "U-IN-002", title: "Change primary care provider (PCP)" },
+  { unit_id: "U-IN-003", title: "Filing a grievance for a denied claim" },
+  { unit_id: "U-SH-001", title: "Call opening: recorded line" },
   { unit_id: "U-SH-002", title: "Call closing: no impact on membership" },
+];
+
+const DEFAULT_BROWSE_KNOWLEDGE_PHARMACY = [
+  { unit_id: "U-PH-003", title: "Pricing disclaimer (Rx)" },
+  { unit_id: "U-PH-006", title: "Mail order delivery time" },
   { unit_id: "U-PH-007", title: "Days supply by mail (90-day)" },
-  { unit_id: "U-SH-001", title: "Member ID card" },
+  { unit_id: "U-PH-008", title: "Mail order shipping cost" },
+  { unit_id: "U-SH-002", title: "Call closing: no impact on membership" },
 ];
 
 interface Answer {
@@ -175,14 +277,31 @@ export function AskPage() {
   const userRequests = storedRequests.filter((r) => r.person === persona.name);
   const sessionHistory = userRequests.slice(0, showHistory ? 12 : 5);
 
-  const browseList = DEFAULT_BROWSE_KNOWLEDGE;
+  const isInsuranceRole =
+    persona.role === "insurance_advocate" ||
+    (persona.kbs?.includes("KB-INS") && !persona.kbs?.includes("KB-PHARM"));
+
+  const browseList = isInsuranceRole
+    ? DEFAULT_BROWSE_KNOWLEDGE_INSURANCE
+    : DEFAULT_BROWSE_KNOWLEDGE_PHARMACY;
+
+  const defaultRecentSearches = isInsuranceRole
+    ? DEFAULT_RECENT_SEARCHES_INSURANCE
+    : DEFAULT_RECENT_SEARCHES_PHARMACY;
+
+  const isChat = channel === "member_chat" || persona.role === "member_chat";
+
+  const suggestedQuestions = isChat
+    ? MEMBER_SUGGESTED_QUESTIONS
+    : isInsuranceRole
+    ? INSURANCE_SUGGESTED_QUESTIONS
+    : PHARMACY_SUGGESTED_QUESTIONS;
 
   const scope = `${persona.id}:${channel}`;
   const voice = useBrowserVoice(scope);
   const scopeRef = useRef(scope);
   scopeRef.current = scope;
   const pending = useRef(false);
-  const isChat = channel === "member_chat";
 
   useEffect(() => {
     setAnswer(null);
@@ -778,29 +897,68 @@ export function AskPage() {
           className="mt-8"
           aria-label={answer && !isChat ? "Related questions" : "Suggested questions"}
         >
-          <h2 className="mb-4 text-[15px] font-semibold text-ink">
-            {answer && !isChat ? "Related questions" : "Suggested questions"}
-          </h2>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-[15px] font-semibold text-ink">
+              {answer && !isChat ? "Related questions" : "Suggested questions"}
+            </h2>
+            {isInsuranceRole && !isChat && (
+              <span className="text-xs font-medium text-ink-muted">
+                Insurance workspace &amp; restricted boundary scenarios
+              </span>
+            )}
+            {!isInsuranceRole && !isChat && (
+              <span className="text-xs font-medium text-ink-muted">
+                Pharmacy workspace &amp; scenario test queries
+              </span>
+            )}
+          </div>
           <div className="grid gap-3.5 sm:grid-cols-2">
-            {SUGGESTED_QUESTIONS.filter((ex) => !answer || ex.query !== lastQuery)
+            {suggestedQuestions
+              .filter((ex) => !answer || ex.query !== lastQuery)
               .slice(0, answer || isChat ? 4 : 6)
               .map((ex) => (
                 <button
-                  key={ex.query}
+                  key={ex.query + ex.label}
                   type="button"
                   onClick={() => {
                     setQuery(ex.query);
                     void run(ex.query);
                   }}
-                  className="ask-suggestion flex min-h-[64px] items-center justify-between gap-3 rounded-xl border border-border bg-surface p-3.5 text-left transition-all hover:border-border/80 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className={cn(
+                    "ask-suggestion flex min-h-[68px] items-center justify-between gap-3 rounded-xl border p-3.5 text-left transition-all hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    ex.restricted
+                      ? "border-amber-200/90 bg-amber-50/40 hover:border-amber-300 hover:bg-amber-50/70"
+                      : "border-border bg-surface hover:border-border/80"
+                  )}
                 >
                   <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EAF7EE] text-[#1E5E2E]">
+                    <span
+                      className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+                        ex.restricted
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-[#EAF7EE] text-[#1E5E2E]"
+                      )}
+                    >
                       <ex.icon className="h-4 w-4" />
                     </span>
-                    <span className="min-w-0 text-[13px] font-normal leading-snug text-ink">
-                      {ex.label}
-                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="min-w-0 text-[13px] font-medium leading-snug text-ink truncate">
+                          {ex.label}
+                        </span>
+                        {ex.restricted && (
+                          <span className="inline-flex shrink-0 items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                            Restricted
+                          </span>
+                        )}
+                      </div>
+                      {ex.description && (
+                        <p className="mt-0.5 text-[11px] text-ink-muted truncate">
+                          {ex.description}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <ChevronRight className="h-4 w-4 shrink-0 text-ink-muted/80" />
                 </button>
@@ -854,7 +1012,7 @@ export function AskPage() {
                   </li>
                 ))
               ) : (
-                DEFAULT_RECENT_SEARCHES.map((item, idx) => (
+                defaultRecentSearches.map((item, idx) => (
                   <li key={idx}>
                     <button
                       type="button"

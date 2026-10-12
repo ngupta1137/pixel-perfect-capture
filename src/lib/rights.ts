@@ -29,13 +29,21 @@ const slug = (s: string) =>
 
 export const PEOPLE: Person[] = policy.people.map((p) => {
   const def = (policy.personas as Record<string, PersonaDef>)[p.persona]!;
+  const isInsurance = p.kbs?.includes("KB-INS") && !p.kbs?.includes("KB-PHARM");
+  const isPharmacy = p.kbs?.includes("KB-PHARM") && !p.kbs?.includes("KB-INS");
+  const derivedRole = isInsurance
+    ? "insurance_advocate"
+    : isPharmacy
+    ? (def.entitlement_role ?? "pharmacy_advocate")
+    : (def.entitlement_role ?? p.persona);
+
   return {
     id: slug(p.name),
     name: p.name,
     persona: p.persona,
     label: def.label,
     group: def.group,
-    role: def.entitlement_role ?? p.persona,
+    role: derivedRole,
     kbs: p.kbs,
     capabilities: def.capabilities as Capability[],
     memberAudience: def.citation_detail === "minimal" && def.sees_internal_owner === false,

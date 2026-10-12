@@ -7,6 +7,7 @@ export function registerDemoStoreGetter(getter: () => any) {
 
 const ENTITLEMENTS: Record<string, string> = {
   pharmacy_advocate: "KB-PHARM, KB-SHARED",
+  pharmacy_supervisor: "KB-PHARM, KB-SHARED",
   insurance_advocate: "KB-INS, KB-SHARED",
   member_chat: "KB-PHARM (member-safe), KB-SHARED",
 };
@@ -749,7 +750,64 @@ function match(req: SearchRequest): Fixture {
       intent: "call_closing",
     };
   }
+  if (has("start of the call") || (has("start") && has("call")) || has("call opening") || has("recorded line")) {
+    return {
+      outcome: "answer",
+      message: "Call opening: recorded line · Compliance · v1 · effective 2026-01-15",
+      text: "Thank you for calling. My name is [Advocate Name]. This call is being recorded for quality and training purposes. How may I help you today?",
+      citations: [cite("U-SH-001", 1, "Call opening: recorded line", "Compliance", "2026-01-15", true)],
+      intent: "call_opening",
+    };
+  }
+  if (has("id card") || has("replacement id") || has("replace id")) {
+    if (req.role === "pharmacy_advocate" || req.role === "pharmacy_supervisor") {
+      return {
+        outcome: "not_authorized",
+        message: "This question is meant for an Insurance advocate and is owned by Member Services (KB-INS). Transfer or ask that team.",
+        text: null,
+        owner_team: "Member Services",
+        next_step: "This question is meant for an Insurance advocate. Warm-transfer to Member Services or redirect to an Insurance advocate.",
+        intent: "id_card",
+      };
+    }
+    return {
+      outcome: "answer",
+      message: "Replacement member ID card · Member Services · v1 · effective 2026-02-10",
+      text: "Members can request a replacement ID card via the member portal, the mobile app, or an advocate. A new card arrives within 7 to 10 days; a temporary card can be printed right away from the portal.",
+      citations: [cite("U-IN-001", 1, "Replacement member ID card", "Member Services", "2026-02-10", false)],
+      intent: "id_card",
+    };
+  }
+  if (has("pcp") || has("primary care") || has("switch doctor")) {
+    if (req.role === "pharmacy_advocate" || req.role === "pharmacy_supervisor") {
+      return {
+        outcome: "not_authorized",
+        message: "This question is meant for an Insurance advocate and is owned by Insurance Benefits Ops (KB-INS). Transfer or ask that team.",
+        text: null,
+        owner_team: "Insurance Benefits Ops",
+        next_step: "This question is meant for an Insurance advocate. Warm-transfer to Insurance Benefits Ops or redirect to an Insurance advocate.",
+        intent: "pcp_change",
+      };
+    }
+    return {
+      outcome: "answer",
+      message: "Change primary care provider (PCP) · Insurance Benefits Ops · v1 · effective 2026-02-10",
+      text: "1) Confirm the new PCP is in network. 2) Update the PCP in the member record. 3) Tell the member the change is effective the first day of next month.",
+      citations: [cite("U-IN-002", 1, "Change primary care provider (PCP)", "Insurance Benefits Ops", "2026-02-10", false)],
+      intent: "pcp_change",
+    };
+  }
   if (has("oncology") || (has("specialty") && (has("supply") || has("mail") || has("90") || has("days")))) {
+    if (req.role === "insurance_advocate") {
+      return {
+        outcome: "not_authorized",
+        message: "This question is meant for a Pharmacy advocate and is owned by Pharmacy Ops (KB-PHARM). Transfer or ask that team.",
+        text: null,
+        owner_team: "Pharmacy Ops",
+        next_step: "This question is meant for a Pharmacy advocate. Warm-transfer to Pharmacy Ops or redirect to a Pharmacy advocate.",
+        intent: "specialty_medication",
+      };
+    }
     return {
       outcome: "insufficient_evidence",
       message: "No approved content found for specialty or oncology medications. Logged as a gap for Pharmacy Ops.",
@@ -761,7 +819,7 @@ function match(req: SearchRequest): Fixture {
     };
   }
   if ((has("claim") && (has("grievance") || has("denied") || has("appeal"))) || has("denied claim")) {
-    if (req.role === "pharmacy_advocate" || req.role === "member_chat") {
+    if (req.role === "pharmacy_advocate" || req.role === "pharmacy_supervisor" || req.role === "member_chat") {
       return {
         outcome: "not_authorized",
         message: "This is owned by Insurance Benefits Ops (KB-INS). Transfer or route to an insurance advocate.",
@@ -780,6 +838,16 @@ function match(req: SearchRequest): Fixture {
     };
   }
   if (has("days supply") || has("how many days") || has("90")) {
+    if (req.role === "insurance_advocate") {
+      return {
+        outcome: "not_authorized",
+        message: "This question is meant for a Pharmacy advocate and is owned by Pharmacy Ops (KB-PHARM). Transfer or ask that team.",
+        text: null,
+        owner_team: "Pharmacy Ops",
+        next_step: "This question is meant for a Pharmacy advocate. Warm-transfer to Pharmacy Ops or redirect to a Pharmacy advocate.",
+        intent: "days_supply",
+      };
+    }
     if (!year) return { outcome: "needs_clarification", message: "Which plan year: 2026 or 2027?", text: null, choices: YEAR_CHOICES, intent: "days_supply" };
     if (year === "2027") {
       return {
@@ -828,6 +896,16 @@ function match(req: SearchRequest): Fixture {
     };
   }
   if (has("luminexa")) {
+    if (req.role === "insurance_advocate") {
+      return {
+        outcome: "not_authorized",
+        message: "This question is meant for a Pharmacy advocate and is owned by Pharmacy Ops (KB-PHARM). Transfer or ask that team.",
+        text: null,
+        owner_team: "Pharmacy Ops",
+        next_step: "This question is meant for a Pharmacy advocate. Warm-transfer to Pharmacy Ops or redirect to a Pharmacy advocate.",
+        intent: "drug_copay",
+      };
+    }
     return {
       outcome: "insufficient_evidence",
       message: "The approved unit gives the tier but does not state a copay.",
@@ -837,6 +915,16 @@ function match(req: SearchRequest): Fixture {
     };
   }
   if (has("copay")) {
+    if (req.role === "insurance_advocate") {
+      return {
+        outcome: "not_authorized",
+        message: "This question is meant for a Pharmacy advocate and is owned by Pharmacy Ops (KB-PHARM). Transfer or ask that team.",
+        text: null,
+        owner_team: "Pharmacy Ops",
+        next_step: "This question is meant for a Pharmacy advocate. Warm-transfer to Pharmacy Ops or redirect to a Pharmacy advocate.",
+        intent: "copay_assistance",
+      };
+    }
     if (!req.state) {
       return { outcome: "needs_clarification", message: "Which state is the member's plan in?", text: null, choices: STATE_CHOICES, intent: "copay_assistance" };
     }
@@ -857,6 +945,16 @@ function match(req: SearchRequest): Fixture {
     };
   }
   if (has("shipping fee")) {
+    if (req.role === "insurance_advocate") {
+      return {
+        outcome: "not_authorized",
+        message: "This question is meant for a Pharmacy advocate and is owned by Pharmacy Ops (KB-PHARM). Transfer or ask that team.",
+        text: null,
+        owner_team: "Pharmacy Ops",
+        next_step: "This question is meant for a Pharmacy advocate. Warm-transfer to Pharmacy Ops or redirect to a Pharmacy advocate.",
+        intent: "shipping_cost",
+      };
+    }
     return {
       outcome: "stale",
       message: "Past its review date (2026-06-30). Do not present as current; owner notified.",
@@ -866,6 +964,16 @@ function match(req: SearchRequest): Fixture {
     };
   }
   if (has("mail order delivery") || (has("how long") && has("mail"))) {
+    if (req.role === "insurance_advocate") {
+      return {
+        outcome: "not_authorized",
+        message: "This question is meant for a Pharmacy advocate and is owned by Pharmacy Ops (KB-PHARM). Transfer or ask that team.",
+        text: null,
+        owner_team: "Pharmacy Ops",
+        next_step: "This question is meant for a Pharmacy advocate. Warm-transfer to Pharmacy Ops or redirect to a Pharmacy advocate.",
+        intent: "mail_delivery_time",
+      };
+    }
     if (!year) return { outcome: "needs_clarification", message: "Which plan year: 2026 or 2027?", text: null, choices: YEAR_CHOICES, intent: "mail_delivery_time" };
     if (year === "2027") {
       return {

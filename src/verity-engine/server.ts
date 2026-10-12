@@ -129,7 +129,15 @@ export interface SessionSearch { at: string; role: string; channel: string; quer
 export let ownerQueue = new OwnerQueue();
 export const sessionLog: SessionSearch[] = [];
 
-const ROLES = new Set(['pharmacy_advocate', 'insurance_advocate', 'member_chat']);
+const ROLES = new Set([
+  'pharmacy_advocate',
+  'insurance_advocate',
+  'member_chat',
+  'pharmacy_supervisor',
+  'advocate_supervisor',
+  'knowledge_author',
+  'knowledge_owner',
+]);
 
 // What the person does next when Verity cannot give an approved answer.
 // "I don't know" on a live call needs a recovery path, not just a refusal.
