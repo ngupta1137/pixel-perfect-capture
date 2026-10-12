@@ -151,7 +151,7 @@ export function draftTableToReviewQueueItem(
         ? draft.proposed_text.slice(0, 107) + "..."
         : draft.proposed_text,
     content: draft.proposed_text,
-    source_doc: docTitle || draft.source_doc_id || (isConflict ? "Conflict Report: U-PH-007 vs U-PH-107" : "Member Services Guide v3"),
+    source_doc: docTitle || draft.source_doc_id || (isConflict ? "Conflict Report: U-PH-007 vs U-PH-107" : "S01_source_Rx_Education_Script_Mail_Order_2026.docx"),
     section: isConflict ? "Mail Order Maintenance Supply" : section,
     type: (draft.candidate_type as any) || (isConflict ? "Procedure" : "Policy"),
     status,

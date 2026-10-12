@@ -82,7 +82,7 @@ function WorkPage() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionError, setExtractionError] = useState("");
   const [extractedCandidates, setExtractedCandidates] = useState<Candidate[] | null>(null);
-  const [activeSourceTitle, setActiveSourceTitle] = useState("Member Services Guide v3.pdf");
+  const [activeSourceTitle, setActiveSourceTitle] = useState("S01_source_Rx_Education_Script_Mail_Order_2026.docx");
   const [extractedUnits, setExtractedUnits] = useState<ExtractedUnit[]>(MEMBER_SERVICES_GUIDE_UNITS);
   const [currentDocId, setCurrentDocId] = useState<string | null>(null);
   const [extractedParsedText, setExtractedParsedText] = useState<string>("");
@@ -188,7 +188,7 @@ function WorkPage() {
         throw new Error(result?.error || "No candidate units could be extracted from this document.");
       }
 
-      setActiveSourceTitle(sourceTitle || result.filename || "Member Services Guide v3.pdf");
+      setActiveSourceTitle(sourceTitle || result.filename || "S01_source_Rx_Education_Script_Mail_Order_2026.docx");
       setCurrentDocId(result.doc_id || null);
 
       setExtractedParsedText(result.extracted_text || "");

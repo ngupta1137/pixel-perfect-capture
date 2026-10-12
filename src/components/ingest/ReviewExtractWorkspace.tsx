@@ -43,10 +43,10 @@ interface ReviewExtractWorkspaceProps {
 }
 
 export function ReviewExtractWorkspace({
-  documentTitle = "Member Services Guide v3.pdf",
+  documentTitle = "S01_source_Rx_Education_Script_Mail_Order_2026.docx",
   sourceType = "Policy",
   lob = "MAPD",
-  uploadedOn = "12 Jan 2024",
+  uploadedOn = "12 Oct 2026",
   initialUnits = MEMBER_SERVICES_GUIDE_UNITS,
   extractedText,
   sourceDocId,
@@ -322,12 +322,12 @@ export function ReviewExtractWorkspace({
               <div className="border-b border-border/60 pb-3 flex items-center justify-between">
                 <div>
                   <h3 className="font-bold text-sm text-ink leading-tight">
-                    {documentTitle.includes("Member Services") ? "Member Services Guide" : documentTitle}
+                    {documentTitle}
                   </h3>
                   <p className="text-[10px] text-ink-muted mt-0.5">
                     {extractedText
                       ? "Extracted Document Text Preview (Text representation of source document)"
-                      : "Page 4 of 24 • Section 4: Pharmacy Benefits"}
+                      : "Rx Education Script • Mail Order 2026 Plan Year"}
                   </p>
                 </div>
                 <span className="text-[10px] font-mono rounded bg-muted px-2 py-0.5 text-ink-muted">
@@ -347,36 +347,50 @@ export function ReviewExtractWorkspace({
                 </div>
               )}
 
-              {/* Section 4.2 */}
-              <div className="space-y-2">
-                <h4 className="font-bold text-xs text-[#1E3A8A]">
-                  4.2 Copay Assistance Program
-                </h4>
-                <p className="text-[11px] leading-relaxed text-ink/90">
-                  The Copay Assistance Program helps eligible members reduce out-of-pocket costs for certain covered medications. Members must meet the program criteria to qualify. The program is available for the MAPD plan and applies to medications on the approved list.
-                </p>
-
-                <div className="pl-1 space-y-1 text-[11px]">
-                  <p className="font-semibold text-ink text-[11px]">Program highlights</p>
-                  <ul className="list-disc pl-4 space-y-0.5 text-ink-muted text-[10.5px]">
-                    <li>Available for eligible members</li>
-                    <li>Applies to select medications</li>
-                    <li>Members must meet income and other criteria</li>
-                    <li>Program terms and covered medications may change</li>
-                    <li>Contact Member Services for the latest information</li>
-                  </ul>
+              {!extractedText && (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-xs text-[#1E3A8A]">
+                      1. 90-Day Mail-Order Supply Eligibility
+                    </h4>
+                    <p className="text-[11px] leading-relaxed text-ink/90">
+                      Members can receive a 90-day supply of maintenance medications by mail delivery with zero standard delivery fee. Medications must be on the approved maintenance list and have an active prescription.
+                    </p>
+                  </div>
+                  <div className="space-y-1 border-t border-border/50 pt-2.5">
+                    <h4 className="font-bold text-xs text-[#1E3A8A]">
+                      2. Member Cost-Share Language
+                    </h4>
+                    <p className="text-[11px] leading-relaxed text-ink/90">
+                      Explain to the member that copays vary based on formulary tier. Tier 1 and Tier 2 generic medications offer the greatest cost savings under the 90-day mail delivery benefit.
+                    </p>
+                  </div>
+                  <div className="space-y-1 border-t border-border/50 pt-2.5">
+                    <h4 className="font-bold text-xs text-[#1E3A8A]">
+                      3. Prior Authorization Note
+                    </h4>
+                    <p className="text-[11px] leading-relaxed text-ink/90">
+                      Remind the member that non-formulary and specialty medications require prior authorization before mail dispensing.
+                    </p>
+                  </div>
+                  <div className="space-y-1 border-t border-border/50 pt-2.5">
+                    <h4 className="font-bold text-xs text-[#1E3A8A]">
+                      4. Pricing Disclaimer (Legal Verbatim)
+                    </h4>
+                    <p className="text-[11px] leading-relaxed text-ink/90 font-mono text-[10.5px] bg-amber-50 p-2 rounded border border-amber-200">
+                      "The prices I share today are estimates based on your current plan and may change. Your final cost will be confirmed when your prescription is processed."
+                    </p>
+                  </div>
+                  <div className="space-y-1 border-t border-border/50 pt-2.5">
+                    <h4 className="font-bold text-xs text-[#1E3A8A]">
+                      5. Closing Guidance
+                    </h4>
+                    <p className="text-[11px] leading-relaxed text-ink/90 font-mono text-[10.5px] bg-slate-50 p-2 rounded border border-slate-200">
+                      "Your decision today has no impact on your plan membership. Is there anything else I can help you with today?"
+                    </p>
+                  </div>
                 </div>
-              </div>
-
-              {/* Section 4.3 */}
-              <div className="space-y-2 border-t border-border/50 pt-3">
-                <h4 className="font-bold text-xs text-[#1E3A8A]">
-                  4.3 Mail Order Pharmacy
-                </h4>
-                <p className="text-[11px] leading-relaxed text-ink/90">
-                  Members can get up to a 90-day supply of maintenance medications through our mail order pharmacy. Standard mailing time is 5 to 7 business days. Mail order medications may have a different copay than retail fills.
-                </p>
-              </div>
+              )}
             </div>
           </div>
         </div>

@@ -128,8 +128,8 @@ export function IngestSourceWizard({
   const handleExtractClick = async () => {
     const finalTitle = title.trim() || (inputMode === "upload" && selectedFile ? selectedFile.name : AEP_SAMPLE.title);
     const textContent = inputMode === "url" 
-      ? `Web source from: ${urlInput}\n\n` + pastedText 
-      : pastedText;
+      ? `Web source from: ${urlInput}\n\n` + (pastedText || AEP_SAMPLE.text) 
+      : (pastedText || AEP_SAMPLE.text);
     
     let fileBase64 = "";
     let fileName = selectedFile?.name || `${finalTitle.replace(/[^a-zA-Z0-9_-]/g, "_")}.md`;

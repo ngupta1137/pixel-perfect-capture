@@ -26,10 +26,10 @@ const renderReviewExtractWorkspace = (personId = "dana") => {
     <DemoStoreProvider>
       <SessionProvider initialPerson={person}>
         <ReviewExtractWorkspace
-          documentTitle="Member Services Guide v3.pdf"
+          documentTitle="S01_source_Rx_Education_Script_Mail_Order_2026.docx"
           sourceType="Policy"
           lob="MAPD"
-          uploadedOn="12 Jan 2024"
+          uploadedOn="12 Oct 2026"
           initialUnits={MEMBER_SERVICES_GUIDE_UNITS}
           onBackToIngest={() => {}}
           onReplaceDocument={() => {}}
@@ -95,11 +95,11 @@ describe("Verity Ingest & Drafts Screen", () => {
     renderWorkPage("dana");
 
     expect(screen.getByRole("heading", { name: "Recent uploads" })).toBeInTheDocument();
-    expect(screen.getByText("Member Services Guide v3.pdf")).toBeInTheDocument();
-    expect(screen.getByText("Pharmacy Benefits Policy.docx")).toBeInTheDocument();
-    expect(screen.getByText("Mail Order Procedure.pdf")).toBeInTheDocument();
-    expect(screen.getByText("Clinical Review Criteria.pptx")).toBeInTheDocument();
-    expect(screen.getByText("Formulary Exceptions.txt")).toBeInTheDocument();
+    expect(screen.getByText("S01_source_Rx_Education_Script_Mail_Order_2026.docx")).toBeInTheDocument();
+    expect(screen.getByText("S02_source_Insurance_Benefits_Snippet_2026.docx")).toBeInTheDocument();
+    expect(screen.getByText("S04_source_A_Mail_Order_90_day.docx")).toBeInTheDocument();
+    expect(screen.getByText("S04_source_B_Mail_Order_100_day_pilot.docx")).toBeInTheDocument();
+    expect(screen.getByText("S05_source_Kentucky_Copay_Assistance.docx")).toBeInTheDocument();
 
     // Statuses
     expect(screen.getAllByText("Extracted").length).toBeGreaterThan(0);
@@ -118,6 +118,23 @@ describe("Verity Ingest & Drafts Screen", () => {
   });
 
   it("extracts candidate units and opens Review & Extract 3-column workspace", async () => {
+    vi.spyOn(verityServices, "uploadAndIngestSource").mockResolvedValueOnce({
+      ok: true,
+      filename: "S01_source_Rx_Education_Script_Mail_Order_2026.docx",
+      doc_id: "SRC-S01-001",
+      units: MEMBER_SERVICES_GUIDE_UNITS.map((u) => ({
+        id: u.id,
+        cid: u.cid || "C1",
+        title: u.title,
+        type: u.type,
+        content: u.content,
+        key_points: u.key_points,
+        source_reference: u.source_reference,
+        suggested_effective_date: u.suggested_effective_date,
+        match_status: "new",
+      })),
+    } as any);
+
     renderWorkPage("dana");
 
     // Click extract candidate units
@@ -134,7 +151,7 @@ describe("Verity Ingest & Drafts Screen", () => {
 
     // Check 3-column elements
     expect(screen.getByRole("heading", { name: "Document preview" })).toBeInTheDocument();
-    expect(screen.getByText(/4.2 Copay Assistance Program/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/1. 90-Day Mail-Order Supply Eligibility/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Extracted candidate units/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Document info" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Unit details" })).toBeInTheDocument();
@@ -144,27 +161,22 @@ describe("Verity Ingest & Drafts Screen", () => {
     renderReviewExtractWorkspace("dana");
 
     // Stepper checks
-    expect(screen.getAllByText("Member Services Guide v3.pdf").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("S01_source_Rx_Education_Script_Mail_Order_2026.docx").length).toBeGreaterThan(0);
 
     // Left column document preview
-    expect(screen.getByText("Member Services Guide")).toBeInTheDocument();
-    expect(screen.getByText(/4.2 Copay Assistance Program/i)).toBeInTheDocument();
-    expect(screen.getByText(/4.3 Mail Order Pharmacy/i)).toBeInTheDocument();
+    expect(screen.getByText("1. 90-Day Mail-Order Supply Eligibility")).toBeInTheDocument();
 
     // Middle column extracted units
-    expect(screen.getByText("Copay assistance program overview")).toBeInTheDocument();
-    expect(screen.getByText("Eligibility criteria for copay assistance")).toBeInTheDocument();
-    expect(screen.getByText("Medications covered under the program")).toBeInTheDocument();
-    expect(screen.getByText("Program terms and changes")).toBeInTheDocument();
-    expect(screen.getByText("Contact Member Services")).toBeInTheDocument();
-    expect(screen.getByText("Mail order pharmacy overview")).toBeInTheDocument();
-    expect(screen.getByText("Mail order delivery time")).toBeInTheDocument();
-    expect(screen.getByText("Mail order cost information")).toBeInTheDocument();
+    expect(screen.getByText("1. 90-day mail-order supply eligibility")).toBeInTheDocument();
+    expect(screen.getByText("2. Member cost-share language")).toBeInTheDocument();
+    expect(screen.getByText("3. Prior authorization note")).toBeInTheDocument();
+    expect(screen.getByText("4. Pricing disclaimer (Legal verbatim)")).toBeInTheDocument();
+    expect(screen.getByText("5. Closing guidance")).toBeInTheDocument();
 
     // Right column unit details
-    expect(screen.getByLabelText("Title")).toHaveValue("Copay assistance program overview");
+    expect(screen.getByLabelText("Title")).toHaveValue("1. 90-day mail-order supply eligibility");
     expect(screen.getByLabelText("Content")).toBeInTheDocument();
-    expect(screen.getByLabelText(/Source reference/i)).toHaveValue("Member Services Guide v3.pdf • Section 4.2");
+    expect(screen.getByLabelText(/Source reference/i)).toHaveValue("S01_source_Rx_Education_Script_Mail_Order_2026.docx • Section 1");
     expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Discard" })).toBeInTheDocument();
   });
@@ -173,15 +185,15 @@ describe("Verity Ingest & Drafts Screen", () => {
     renderReviewExtractWorkspace("dana");
 
     // Click another unit card in column 2
-    const mailOrderCard = screen.getByText("Mail order pharmacy overview");
+    const mailOrderCard = screen.getByText("2. Member cost-share language");
     fireEvent.click(mailOrderCard);
 
     // Right column editor should reflect the clicked unit
-    expect(screen.getByLabelText("Title")).toHaveValue("Mail order pharmacy overview");
+    expect(screen.getByLabelText("Title")).toHaveValue("2. Member cost-share language");
 
     // Edit the title and content
     const titleInput = screen.getByLabelText("Title");
-    fireEvent.change(titleInput, { target: { value: "Mail order pharmacy overview (Updated)" } });
+    fireEvent.change(titleInput, { target: { value: "2. Member cost-share language (Updated)" } });
 
     // Click Save changes
     const saveBtn = screen.getByRole("button", { name: "Save changes" });
@@ -191,6 +203,37 @@ describe("Verity Ingest & Drafts Screen", () => {
   });
 
   it("tracks drafts in My drafts tab with governance lifecycle", async () => {
+    vi.spyOn(verityServices, "fetchMyDrafts").mockResolvedValueOnce([
+      {
+        draft_id: "DRAFT-001",
+        candidate_id: "CAND-001",
+        unit_id: "U-PH-001",
+        source_doc_id: "SRC-001",
+        title: "90-day mail-order supply eligibility",
+        proposed_text: "Members can get up to 90 days supply.",
+        current_text: null,
+        candidate_type: "Policy",
+        verbatim: 0,
+        route_to: "owner",
+        owner_team: "Pharmacy Ops",
+        knowledge_base: "KB-PHARM",
+        effective_date: "2026-01-01",
+        status: "proposed",
+        proposed_by: "Dana (Knowledge author)",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        tags_json: "[]",
+        history_json: "[]",
+        reason: null,
+        decided_by: null,
+        decided_at: null,
+        supersedes: null,
+        duplicate_of: null,
+        version: 1,
+        version_id: null,
+      } as any,
+    ]);
+
     renderWorkPage("dana");
 
     const draftsTab = screen.getByRole("tab", { name: "My drafts" });
@@ -213,7 +256,7 @@ describe("Verity Ingest & Drafts Screen", () => {
     fireEvent.pointerDown(gapsTab);
     fireEvent.click(gapsTab);
     await waitFor(() => {
-      expect(screen.getAllByText(/Prior authorization for GLP-1 medications/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Specialty and oncology medication mail-order delivery/i).length).toBeGreaterThan(0);
     });
 
     // Insights tab

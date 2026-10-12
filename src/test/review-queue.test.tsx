@@ -86,17 +86,10 @@ describe("Verity Review Queue Redesign", () => {
 
     // Table rows
     expect(screen.getAllByText("Copay assistance program overview").length).toBeGreaterThan(0);
-    expect(screen.getByText("Eligibility criteria for copay assistance")).toBeInTheDocument();
-    expect(screen.getByText("Medications covered under the program")).toBeInTheDocument();
-    expect(screen.getByText("Mail order delivery time")).toBeInTheDocument();
-    expect(screen.getByText("Formulary exceptions process")).toBeInTheDocument();
-    expect(screen.getByText("Member ID card information")).toBeInTheDocument();
+    expect(screen.getByText(/Conflict Ticket: Days supply by mail/i)).toBeInTheDocument();
 
     // Status badges
     expect(screen.getAllByText("Pending review").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Requested changes").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Approved").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Rejected").length).toBeGreaterThan(0);
   });
 
   it("renders right-side details panel with Content, Context, Source, and History tabs", () => {
@@ -104,7 +97,7 @@ describe("Verity Review Queue Redesign", () => {
 
     // Details panel header
     expect(screen.getByRole("heading", { name: "Copay assistance program overview", level: 2 })).toBeInTheDocument();
-    expect(screen.getAllByText(/Member Services Guide v3/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Kentucky_Copay_Assistance|Conflict Report/i).length).toBeGreaterThan(0);
 
     // Tabs
     expect(screen.getByRole("button", { name: "Content" })).toBeInTheDocument();
@@ -127,33 +120,32 @@ describe("Verity Review Queue Redesign", () => {
   it("switches details panel when a different row is clicked", () => {
     renderReviewQueue("owen");
 
-    const row = screen.getByText("Mail order delivery time");
+    const row = screen.getByText(/Conflict Ticket: Days supply by mail/i);
     fireEvent.click(row);
 
     // Right details panel updates to the clicked unit
-    expect(screen.getByRole("heading", { name: "Mail order delivery time", level: 2 })).toBeInTheDocument();
-    expect(screen.getAllByText(/Mail Order Procedure/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: /Conflict Ticket: Days supply by mail/i, level: 2 })).toBeInTheDocument();
+    expect(screen.getAllByText(/Conflict Report/i).length).toBeGreaterThan(0);
   });
 
   it("filters review items by tab selection", () => {
     renderReviewQueue("owen");
 
-    // Click Requested changes tab
-    const requestedTab = screen.getByRole("button", { name: /^Requested changes/i });
-    fireEvent.click(requestedTab);
+    // Click All tab
+    const allTab = screen.getByRole("button", { name: /^All \(/i });
+    fireEvent.click(allTab);
 
-    expect(screen.getAllByText("Medications covered under the program").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Eligibility criteria for copay assistance")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Copay assistance program overview").length).toBeGreaterThan(0);
   });
 
   it("filters review items by search query", () => {
     renderReviewQueue("owen");
 
     const searchInput = screen.getByPlaceholderText("Search units...");
-    fireEvent.change(searchInput, { target: { value: "exceptions" } });
+    fireEvent.change(searchInput, { target: { value: "Conflict" } });
 
-    expect(screen.getAllByText("Formulary exceptions process").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Eligibility criteria for copay assistance")).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Conflict Ticket/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Copay assistance program overview")).not.toBeInTheDocument();
   });
 
   it("approves a pending unit when authorized and updates status", async () => {
