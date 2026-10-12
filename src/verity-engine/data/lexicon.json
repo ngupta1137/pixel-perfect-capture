@@ -16,6 +16,9 @@
     "pdp": "Prescription Drug Plan",
     "pa": "prior authorization",
     "otc": "over-the-counter",
-    "tier3": "tier 3"
+    "tier3": "tier 3",
+    "copay help": "copay assistance",
+    "meds": "medication",
+    "med": "medication"
   }
 }

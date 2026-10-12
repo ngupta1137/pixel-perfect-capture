@@ -3,6 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, ShieldCheck, RotateCcw, BookOpen, User, ExternalLink, LogOut } from "lucide-react";
 import { useSession } from "@/lib/session";
 import { resetDemoStore } from "@/services/demoStore";
+import { resetDemo } from "@/services/verity";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -22,6 +23,10 @@ export function UserMenu() {
   const handleReset = async () => {
     setBusy(true);
     try {
+      await resetDemo();
+      toast.success("Demo state reset to original seed data");
+      setOpen(false);
+    } catch (err) {
       resetDemoStore();
       toast.success("Demo state reset to original seed data");
       setOpen(false);

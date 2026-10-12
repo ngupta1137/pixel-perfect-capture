@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import { serveEngine, getStore, ensureStoreHydrated } from '../verity-engine/server.ts';
+import { serveEngine, getStore, ensureStoreHydrated, resetStore } from '../verity-engine/server.ts';
 import { runSuite } from '../verity-engine/evalRunner.ts';
 import { repository } from '../storage/repository.ts';
 import { getDemoState, resetDemoStore, updateDemoState } from '../services/demoStore.ts';
@@ -10,6 +10,7 @@ import type { SearchRequest } from '../services/verity.ts';
 describe('Verity — 11 Required Governance Scenarios Acceptance Test Suite', () => {
   beforeEach(async () => {
     resetDemoStore();
+    resetStore();
     await ensureStoreHydrated();
   });
 

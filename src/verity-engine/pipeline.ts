@@ -204,9 +204,15 @@ export class Verity {
     if (qualifying.length === 0 && assistPart && assistPart.restricted_ids.length) {
       const r = this.byId.get(assistPart.restricted_ids[0])!;
       path.push(`query agent matched "${r.title}" in ${r.knowledge_base}, outside entitlement (routing fields only)`);
+      const targetRole =
+        r.knowledge_base === 'KB-PHARM' || r.owner?.toLowerCase().includes('pharm')
+          ? 'a Pharmacy advocate'
+          : r.knowledge_base === 'KB-INS' || r.owner?.toLowerCase().includes('insur') || r.owner?.toLowerCase().includes('member')
+          ? 'an Insurance advocate'
+          : `a ${r.owner} advocate`;
       return {
         ...base, outcome: 'not_authorized', unit_ids: [], text: null, owner_team: r.owner,
-        message: `This is owned by ${r.owner} (${r.knowledge_base}). Transfer or ask that team.`,
+        message: `This question is meant for ${targetRole} and is owned by ${r.owner} (${r.knowledge_base}). Transfer or ask that team.`,
         verification: { verbatim_exact: null, in_scope: true },
       };
     }
@@ -218,9 +224,15 @@ export class Verity {
       if (restricted.length > 0) {
         const r = restricted[0];
         path.push(`routing index: "${r.title}" in ${r.knowledge_base}, outside entitlement`);
+        const targetRole =
+          r.knowledge_base === 'KB-PHARM' || r.owner?.toLowerCase().includes('pharm')
+            ? 'a Pharmacy advocate'
+            : r.knowledge_base === 'KB-INS' || r.owner?.toLowerCase().includes('insur') || r.owner?.toLowerCase().includes('member')
+            ? 'an Insurance advocate'
+            : `a ${r.owner} advocate`;
         return {
           ...base, outcome: 'not_authorized', unit_ids: [], text: null, owner_team: r.owner,
-          message: `This is owned by ${r.owner} (${r.knowledge_base}). Transfer or ask that team.`,
+          message: `This question is meant for ${targetRole} and is owned by ${r.owner} (${r.knowledge_base}). Transfer or ask that team.`,
           verification: { verbatim_exact: null, in_scope: true },
         };
       }

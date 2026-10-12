@@ -58,7 +58,7 @@ export class KnowledgeIndex {
     return this.idf.get(t) ?? this.maxIdf;
   }
 
-  private scoreOne(it: Indexed, q: string[], qText: string, fields: 'all' | 'title'): Candidate {
+  private scoreOne(it: Indexed, q: string[], qText: string, fields: 'all' | 'title' | 'metadata'): Candidate {
     let score = 0;
     let anchored = false;
     let matched = 0;
@@ -67,7 +67,7 @@ export class KnowledgeIndex {
       const idf = this.idfOf(t);
       total += idf;
       let w = 0;
-      if (fields === 'all' && it.syn.has(t)) w = 3;
+      if ((fields === 'all' || fields === 'metadata') && it.syn.has(t)) w = 3;
       else if (it.title.has(t)) w = 2;
       else if (fields === 'all' && it.body.has(t)) w = 1;
       if (w >= 2) anchored = true;
@@ -81,7 +81,7 @@ export class KnowledgeIndex {
     // "closing" (1 of 2); "is the pharmacy opening on sunday" contains
     // "opening" (1 of 3), which is not enough to qualify on its own.
     let phraseMatch = false;
-    if (fields === 'all') {
+    if (fields === 'all' || fields === 'metadata') {
       const qSet = new Set(q);
       for (const p of it.synPhrases) {
         if (!` ${qText} `.includes(` ${p} `)) continue;
@@ -110,14 +110,14 @@ export class KnowledgeIndex {
       .sort((a, b) => b.score - a.score || a.unit_id.localeCompare(b.unit_id));
   }
 
-  /** Routing index: titles only, all approved units, never returns a body. */
+  /** Routing index: titles and synonyms only, all approved units, never returns a body. */
   route(query: string): { unit_id: string; title: string; knowledge_base: string; owner: string; coverage: number }[] {
     const { tokens: q, text } = prepare(query, this.lex);
     return this.items
       .filter((it) => it.unit.status === 'approved')
-      .map((it) => ({ it, c: this.scoreOne(it, q, text, 'title') }))
-      .filter((x) => x.c.coverage >= MIN_COVERAGE)
-      .sort((a, b) => b.c.coverage - a.c.coverage)
+      .map((it) => ({ it, c: this.scoreOne(it, q, text, 'metadata') }))
+      .filter((x) => (x.c.coverage >= MIN_COVERAGE && x.c.anchored) || x.c.phrase_match)
+      .sort((a, b) => b.c.score - a.c.score || b.c.coverage - a.c.coverage)
       .map((x) => ({
         unit_id: x.it.unit.unit_id,
         title: x.it.unit.title,

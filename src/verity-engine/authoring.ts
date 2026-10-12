@@ -355,10 +355,14 @@ export function claimReview(itemId: string, by: string): ActionResult {
   return i ? ok(`${itemId} claimed by ${by}`) : fail(new Error(`cannot claim ${itemId}`));
 }
 
-export function resetDemo(): ActionResult {
+export async function resetDemo(): Promise<ActionResult> {
   resetStore();
   void import("./agents.ts").then((m) => m.resetAgentState());
   gapDrafts.clear();
+  try {
+    const { repository } = await import("../storage/repository.ts");
+    await repository.resetPublishedUnitsToSeed();
+  } catch {}
   return ok("Demo reset to the seed data");
 }
 

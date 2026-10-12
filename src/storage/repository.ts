@@ -332,6 +332,11 @@ export class StorageRepository {
     const db = await this.getDb();
     await db.deleteFrom("published_units").where("unit_id", "=", unitId).execute();
   }
+
+  async resetPublishedUnitsToSeed(): Promise<void> {
+    const db = await this.getDb();
+    await db.deleteFrom("published_units").execute();
+  }
 }
 
 export const repository = new StorageRepository();

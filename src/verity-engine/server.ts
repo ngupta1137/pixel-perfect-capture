@@ -146,8 +146,16 @@ export function nextStep(outcome: string, role: string, owner: string | null): s
         : `Do not state either version as current. Tell the member you will confirm. Both owners${owner ? ` (${owner})` : ''} are notified to resolve it.`;
     case 'stale':
       return `Do not quote it as current. Confirm with the owner${owner ? ` (${owner})` : ''} or transfer.`;
-    case 'not_authorized':
-      return member ? 'Connect the member with an advocate who can help.' : `Warm-transfer to ${owner ?? 'the owning team'}, or ask them to answer.`;
+    case 'not_authorized': {
+      const targetAdvocate = owner?.toLowerCase().includes('pharm')
+        ? 'a Pharmacy advocate'
+        : owner?.toLowerCase().includes('insur') || owner?.toLowerCase().includes('member')
+        ? 'an Insurance advocate'
+        : `a ${owner ?? 'the owning team'} advocate`;
+      return member
+        ? 'Connect the member with an advocate who can help.'
+        : `This question is meant for ${targetAdvocate}. Warm-transfer to ${owner ?? 'the owning team'} or redirect to ${targetAdvocate}.`;
+    }
     case 'needs_clarification':
       return member ? null : 'Ask the member the question above, then search again.';
     case 'safety_escalation':

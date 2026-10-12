@@ -447,18 +447,21 @@ export async function changeAccess(req: AccessRequest) {
 /** Restore every fixture: the shared store and the engine's authoring state. */
 export async function resetDemo(): Promise<void> {
   resetDemoStore();
+  try {
+    const { repository } = await import("../storage/repository.ts");
+    await repository.resetPublishedUnitsToSeed();
+  } catch {}
+  try {
+    const { resetStore } = await import("../verity-engine/server.ts");
+    resetStore();
+  } catch {}
+  try {
+    const { resetAgentState } = await import("../verity-engine/agents.ts");
+    resetAgentState();
+  } catch {}
   if (isBrowser) {
     try {
       syncAuthoring((await (await fns()).resetDemoFn()).state);
-    } catch {}
-  } else {
-    try {
-      const { resetStore } = await import("../verity-engine/server.ts");
-      resetStore();
-    } catch {}
-    try {
-      const { resetAgentState } = await import("../verity-engine/agents.ts");
-      resetAgentState();
     } catch {}
   }
 }

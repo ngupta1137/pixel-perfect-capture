@@ -13,6 +13,7 @@ import {
   type AuthenticatedUser,
 } from "./auth.server";
 import { classifyGapDomain } from "../lib/gapClassifier";
+import { STATES } from "../verity-engine/extract";
 
 export { resolveRequestUser };
 
@@ -544,11 +545,27 @@ export async function handleDecideReviewItem(
           if (combined.includes("mail order") || combined.includes("mail-order")) {
             syns.push("mail order");
           }
+          if (combined.includes("copay assistance") || combined.includes("copay help")) {
+            syns.push("copay assistance", "copay help", "copay assistance program");
+          }
           return [...new Set(syns)];
         })(),
         owner: draft.owner_team || existingLive?.owner || "Pharmacy Ops",
         approved_by: reviewerAudit,
-        applies_to: existingLive?.applies_to ?? { lob: ["MAPD"], states: "ALL", plan_year: 2026 },
+        applies_to: existingLive?.applies_to ?? (() => {
+          const combined = `${draft.title} ${draft.proposed_text}`.toLowerCase();
+          const matchedStates: string[] = [];
+          for (const [name, abbr] of Object.entries(STATES)) {
+            if (new RegExp(`\\b${name}\\b`, "i").test(combined)) {
+              matchedStates.push(abbr);
+            }
+          }
+          return {
+            lob: ["MAPD"],
+            states: matchedStates.length > 0 ? matchedStates : "ALL",
+            plan_year: 2026,
+          };
+        })(),
       };
 
       const afterUnits = [...currentLive.filter((u) => u.unit_id !== draft.unit_id), publishedUnit];

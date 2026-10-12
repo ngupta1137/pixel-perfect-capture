@@ -52,7 +52,7 @@ export const claimReviewFn = createServerFn({ method: "POST" })
 
 export const resetDemoFn = createServerFn({ method: "POST" }).handler(async (): Promise<ActionResult> => {
   const { resetDemo } = await import("../verity-engine/authoring.ts");
-  return resetDemo();
+  return await resetDemo();
 });
 
 export const accessFn = createServerFn({ method: "POST" })
