@@ -162,7 +162,15 @@ export class Verity {
     const path: string[] = [];
 
     // 6. Search body index (entitlement-filtered) and semantic question matching
-    const semanticRes = matchQuerySemanticSync(part, role.knowledge_bases, this.data.units);
+    let semanticRes = matchQuerySemanticSync(part, role.knowledge_bases, this.data.units);
+    const prep = this.index.prepared(part);
+    if (prep.hits.length > 0 && semanticRes.outcome !== 'answer') {
+      const expandedRes = matchQuerySemanticSync(prep.text, role.knowledge_bases, this.data.units);
+      if (expandedRes.outcome === 'answer' || expandedRes.outcome === 'not_authorized' || (expandedRes.similarityScore > semanticRes.similarityScore)) {
+        semanticRes = expandedRes;
+        path.push(`synonym/acronym expansion: "${part}" -> "${prep.text}" (${prep.hits.join('; ')})`);
+      }
+    }
     const matchDiagnostics = {
       similarityScore: semanticRes.similarityScore,
       configuredThreshold: semanticRes.threshold,
@@ -225,7 +233,9 @@ export class Verity {
 
     if (semanticRes.outcome === 'answer' && semanticRes.bestCandidate) {
       const semUnit = this.byId.get(semanticRes.bestCandidate.unit_id);
-      if (semUnit && semUnit.status === 'approved' && role.knowledge_bases.includes(semUnit.knowledge_base)) {
+      const reqYear = req.context.plan_year ?? Number(this.data.asOf.slice(0, 4));
+      const isYearApplicable = !semUnit?.applies_to?.plan_year || semUnit.applies_to.plan_year === reqYear;
+      if (semUnit && semUnit.status === 'approved' && isYearApplicable && role.knowledge_bases.includes(semUnit.knowledge_base)) {
         const topScore = Math.max(10, ...candidates.map((c) => c.score));
         const semCandidate: Candidate = {
           unit_id: semUnit.unit_id,
@@ -326,6 +336,7 @@ export class Verity {
       ? `${req.context.plan_year}-12-31`
       : this.data.asOf;
     let live = cluster.map((c) => this.byId.get(c.unit_id)!).filter((u) => {
+      if (!u || u.status === 'superseded' || u.status === 'retired') { exclusions.push({ unit_id: u?.unit_id || 'unknown', reason: u?.status || 'superseded' }); return false; }
       if (u.effective_date > asOf) { exclusions.push({ unit_id: u.unit_id, reason: 'not yet effective' }); return false; }
       return true;
     });
@@ -369,7 +380,7 @@ export class Verity {
           : []
       )
     );
-    live = live.filter((u) => !superseded.has(u.unit_id) && (!u.source_doc || !superseded.has(u.source_doc)));
+    live = live.filter((u) => !superseded.has(u.unit_id) && (!u.source_doc || !superseded.has(u.source_doc)) && u.status !== 'superseded');
     // Recency acts only through an explicit supersedes link (applied above).
     // Run 01 showed implicit date recency silently picks a winner between two
     // live, approved units that disagree, which is the model-free version of

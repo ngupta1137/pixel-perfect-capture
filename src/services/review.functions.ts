@@ -63,7 +63,7 @@ export const listPublishedUnitsFn = createServerFn({ method: "GET" }).handler(
 );
 
 export const createConflictReportFn = createServerFn({ method: "POST" })
-  .validator((d: { person: string; unitIds: string[]; query: string; note?: string }) => d)
+  .validator((d: { person: string; unitIds: string[]; query: string; note?: string; versions?: number[]; role?: string }) => d)
   .handler(async ({ data }) => {
     const { handleCreateConflictReport } = await import("./review.server");
     return await handleCreateConflictReport(data);
@@ -74,5 +74,26 @@ export const applyConsolidationFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { handleApplyConsolidatingConflictResolution } = await import("./review.server");
     return await handleApplyConsolidatingConflictResolution(data);
+  });
+
+export const resolveConflictBySupersedingFn = createServerFn({ method: "POST" })
+  .validator((d: { person: string; ticketId?: string; winnerUnitId: string; loserUnitIds: string[]; reason?: string }) => d)
+  .handler(async ({ data }) => {
+    const { handleResolveConflictBySuperseding } = await import("./review.server");
+    return await handleResolveConflictBySuperseding(data);
+  });
+
+export const reverifyUnitFn = createServerFn({ method: "POST" })
+  .validator((d: { person: string; unitId: string; reviewDate?: string }) => d)
+  .handler(async ({ data }) => {
+    const { handleReverifyUnit } = await import("./review.server");
+    return await handleReverifyUnit(data);
+  });
+
+export const retireUnitFn = createServerFn({ method: "POST" })
+  .validator((d: { person: string; unitId: string; reason: string }) => d)
+  .handler(async ({ data }) => {
+    const { handleRetireUnit } = await import("./review.server");
+    return await handleRetireUnit(data);
   });
 

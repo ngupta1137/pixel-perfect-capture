@@ -20,11 +20,21 @@ import {
   RotateCcw,
   FlaskConical,
   FileCheck,
+  GitMerge,
+  Scissors,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,9 +64,16 @@ import {
   fetchReviewQueue,
   submitReviewDecision,
   applyConsolidatingConflictResolution,
+  resolveConflictBySuperseding,
+  listMergeProposals,
+  acceptMergeProposal,
+  rejectMergeProposal,
+  listSplitSuggestions,
+  confirmSplitSuggestion,
 } from "@/services/verity";
 import type { ChainDraft } from "@/services/demoStore";
 import { WordDiff } from "@/components/authoring/Chain";
+import { toast } from "sonner";
 
 export function ReviewQueueView() {
   const navigate = useNavigate();
@@ -68,8 +85,39 @@ export function ReviewQueueView() {
   const [isDeciding, setIsDeciding] = useState(false);
   const [isApplyingS04, setIsApplyingS04] = useState(false);
   const [selectedId, setSelectedId] = useState<string>("REV-001");
-  const [activeTab, setActiveTab] = useState<"all" | "my_reviews" | "requested_changes" | "approved" | "rejected">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "my_reviews" | "requested_changes" | "approved" | "rejected" | "merge_split">("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // P1-2 Merge & Split states
+  const mergeProposals = demoStore.mergeProposals ?? [];
+  const splitSuggestions = demoStore.splitSuggestions ?? [];
+  const pendingProposalsCount =
+    mergeProposals.filter((p) => p.status === "pending").length +
+    splitSuggestions.filter((s) => s.status === "pending").length;
+
+  const [rejectMergeOpen, setRejectMergeOpen] = useState(false);
+  const [rejectMergeId, setRejectMergeId] = useState<string | null>(null);
+  const [rejectMergeReason, setRejectMergeReason] = useState("");
+
+  const handleAcceptMerge = async (proposalId: string) => {
+    try {
+      const res = await acceptMergeProposal(person.name, proposalId);
+      toast.success(res.message);
+      await loadQueue();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to accept merge proposal");
+    }
+  };
+
+  const handleConfirmSplit = async (suggestionId: string) => {
+    try {
+      const res = await confirmSplitSuggestion(person.name, suggestionId);
+      toast.success(res.message);
+      await loadQueue();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to confirm split suggestion");
+    }
+  };
   
   // Table selection & pagination
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set(["REV-001"]));
@@ -296,6 +344,34 @@ export function ReviewQueueView() {
       }
     } catch (err: any) {
       setActionError(err.message || "An unexpected error occurred while applying S04.");
+    } finally {
+      setIsApplyingS04(false);
+    }
+  };
+
+  const handleSupersede = async (winnerUnitId: string, loserUnitIds: string[]) => {
+    setIsApplyingS04(true);
+    setActionError("");
+    setActionSuccess("");
+    try {
+      const res = await resolveConflictBySuperseding(
+        person.name,
+        winnerUnitId,
+        loserUnitIds,
+        activeItem?.id,
+        `Knowledge Owner designated ${winnerUnitId} authoritative; ${loserUnitIds.join(", ")} superseded.`
+      );
+      if (!res.ok) {
+        setActionError(res.message || "Failed to resolve conflict.");
+        return;
+      }
+      setActionSuccess(res.message || `Designated ${winnerUnitId} authoritative.`);
+      await loadQueue();
+      if (res.draftId) {
+        setSelectedId(res.draftId);
+      }
+    } catch (err: any) {
+      setActionError(err.message || "An unexpected error occurred while resolving conflict.");
     } finally {
       setIsApplyingS04(false);
     }
@@ -540,6 +616,32 @@ export function ReviewQueueView() {
         </div>
       )}
 
+      {/* AI Merge & Split Banner */}
+      {pendingProposalsCount > 0 && activeTab !== "merge_split" && (
+        <div className="rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50/80 to-indigo-50/60 p-3.5 flex items-center justify-between shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-700">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-purple-950">
+                AI Knowledge Proposals: {pendingProposalsCount} structural suggestion{pendingProposalsCount > 1 ? "s" : ""}
+              </p>
+              <p className="text-[11px] text-purple-800">
+                Near-duplicate merge proposals and compound unit split suggestions detected by similarity and ready for Author review.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setActiveTab("merge_split")}
+            className="text-xs h-8 bg-purple-700 hover:bg-purple-800 text-white font-medium gap-1.5 cursor-pointer"
+          >
+            <GitMerge className="h-3.5 w-3.5" /> Review Proposals
+          </Button>
+        </div>
+      )}
+
       {/* Tabs Row */}
       <div className="flex border-b border-border text-xs font-medium space-x-6">
         <button
@@ -612,10 +714,212 @@ export function ReviewQueueView() {
         >
           Rejected ({counts.rejected})
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("merge_split");
+            setCurrentPage(1);
+          }}
+          className={`pb-3 border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+            activeTab === "merge_split"
+              ? "border-[#1E5E2E] text-[#1E5E2E] font-bold"
+              : "border-transparent text-ink-muted hover:text-ink"
+          }`}
+        >
+          <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+          AI Merge &amp; Split ({pendingProposalsCount})
+        </button>
       </div>
 
-      {/* Main 2-Pane Split: Left Table (7/12) & Right Details Panel (5/12) */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+      {/* Main Content Area */}
+      {activeTab === "merge_split" ? (
+        <div className="space-y-6">
+          {/* Header Explanation */}
+          <div className="rounded-xl border border-border bg-surface p-4 shadow-2xs">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-[#EAF7EE] text-[#1E5E2E] shrink-0 mt-0.5">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-ink">AI-Assisted Knowledge Structure Optimization</h3>
+                <p className="text-xs text-ink-muted leading-relaxed">
+                  Verity continuously scans published and drafting units for structural overlap and compound statements.
+                  <strong> AI proposes, humans confirm:</strong> Accepting a merge creates a surviving candidate draft in the review queue for standard maker-checker approval. Rejecting leaves units unchanged. Splitting creates separate atomic drafts without auto-publishing.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Merge Proposals Panel */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-ink uppercase tracking-wider flex items-center gap-1.5">
+                  <GitMerge className="h-4 w-4 text-[#1E5E2E]" />
+                  Merge Proposals ({mergeProposals.length})
+                </h3>
+                <span className="text-[11px] text-ink-muted">Threshold &gt; 80% similarity</span>
+              </div>
+
+              {mergeProposals.length === 0 ? (
+                <div className="p-8 text-center text-xs text-ink-muted rounded-xl border border-border bg-surface">
+                  No merge proposals pending.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {mergeProposals.map((proposal) => (
+                    <div
+                      key={proposal.id}
+                      className="rounded-xl border border-border bg-surface p-4 shadow-2xs space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-ink">
+                              {proposal.source_unit_id} → {proposal.target_unit_id}
+                            </span>
+                            <span className="rounded bg-purple-100 text-purple-800 border border-purple-200 px-1.5 py-0.2 text-[10px] font-bold">
+                              {Math.round(proposal.similarity * 100)}% Similarity
+                            </span>
+                          </div>
+                          <p className="text-xs text-ink-muted mt-1">{proposal.reason}</p>
+                        </div>
+                        <span
+                          className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
+                            proposal.status === "accepted"
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                              : proposal.status === "rejected"
+                              ? "bg-rose-100 text-rose-800 border border-rose-200"
+                              : "bg-amber-100 text-amber-800 border border-amber-200"
+                          }`}
+                        >
+                          {proposal.status === "accepted" ? "Accepted" : proposal.status === "rejected" ? "Rejected" : "Pending Author"}
+                        </span>
+                      </div>
+
+                      <div className="bg-[#F9FAFB] p-2.5 rounded-lg border border-border text-xs text-ink-muted space-y-1">
+                        <div className="flex justify-between text-[11px]">
+                          <span>Source near-duplicate: <strong className="font-mono text-ink">{proposal.source_unit_id}</strong></span>
+                          <span>Surviving target: <strong className="font-mono text-ink">{proposal.target_unit_id}</strong></span>
+                        </div>
+                        {proposal.draft_id && (
+                          <div className="pt-1 text-[11px] text-emerald-700 font-medium border-t border-border/60">
+                            ✓ Draft created for review: <span className="font-mono">{proposal.draft_id}</span>
+                          </div>
+                        )}
+                        {proposal.status === "rejected" && proposal.decided_by && (
+                          <div className="pt-1 text-[11px] text-rose-700 border-t border-border/60">
+                            Rejected by {proposal.decided_by}
+                          </div>
+                        )}
+                      </div>
+
+                      {proposal.status === "pending" && (
+                        <div className="flex items-center gap-2 pt-1">
+                          <Button
+                            size="sm"
+                            onClick={() => handleAcceptMerge(proposal.id)}
+                            className="text-xs h-8 bg-[#1E5E2E] hover:bg-[#184d25] text-white font-medium cursor-pointer"
+                          >
+                            <Check className="h-3.5 w-3.5 mr-1" /> Accept Merge (Create Draft)
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setRejectMergeId(proposal.id);
+                              setRejectMergeOpen(true);
+                            }}
+                            className="text-xs h-8 text-rose-700 border-rose-200 hover:bg-rose-50 font-medium cursor-pointer"
+                          >
+                            <X className="h-3.5 w-3.5 mr-1" /> Reject
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Split Suggestions Panel */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-ink uppercase tracking-wider flex items-center gap-1.5">
+                  <Scissors className="h-4 w-4 text-[#1E5E2E]" />
+                  Split Suggestions ({splitSuggestions.length})
+                </h3>
+                <span className="text-[11px] text-ink-muted">Compound statement detection</span>
+              </div>
+
+              {splitSuggestions.length === 0 ? (
+                <div className="p-8 text-center text-xs text-ink-muted rounded-xl border border-border bg-surface">
+                  No split suggestions pending.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {splitSuggestions.map((suggestion) => (
+                    <div
+                      key={suggestion.id}
+                      className="rounded-xl border border-border bg-surface p-4 shadow-2xs space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-ink">
+                              Source: {suggestion.source_unit_id}
+                            </span>
+                            <span className="rounded bg-sky-100 text-sky-800 border border-sky-200 px-1.5 py-0.2 text-[10px] font-bold">
+                              {suggestion.candidate_splits.length} Atomic Units
+                            </span>
+                          </div>
+                          <p className="text-xs text-ink-muted mt-1">{suggestion.reason}</p>
+                        </div>
+                        <span
+                          className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
+                            suggestion.status === "accepted"
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                              : "bg-amber-100 text-amber-800 border border-amber-200"
+                          }`}
+                        >
+                          {suggestion.status === "accepted" ? "Accepted" : "Pending Author"}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-semibold text-ink">Proposed Atomic Statements:</p>
+                        {suggestion.candidate_splits.map((split, sIdx) => (
+                          <div
+                            key={sIdx}
+                            className="bg-[#F9FAFB] p-2.5 rounded-lg border border-border text-xs space-y-1"
+                          >
+                            <p className="font-semibold text-ink text-[12px]">{split.title}</p>
+                            <p className="text-ink-muted text-[11px] leading-relaxed">{split.span}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {suggestion.status === "pending" && (
+                        <div className="pt-1">
+                          <Button
+                            size="sm"
+                            onClick={() => handleConfirmSplit(suggestion.id)}
+                            className="text-xs h-8 bg-[#1E5E2E] hover:bg-[#184d25] text-white font-medium cursor-pointer"
+                          >
+                            <Check className="h-3.5 w-3.5 mr-1" /> Confirm Split (Create Drafts)
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Main 2-Pane Split: Left Table (7/12) & Right Details Panel (5/12) */
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
         {/* Left Table Section */}
         <div className="xl:col-span-7 space-y-4">
           <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-2xs">
@@ -985,6 +1289,26 @@ export function ReviewQueueView() {
                         <Button
                           variant="outline"
                           size="sm"
+                          disabled={isApplyingS04}
+                          onClick={() => handleSupersede("U-PH-007", ["U-PH-107"])}
+                          className="text-xs h-8 gap-1.5 border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-900 font-medium"
+                        >
+                          <Check className="h-3.5 w-3.5 text-emerald-600" />
+                          Keep U-PH-007 (Retire U-PH-107)
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isApplyingS04}
+                          onClick={() => handleSupersede("U-PH-107", ["U-PH-007"])}
+                          className="text-xs h-8 gap-1.5 border-amber-300 bg-white hover:bg-amber-50 text-amber-900 font-medium"
+                        >
+                          <Check className="h-3.5 w-3.5 text-amber-600" />
+                          Keep U-PH-107 (Retire U-PH-007)
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => {
                             void navigate({ to: "/author" });
                           }}
@@ -1286,6 +1610,51 @@ export function ReviewQueueView() {
           )}
         </div>
       </div>
+    )}
+
+      {/* Reject Merge Modal Dialog */}
+      <Dialog open={rejectMergeOpen} onOpenChange={setRejectMergeOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject Merge Proposal</DialogTitle>
+            <DialogDescription>
+              Explain why these units should remain distinct. This action is audited and leaves units unchanged.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <label className="text-xs font-semibold text-ink block">
+              Rejection Reason <span className="text-red-500">*</span>
+            </label>
+            <Textarea
+              placeholder="e.g. These units serve distinct lines of business with different rules..."
+              value={rejectMergeReason}
+              onChange={(e) => setRejectMergeReason(e.target.value)}
+              className="text-xs"
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setRejectMergeOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={!rejectMergeReason.trim()}
+              onClick={() => {
+                if (!rejectMergeId || !rejectMergeReason.trim()) return;
+                const res = rejectMergeProposal(person.name, rejectMergeId, rejectMergeReason.trim());
+                toast.success(res.message);
+                setRejectMergeOpen(false);
+                setRejectMergeId(null);
+                setRejectMergeReason("");
+              }}
+            >
+              Confirm Rejection
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

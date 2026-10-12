@@ -9,6 +9,11 @@ import {
   ShieldAlert,
   ShieldCheck,
   Check,
+  Search,
+  BookOpen,
+  Sparkles,
+  Tag,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -26,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +43,15 @@ import {
 import { useSession } from "@/lib/session";
 import { PEOPLE, personaDef, type Capability } from "@/lib/rights";
 import { useDemoStore } from "@/services/demoStore";
-import { changeKbAccess } from "@/services/verity";
+import {
+  changeKbAccess,
+  saveSynonym,
+  toggleSynonym,
+  deleteSynonym,
+  confirmCandidateSynonym,
+  type SynonymEntry,
+  type CandidateSynonym,
+} from "@/services/verity";
 import { getAvatarUrl } from "@/lib/avatars";
 
 const KBS = [...new Set(PEOPLE.flatMap((p) => p.kbs))].sort();
@@ -76,6 +90,19 @@ export function SettingsView() {
   const [msg, setMsg] = useState("");
   const editable = can("manage_access");
 
+  // Synonyms state (for knowledge tab)
+  const synonyms = useDemoStore((s) => s.synonyms ?? []);
+  const candidateSynonyms = useDemoStore((s) => s.candidateSynonyms ?? []);
+  const [synFilter, setSynFilter] = useState("");
+  const [synModalOpen, setSynModalOpen] = useState(false);
+  const [editingSyn, setEditingSyn] = useState<{ id?: string; term: string; expansion: string; category: "acronym" | "humana_speak" | "spelling"; enabled: boolean }>({
+    term: "",
+    expansion: "",
+    category: "acronym",
+    enabled: true,
+  });
+  const [synMsg, setSynMsg] = useState("");
+
   const roleLabel = (r: string) => {
     try {
       return personaDef(r).label;
@@ -84,9 +111,9 @@ export function SettingsView() {
     }
   };
 
-  const confirmAccessChange = () => {
+  const confirmAccessChange = async () => {
     if (!pending) return;
-    const r = changeKbAccess(person, pending.role, pending.kb, pending.grant, reason);
+    const r = await changeKbAccess(person, pending.role, pending.kb, pending.grant, reason);
     setMsg(r.message);
     if (r.ok) {
       setPending(null);
@@ -614,6 +641,162 @@ export function SettingsView() {
         </div>
       )}
 
+      {/* Tab Content 3: Knowledge Management (Humana-Speak & Synonyms Map - P1-1) */}
+      {activeTab === "knowledge" && (
+        <div className="space-y-6">
+          {/* Synonym / Humana-Speak Map Card */}
+          <div className="rounded-xl border border-border bg-surface p-5 shadow-2xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-bold text-ink">Synonyms & Humana-Speak Map</h2>
+                  <span className="rounded-full bg-[#EAF7EE] px-2.5 py-0.5 text-xs font-semibold text-[#1E5E2E]">
+                    {synonyms.filter((s) => s.enabled).length} Active
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-ink-muted">
+                  Managed acronym and terminology normalization map applied at query time before retrieval. Edits are audited.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditingSyn({ term: "", expansion: "", category: "acronym", enabled: true });
+                  setSynModalOpen(true);
+                }}
+                className="h-8 bg-[#1E5E2E] text-xs font-medium text-white hover:bg-[#184d25] cursor-pointer"
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> Add synonym
+              </Button>
+            </div>
+
+            {/* Filter */}
+            <div className="flex items-center gap-2 max-w-sm">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-ink-muted" />
+                <Input
+                  placeholder="Filter synonyms or expansions..."
+                  value={synFilter}
+                  onChange={(e) => setSynFilter(e.target.value)}
+                  className="pl-8 h-8 text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-xs">
+                <thead className="bg-[#F9FAFB] text-left text-ink-muted font-medium">
+                  <tr>
+                    <th className="px-4 py-3">Term / Acronym</th>
+                    <th className="px-4 py-3">Expanded Phrase</th>
+                    <th className="px-4 py-3">Category</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y border-border">
+                  {synonyms
+                    .filter((s) => !synFilter || s.term.toLowerCase().includes(synFilter.toLowerCase()) || s.expansion.toLowerCase().includes(synFilter.toLowerCase()))
+                    .map((syn) => (
+                      <tr key={syn.id} className="hover:bg-[#F9FAFB]/70">
+                        <td className="px-4 py-3 font-semibold text-ink font-mono">{syn.term}</td>
+                        <td className="px-4 py-3 text-ink">{syn.expansion}</td>
+                        <td className="px-4 py-3">
+                          <span className="rounded bg-muted px-2 py-0.5 text-[11px] font-medium text-ink capitalize">
+                            {syn.category.replace(/_/g, " ")}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={syn.enabled}
+                              aria-label={`Toggle ${syn.term}`}
+                              onCheckedChange={async (v) => {
+                                await toggleSynonym(person.name, syn.id, v);
+                                setSynMsg(`Updated ${syn.term}`);
+                              }}
+                            />
+                            <span className={`text-[11px] font-medium ${syn.enabled ? "text-[#1E5E2E]" : "text-ink-muted"}`}>
+                              {syn.enabled ? "Active" : "Disabled"}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingSyn({ id: syn.id, term: syn.term, expansion: syn.expansion, category: syn.category, enabled: syn.enabled });
+                              setSynModalOpen(true);
+                            }}
+                            className="text-xs text-[#1E5E2E] hover:underline font-medium cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await deleteSynonym(person.name, syn.id);
+                              setSynMsg(`Removed ${syn.term}`);
+                            }}
+                            className="text-xs text-[#DC2626] hover:underline font-medium cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+
+            {synMsg && <p className="text-xs font-semibold text-[#15803D]">{synMsg}</p>}
+          </div>
+
+          {/* AI Candidate Suggestions Card (P1-1 Requirement 4) */}
+          <div className="rounded-xl border border-border bg-surface p-5 shadow-2xs space-y-4">
+            <div className="border-b border-border pb-3 flex items-start justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-ink flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4 text-[#1E5E2E]" /> Candidate Synonyms from Search & Gap Logs
+                </h3>
+                <p className="text-xs text-ink-muted">
+                  Suggested from advocate search logs and repeated gap queries. Human review and confirmation required (no auto-write to map).
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {candidateSynonyms.map((cand) => (
+                <div key={cand.id} className="rounded-lg border border-border p-3 space-y-2 bg-[#F9FAFB]/50">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-xs text-ink">{cand.term}</span>
+                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${cand.status === "approved" ? "bg-[#DCFCE7] text-[#15803D]" : "bg-muted text-ink-muted"}`}>
+                      {cand.status === "approved" ? "Added to map" : "Candidate"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-ink font-medium">→ {cand.suggested_expansion}</p>
+                  <p className="text-[11px] text-ink-muted italic">Evidence: {cand.evidence}</p>
+                  {cand.status !== "approved" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditingSyn({ term: cand.term, expansion: cand.suggested_expansion, category: "humana_speak", enabled: true });
+                        setSynModalOpen(true);
+                      }}
+                      className="w-full h-7 text-xs text-[#1E5E2E] border-[#1E5E2E]/30 hover:bg-[#EAF7EE]"
+                    >
+                      Review & Confirm
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Confirmation Dialog for KB Access */}
       <Dialog
         open={!!pending}
@@ -652,6 +835,70 @@ export function SettingsView() {
             </Button>
             <Button disabled={!reason.trim()} onClick={confirmAccessChange} className="bg-[#1E5E2E] text-white hover:bg-[#184d25]">
               Confirm Change
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Synonym Add/Edit Modal */}
+      <Dialog open={synModalOpen} onOpenChange={setSynModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingSyn.id ? "Edit Synonym / Humana-Speak Entry" : "Add Synonym / Acronym Mapping"}</DialogTitle>
+            <DialogDescription>
+              Map acronyms or conversational Humana-speak terms to official knowledge phrasing. Retrieval will normalize queries before matching.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3.5 py-2 text-xs">
+            <div>
+              <label className="block text-ink font-semibold mb-1">Term / Acronym</label>
+              <Input
+                placeholder="e.g. MOOP, PA, home delivery"
+                value={editingSyn.term}
+                onChange={(e) => setEditingSyn({ ...editingSyn, term: e.target.value })}
+                className="h-8 text-xs font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-ink font-semibold mb-1">Target Expansion</label>
+              <Input
+                placeholder="e.g. maximum out-of-pocket, prior authorization"
+                value={editingSyn.expansion}
+                onChange={(e) => setEditingSyn({ ...editingSyn, expansion: e.target.value })}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-ink font-semibold mb-1">Category</label>
+              <Select
+                value={editingSyn.category}
+                onValueChange={(v: any) => setEditingSyn({ ...editingSyn, category: v })}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="acronym">Acronym / Abbreviation</SelectItem>
+                  <SelectItem value="humana_speak">Humana-Speak / Conversational</SelectItem>
+                  <SelectItem value="spelling">Spelling / STT Correction</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSynModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!editingSyn.term.trim() || !editingSyn.expansion.trim()}
+              onClick={async () => {
+                await saveSynonym(person.name, editingSyn);
+                setSynModalOpen(false);
+                setSynMsg(`Saved ${editingSyn.term} → ${editingSyn.expansion}`);
+              }}
+              className="bg-[#1E5E2E] text-white hover:bg-[#184d25]"
+            >
+              Confirm & Save
             </Button>
           </DialogFooter>
         </DialogContent>

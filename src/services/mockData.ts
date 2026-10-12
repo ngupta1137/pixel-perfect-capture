@@ -861,7 +861,7 @@ function match(req: SearchRequest): Fixture {
     // Check if S04 or a superseding unit has been applied
     const consolidated = storeGetter?.()?.units?.find((u: any) =>
       (u.unit_id === "U-PH-091" && u.status === "approved") ||
-      u.versions.some((v) =>
+      u.versions.some((v: any) =>
         Boolean(
           (v as any).supersedes?.includes("U-PH-007") ||
           (v as any).supersedes?.includes("U-PH-107") ||
@@ -1075,6 +1075,9 @@ export function seedDemoState(): DemoState {
         { version: 1, effective_date: "2026-01-15", approver: "Rita (Legal)",
           text: "The prices I share today are estimates based on your current plan and may change. Your final cost will be confirmed when your prescription is processed." },
       ]),
+      unit("U-SH-000", "Call closing: legacy script (retired)", "Compliance", true, "retired", [
+        { version: 1, effective_date: "2024-01-01", approver: "Rita (Legal)", text: "Thank you for being a valued Humana member. Have a good day." },
+      ]),
       unit("U-SH-002", "Call closing: no impact on membership", "Compliance", true, "approved", [
         { version: 1, effective_date: "2025-06-01", approver: "Rita (Legal)", text: "Your decision today has no impact on your plan membership." },
         { version: 2, effective_date: "2026-01-15", approver: "Rita (Legal)",
@@ -1167,6 +1170,50 @@ export function seedDemoState(): DemoState {
       member_chat: ["KB-PHARM", "KB-INS"],
       ai_agent: ["KB-PHARM", "KB-SHARED"],
     },
+    synonyms: [
+      { id: "SYN-01", term: "MOOP", expansion: "maximum out-of-pocket", category: "acronym", enabled: true, created_at: "2026-10-01T09:00:00Z" },
+      { id: "SYN-02", term: "PA", expansion: "prior authorization", category: "acronym", enabled: true, created_at: "2026-10-01T09:00:00Z" },
+      { id: "SYN-03", term: "home delivery", expansion: "mail order", category: "humana_speak", enabled: true, created_at: "2026-10-01T09:00:00Z" },
+      { id: "SYN-04", term: "OTC", expansion: "over-the-counter", category: "acronym", enabled: true, created_at: "2026-10-01T09:00:00Z" },
+      { id: "SYN-05", term: "PCP", expansion: "primary care provider", category: "acronym", enabled: true, created_at: "2026-10-01T09:00:00Z" },
+    ],
+    candidateSynonyms: [
+      { id: "CAND-01", term: "pricng", suggested_expansion: "pricing", evidence: "Search log Q02 typo", status: "candidate" },
+      { id: "CAND-02", term: "rx card", suggested_expansion: "member id card", evidence: "Gap queue Q11 terminology", status: "candidate" },
+      { id: "CAND-03", term: "meds delivery", suggested_expansion: "mail order", evidence: "Advocate chat log shorthand", status: "candidate" },
+    ],
+    gapDispositions: {
+      "GAP-003": {
+        disposition: "process_fix",
+        reason: "Member profile portal and IVR automation handle phone and mailing address changes directly; advocates route callers to digital settings rather than manual knowledge lookup.",
+        system_note: "CORE-SYS-402: Member Self-Service Integration",
+        by: "Owen (Knowledge owner)",
+        at: "2026-10-08T11:00:00Z",
+      },
+    },
+    mergeProposals: [
+      {
+        id: "MERGE-01",
+        source_unit_id: "U-PH-204",
+        target_unit_id: "U-PH-207",
+        similarity: 0.88,
+        reason: "Near-duplicate text detected between U-PH-204 and U-PH-207 (both define 84-day mail order maintenance supply). Propose consolidating into surviving unit U-PH-207 and superseding U-PH-204.",
+        status: "pending",
+        proposed_at: "2026-10-10T10:00:00Z",
+      },
+    ],
+    splitSuggestions: [
+      {
+        id: "SPLIT-01",
+        source_unit_id: "U-PH-204",
+        reason: "Multi-statement compound unit: contains both maintenance supply duration (84 days) and mail delivery turnaround window (6 to 9 business days). Propose splitting into two atomic units.",
+        candidate_splits: [
+          { title: "Maintenance supply duration (2027)", span: "Maintenance supply by mail is 84 days." },
+          { title: "Mail order delivery window (2027)", span: "Delivered in 6 to 9 business days after prescription is received." },
+        ],
+        status: "pending",
+      },
+    ],
   };
 }
 

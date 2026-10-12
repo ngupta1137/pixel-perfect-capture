@@ -77,7 +77,13 @@ export function syncPublishedUnitsToStore(s: KnowledgeStore, dbUnits: any[]): vo
 
     const idx = cur.findIndex((u) => u.unit_id === unit.unit_id);
     if (idx >= 0) {
-      if (cur[idx]!.version !== unit.version || cur[idx]!.body !== unit.body || cur[idx]!.status !== unit.status) {
+      if (
+        cur[idx]!.version !== unit.version ||
+        cur[idx]!.body !== unit.body ||
+        cur[idx]!.status !== unit.status ||
+        cur[idx]!.review_date !== unit.review_date ||
+        cur[idx]!.supersedes !== unit.supersedes
+      ) {
         cur[idx] = unit;
         changed = true;
       }
@@ -94,6 +100,19 @@ export function syncPublishedUnitsToStore(s: KnowledgeStore, dbUnits: any[]): vo
   }
 }
 
+export function syncSynonymsToEngine(synonyms: Array<{ term: string; expansion: string; enabled: boolean }>): void {
+  const s = getStore();
+  const base = { ...((lexiconRaw as unknown as { entries: Record<string, string> }).entries ?? {}) };
+  for (const syn of synonyms) {
+    if (syn.enabled) {
+      base[syn.term.toLowerCase()] = syn.expansion.toLowerCase();
+    }
+  }
+  (s as any).data.lexicon = base;
+  (s as any).engineCache = new Verity({ ...(s as any).data, lexicon: base, units: (s as any).live });
+  questionStore.invalidate();
+}
+
 export async function ensureStoreHydrated(): Promise<KnowledgeStore> {
   const s = getStore();
   try {
@@ -104,6 +123,15 @@ export async function ensureStoreHydrated(): Promise<KnowledgeStore> {
     }
   } catch (err) {
     // Graceful fallback for non-db testing
+  }
+  try {
+    const { getDemoState } = await import('../services/demoStore.ts');
+    const demoSyns = getDemoState()?.synonyms;
+    if (demoSyns && demoSyns.length > 0) {
+      syncSynonymsToEngine(demoSyns);
+    }
+  } catch (err) {
+    // Graceful fallback
   }
   return s;
 }
@@ -207,14 +235,16 @@ export function serveEngine(req: SearchRequest, via: { iface: 'REST' | 'MCP'; pr
       message: p.message,
       text: p.text,
       owner_team: p.owner_team ?? null,
-      match_diagnostics: p.match_diagnostics,
+      ...(p.match_diagnostics ? { match_diagnostics: p.match_diagnostics } : {}),
       next_step: nextStep(p.outcome, req.role, p.owner_team ?? (p.outcome === 'stale' && p.unit_ids[0] ? e.unit(p.unit_ids[0])?.owner ?? null : null)),
-      choices: p.outcome === 'needs_clarification' ? [
-        { label: "Kentucky (KY)", set: { state: "KY" } },
-        { label: "Florida (FL)", set: { state: "FL" } },
-        { label: "Ohio (OH)", set: { state: "OH" } },
-        { label: "Other state", set: { state: "OTHER" } },
-      ] : undefined,
+      ...(p.outcome === 'needs_clarification' ? {
+        choices: [
+          { label: "Kentucky (KY)", set: { state: "KY" } },
+          { label: "Florida (FL)", set: { state: "FL" } },
+          { label: "Ohio (OH)", set: { state: "OH" } },
+          { label: "Other state", set: { state: "OTHER" } },
+        ],
+      } : {}),
       trust: p.outcome === 'answer' ? 'approved' : p.outcome === 'stale' ? 'stale' : p.outcome === 'conflict' ? 'conflict' : null,
       citations: p.unit_ids.map((id) => {
         const u = e.unit(id)!;

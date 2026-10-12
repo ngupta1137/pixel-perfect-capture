@@ -250,6 +250,8 @@ export async function handleCreateConflictReport(
     unitIds: string[];
     query: string;
     note?: string;
+    versions?: number[];
+    role?: string;
   },
   repo: StorageRepository = repository
 ): Promise<{ ok: boolean; ticketId: string }> {
@@ -286,15 +288,24 @@ export async function handleCreateConflictReport(
         `Reported by ${req.person}`,
         "Resolution: Upload or apply S04 consolidating unit",
       ]),
-      proposed_by: `${req.person} (Pharmacy advocate)`,
+      proposed_by: `${req.person} (${req.role || "Pharmacy advocate"})`,
       status: "proposed",
       reason: reasonText,
       decided_by: null,
       gate_json: JSON.stringify({ checked: 27, blocking: [] }),
+      annotations_json: JSON.stringify({
+        query: req.query,
+        role: req.role || "pharmacy_advocate",
+        timestamp: new Date().toISOString(),
+        unit_ids: req.unitIds,
+        versions: req.versions || [1, 1],
+        status: "open",
+        note: reasonText,
+      }),
       history_json: JSON.stringify([
         {
           action: "Conflict reported for resolution",
-          by: `${req.person} (Pharmacy advocate)`,
+          by: `${req.person} (${req.role || "Pharmacy advocate"})`,
           at: new Date().toLocaleString(),
           note: reasonText,
         },
@@ -396,6 +407,199 @@ export async function handleApplyConsolidatingConflictResolution(
     draftId,
     message: `Applied S04: Consolidated unit ${unitId} created and routed to Legal Approver (Rita).`,
   };
+}
+
+/**
+ * Knowledge Owner action: marks one unit authoritative and supersedes the loser unit(s).
+ * Sets supersedes on the winning unit linking the losers.
+ */
+export async function handleResolveConflictBySuperseding(
+  req: {
+    person: string;
+    ticketId?: string;
+    winnerUnitId: string;
+    loserUnitIds: string[];
+    reason?: string;
+  },
+  repo: StorageRepository = repository
+): Promise<{ ok: boolean; draftId: string; message: string }> {
+  const { ensureStoreHydrated } = await import("../verity-engine/server");
+  const store = await ensureStoreHydrated();
+  const liveUnits = store.units();
+  const winnerUnit = liveUnits.find((u) => u.unit_id === req.winnerUnitId);
+
+  const draftId = `REV-CONF-WIN-${Date.now().toString(36)}`;
+  const title = winnerUnit
+    ? `${winnerUnit.title} (Authoritative — supersedes ${req.loserUnitIds.join(", ")})`
+    : `Conflict Resolution: ${req.winnerUnitId} Authoritative`;
+  const proposedText = winnerUnit?.body || `Authoritative policy for ${req.winnerUnitId}.`;
+  const loserList = req.loserUnitIds.join(", ");
+
+  await repo.createDrafts([
+    {
+      draft_id: draftId,
+      candidate_id: null,
+      source_doc_id: null,
+      unit_id: req.winnerUnitId,
+      title,
+      proposed_text: proposedText,
+      current_text: `Supersedes conflicting units: ${loserList}`,
+      candidate_type: winnerUnit?.type || "Policy",
+      verbatim: winnerUnit?.verbatim ? 1 : 0,
+      route_to: winnerUnit?.verbatim ? "legal" : "owner",
+      owner_team: winnerUnit?.owner || "Pharmacy Ops",
+      knowledge_base: winnerUnit?.knowledge_base || "KB-PHARM",
+      effective_date: "2026-03-01",
+      tags_json: JSON.stringify([
+        `${req.winnerUnitId} designated authoritative`,
+        `Supersedes ${loserList}`,
+        "Conflict resolved",
+      ]),
+      proposed_by: req.person || "Owen (Knowledge owner)",
+      status: "proposed",
+      reason: req.reason || `Conflict resolved: ${req.winnerUnitId} designated authoritative over ${loserList}.`,
+      supersedes: loserList,
+      decided_by: null,
+      gate_json: JSON.stringify({ checked: 27, blocking: [] }),
+      history_json: JSON.stringify([
+        {
+          action: "Supersede resolved by Knowledge Owner",
+          by: req.person || "Owen (Knowledge owner)",
+          at: new Date().toLocaleString(),
+          note: `Designated ${req.winnerUnitId} authoritative; ${loserList} marked superseded.`,
+        },
+      ]),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  ]);
+
+  // Mark conflict tickets resolved
+  try {
+    const existingDrafts = await repo.listDrafts();
+    for (const d of existingDrafts) {
+      if (
+        req.ticketId === d.draft_id ||
+        d.draft_id.startsWith("CONF-") ||
+        d.draft_id === "REV-CONF-001" ||
+        (d.unit_id && req.loserUnitIds.some((id) => d.unit_id.includes(id)))
+      ) {
+        if (d.status === "proposed" && d.draft_id !== draftId) {
+          await repo.updateDraft(d.draft_id, {
+            status: "approved",
+            decided_by: req.person || "Owen (Knowledge owner)",
+            reason: `Resolved: ${req.winnerUnitId} designated authoritative; ${loserList} marked superseded.`,
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to mark conflict ticket resolved:", err);
+  }
+
+  return {
+    ok: true,
+    draftId,
+    message: `Designated ${req.winnerUnitId} authoritative. Draft created superseding ${loserList}.`,
+  };
+}
+
+/**
+ * Owner/Author action: confirms a review-due/stale unit is still valid.
+ * Extends review_date (e.g. +12 months) and updates status to approved.
+ */
+export async function handleReverifyUnit(
+  req: {
+    person: string;
+    unitId: string;
+    reviewDate?: string;
+  },
+  repo: StorageRepository = repository
+): Promise<{ ok: boolean; reviewDate: string; message: string }> {
+  const { ensureStoreHydrated } = await import("../verity-engine/server");
+  const { Verity } = await import("../verity-engine/pipeline");
+  const { questionStore } = await import("../verity-engine/semantic");
+  const store = await ensureStoreHydrated();
+
+  const newReviewDate = req.reviewDate || "2027-10-06";
+
+  // 1. Update SQLite published_units table
+  const existingPublished = await repo.getPublishedUnitById(req.unitId);
+  if (existingPublished) {
+    await repo.savePublishedUnit({
+      ...existingPublished,
+      review_date: newReviewDate,
+      status: "approved",
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  // 2. Update engine live units and rebuild engine cache
+  const live = store.units();
+  const target = live.find((u) => u.unit_id === req.unitId);
+  if (target) {
+    target.review_date = newReviewDate;
+    target.status = "approved";
+  }
+  (store as any).live = live;
+  (store as any).engineCache = new Verity({ ...(store as any).data, units: live });
+  questionStore.invalidate();
+
+  // 3. Mark any review tasks for this unit as done
+  try {
+    const existingDrafts = await repo.listDrafts();
+    for (const d of existingDrafts) {
+      if (d.unit_id === req.unitId && d.title.toLowerCase().includes("stale")) {
+        await repo.updateDraft(d.draft_id, {
+          status: "approved",
+          decided_by: req.person,
+          reason: `Re-verified. Review date extended to ${newReviewDate}.`,
+        });
+      }
+    }
+  } catch {}
+
+  return {
+    ok: true,
+    reviewDate: newReviewDate,
+    message: `Unit ${req.unitId} re-verified. Review date extended to ${newReviewDate}.`,
+  };
+}
+
+/**
+ * Handle explicit retirement of a published unit.
+ * Human only (Owner/Legal), mandatory reason required.
+ */
+export async function handleRetireUnit(
+  req: {
+    person: string;
+    unitId: string;
+    reason: string;
+  },
+  repo: StorageRepository = repository
+): Promise<{ ok: boolean; message: string }> {
+  if (!req.reason || !req.reason.trim()) {
+    throw new Error("A reason is mandatory to retire a unit");
+  }
+  const { ensureStoreHydrated } = await import("../verity-engine/server");
+  const { Verity } = await import("../verity-engine/pipeline");
+  const { questionStore } = await import("../verity-engine/semantic");
+  const store = await ensureStoreHydrated();
+
+  // 1. Update SQLite
+  await repo.updatePublishedUnitStatus(req.unitId, "retired");
+
+  // 2. Update engine live units and rebuild engine cache
+  const live = store.units();
+  const target = live.find((u) => u.unit_id === req.unitId);
+  if (target) {
+    target.status = "retired";
+  }
+  (store as any).live = live;
+  (store as any).engineCache = new Verity({ ...(store as any).data, units: live });
+  questionStore.invalidate();
+
+  return { ok: true, message: `Unit ${req.unitId} retired successfully.` };
 }
 
 /**
@@ -560,12 +764,14 @@ export async function handleDecideReviewItem(
 
     // Regression & Publication Gate: Check against the Golden Evaluation suite
     let publishedUnit: KnowledgeUnit;
+    let fromVersion = 0;
     try {
       const store = getStore();
       const currentLive = store.units();
 
       const existingLive = currentLive.find((u) => u.unit_id === draft.unit_id);
       if (existingLive) {
+        fromVersion = existingLive.version;
         // Prevent silent overwrite of an existing approved unit
         if ((!draft.version || draft.version <= existingLive.version) && !draft.supersedes) {
           return {
@@ -632,7 +838,20 @@ export async function handleDecideReviewItem(
         })(),
       };
 
-      const afterUnits = [...currentLive.filter((u) => u.unit_id !== draft.unit_id), publishedUnit];
+      const supersededIds = new Set(
+        (publishedUnit.supersedes ? publishedUnit.supersedes.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean) : [])
+      );
+
+      const afterUnits = currentLive
+        .map((u) => {
+          if (supersededIds.has(u.unit_id) || (u.source_doc && supersededIds.has(u.source_doc))) {
+            return { ...u, status: "superseded" as const };
+          }
+          return u;
+        })
+        .filter((u) => u.unit_id !== draft.unit_id);
+      afterUnits.push(publishedUnit);
+
       const golden = (store as any).data?.golden ?? [];
       const report = checkPublication((store as any).data, currentLive, afterUnits, golden);
 
@@ -647,13 +866,11 @@ export async function handleDecideReviewItem(
       // Live KnowledgeStore update
       (store as any).live = afterUnits;
       (store as any).engineCache = new Verity({ ...(store as any).data, units: afterUnits });
+      const { questionStore } = await import("../verity-engine/semantic");
+      questionStore.invalidate();
 
       // Sync in-memory demoStore
       updateDemoState((s) => {
-        const supersededIds = new Set(
-          (publishedUnit.supersedes ? publishedUnit.supersedes.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean) : [])
-        );
-
         let updated = s.units.map((u) => {
           if (supersededIds.has(u.unit_id) || (u.source_doc && supersededIds.has(u.source_doc))) {
             return { ...u, status: "superseded" };
@@ -687,9 +904,12 @@ export async function handleDecideReviewItem(
           });
         }
 
-        // Close any conflict tasks that referenced these superseded units
+        // Close any conflict tasks that referenced these superseded units or this draft
         const updatedTasks = s.reviewTasks.map((t) => {
-          if (t.kind === "conflict" && t.unit_ids.some((id) => supersededIds.has(id))) {
+          if (
+            t.kind === "conflict" &&
+            (t.unit_ids.some((id) => supersededIds.has(id)) || t.unit_ids.includes(draft.unit_id))
+          ) {
             return { ...t, status: "done" as const };
           }
           return t;
@@ -758,6 +978,59 @@ export async function handleDecideReviewItem(
       created_at: nowIso,
       updated_at: nowIso,
     });
+
+    // Update loser units in SQLite published_units table to superseded
+    const loserSupersededIds = (publishedUnit.supersedes ? publishedUnit.supersedes.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean) : []);
+    for (const loserId of loserSupersededIds) {
+      try {
+        const loserPub = await repo.getPublishedUnitById(loserId);
+        if (loserPub) {
+          await repo.savePublishedUnit({
+            ...loserPub,
+            status: "superseded",
+            updated_at: nowIso,
+          });
+        }
+      } catch (err) {
+        console.warn(`Failed to update loser unit ${loserId} to superseded:`, err);
+      }
+    }
+
+    // In-app signal & change propagation audit
+    const subscriberChannels = ["Agent Assist", "Member Chat", "IVR Voice Bot", "Advocate Portal"];
+    const toVersion = publishedUnit.version;
+    const publishSignal = {
+      unit_id: publishedUnit.unit_id,
+      version: toVersion,
+      from_version: fromVersion,
+      title: publishedUnit.title,
+      at: nowIso,
+      by: reviewerAudit,
+      channels: subscriberChannels,
+    };
+
+    updateDemoState((s) => ({
+      ...s,
+      latestPublishSignal: publishSignal,
+      publishSignals: [publishSignal, ...(s.publishSignals || [])],
+      audit: [
+        {
+          at: nowIso,
+          actor: reviewerAudit,
+          action: "unit.published",
+          target: `${publishedUnit.unit_id} (v${fromVersion} → v${toVersion})`,
+          detail: `Published "${publishedUnit.title}". Notified channels: ${subscriberChannels.join(", ")}. Invalidation signal sent.`,
+        },
+        ...loserSupersededIds.map((loserId) => ({
+          at: nowIso,
+          actor: reviewerAudit,
+          action: "unit.superseded",
+          target: loserId,
+          detail: `Superseded by authoritative unit ${publishedUnit.unit_id} v${toVersion}. Retired from active retrieval.`,
+        })),
+        ...s.audit,
+      ],
+    }));
 
     const updated = await repo.getDraftById(draft.draft_id);
     return {

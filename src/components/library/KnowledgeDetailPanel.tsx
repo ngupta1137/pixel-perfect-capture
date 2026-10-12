@@ -21,14 +21,24 @@ import {
   FileCheck,
   Building,
   User,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { EnrichedKnowledgeUnit } from "@/lib/library";
 import { useSession } from "@/lib/session";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
-import { markUnitStale, reverifyUnit } from "@/services/verity";
+import { markUnitStale, reverifyUnit, retirePublishedUnit } from "@/services/verity";
 
 interface KnowledgeDetailPanelProps {
   unit: EnrichedKnowledgeUnit;
@@ -47,8 +57,11 @@ export function KnowledgeDetailPanel({
 }: KnowledgeDetailPanelProps) {
   const { person, can } = useSession();
   const [activeTab, setActiveTab] = useState<"overview" | "source" | "history" | "related">("overview");
+  const [retireModalOpen, setRetireModalOpen] = useState(false);
+  const [retireReason, setRetireReason] = useState("");
 
   const canEdit = can("propose_unit") || can("approve_standard") || can("approve_legal");
+  const canRetire = can("approve_standard") || can("approve_legal");
 
   const handleEditClick = () => {
     if (canEdit) {
@@ -417,36 +430,133 @@ export function KnowledgeDetailPanel({
           </Button>
         </div>
 
-        <div>
-          {unit.status === "Stale" || unit.next_review_status === "Overdue" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                reverifyUnit(person.name, unit.unit_id);
-                toast.success(`Unit ${unit.unit_id} re-verified. Review date extended.`);
-              }}
-              className="w-full text-xs font-medium text-[#1E5E2E] border-[#1E5E2E]/30 bg-[#EAF7EE] hover:bg-[#EAF7EE]/80"
-            >
-              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-[#1E5E2E]" />
-              Re-verify unit (Mark Current)
-            </Button>
+        <div className="space-y-2">
+          {unit.status === "Retired" ? (
+            <div className="rounded-lg border border-[#FCA5A5] bg-[#FEF2F2] p-3 text-xs text-[#991B1B] space-y-1">
+              <p className="font-semibold flex items-center gap-1.5">
+                <ShieldAlert className="h-4 w-4 shrink-0 text-[#DC2626]" /> Retired Knowledge Unit
+              </p>
+              <p className="text-[11px] text-[#7F1D1D]/90 leading-relaxed">
+                This unit is retired and will never be cited in answers. It remains visible in the library and audit logs for regulatory compliance.
+              </p>
+            </div>
+          ) : unit.status === "Stale" || unit.next_review_status === "Overdue" ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    reverifyUnit(person.name, unit.unit_id);
+                    toast.success(`Unit ${unit.unit_id} confirmed still valid. Review date extended +12 months.`);
+                  }}
+                  className="flex-1 text-xs font-medium text-[#1E5E2E] border-[#1E5E2E]/30 bg-[#EAF7EE] hover:bg-[#EAF7EE]/80"
+                >
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-[#1E5E2E]" />
+                  Confirm still valid (+12 mo)
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEditClick}
+                  className="flex-1 text-xs font-medium text-ink border-border hover:bg-muted"
+                >
+                  <Pencil className="mr-1.5 h-3.5 w-3.5 text-ink-muted" />
+                  Revise draft
+                </Button>
+              </div>
+              {canRetire && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRetireModalOpen(true)}
+                  className="w-full text-xs font-medium text-[#DC2626] border-[#FCA5A5] bg-[#FEF2F2] hover:bg-[#FEE2E2]"
+                >
+                  <Trash2 className="mr-1.5 h-3.5 w-3.5 text-[#DC2626]" />
+                  Retire unit (mandatory reason)
+                </Button>
+              )}
+            </div>
           ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                markUnitStale(unit.unit_id, person.name);
-                toast.warning(`Unit ${unit.unit_id} marked as Stale (Review due).`);
-              }}
-              className="w-full text-xs font-medium text-[#B45309] border-[#FDE68A] bg-[#FEF3C7]/40 hover:bg-[#FEF3C7]"
-            >
-              <Clock className="mr-1.5 h-3.5 w-3.5 text-[#B45309]" />
-              Mark as Stale (Review due)
-            </Button>
+            <div className="space-y-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  markUnitStale(unit.unit_id, person.name);
+                  toast.warning(`Unit ${unit.unit_id} marked as Stale (Review due).`);
+                }}
+                className="w-full text-xs font-medium text-[#B45309] border-[#FDE68A] bg-[#FEF3C7]/40 hover:bg-[#FEF3C7]"
+              >
+                <Clock className="mr-1.5 h-3.5 w-3.5 text-[#B45309]" />
+                Mark as Stale (Review due)
+              </Button>
+              {canRetire && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRetireModalOpen(true)}
+                  className="w-full text-xs font-medium text-[#DC2626] border-[#FCA5A5] bg-[#FEF2F2] hover:bg-[#FEE2E2]"
+                >
+                  <Trash2 className="mr-1.5 h-3.5 w-3.5 text-[#DC2626]" />
+                  Retire unit
+                </Button>
+              )}
+            </div>
           )}
         </div>
       </div>
+
+      {/* Confirmation Dialog for Retiring Unit */}
+      <Dialog open={retireModalOpen} onOpenChange={setRetireModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Retire Knowledge Unit {unit.unit_id}</DialogTitle>
+            <DialogDescription>
+              Retiring this unit immediately prevents it from being cited in future search answers. It remains permanently archived for audit and history.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <label className="block text-xs font-semibold text-ink">
+              Mandatory Justification / Reason <span className="text-[#DC2626]">*</span>
+            </label>
+            <Textarea
+              value={retireReason}
+              onChange={(e) => setRetireReason(e.target.value)}
+              placeholder="e.g. Superseded by 2027 unified pharmacy handbook policy or obsolete benefit."
+              rows={3}
+              className="text-xs"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setRetireModalOpen(false);
+                setRetireReason("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={!retireReason.trim()}
+              onClick={async () => {
+                const res = await retirePublishedUnit(person.name, unit.unit_id, retireReason);
+                setRetireModalOpen(false);
+                setRetireReason("");
+                if (res.ok) {
+                  toast.success(res.message);
+                } else {
+                  toast.error(res.message);
+                }
+              }}
+              className="bg-[#DC2626] text-white hover:bg-[#B91C1C]"
+            >
+              Confirm Retirement
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </aside>
   );
 }

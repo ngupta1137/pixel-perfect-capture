@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -29,10 +30,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { SEEDED_KNOWLEDGE_GAPS, type KnowledgeGap, type GapType } from "@/types/gaps";
 import { useDemoStore } from "@/services/demoStore";
 import { classifyGapDomain } from "@/lib/gapClassifier";
-
+import { resolveGapProcessFix, resolveGapUnitCreated } from "@/services/verity";
+import { toast } from "sonner";
 import { useSession } from "@/lib/session";
 
 interface KnowledgeGapsViewProps {
@@ -60,13 +70,19 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
   const [selectedGap, setSelectedGap] = useState<KnowledgeGap | null>(SEEDED_KNOWLEDGE_GAPS[0] ?? null);
   const [detailTab, setDetailTab] = useState<"Overview" | "Search insights" | "Related content">("Overview");
 
+  // Gap disposition state (P1-5)
+  const gapDispositions = useDemoStore((s) => s.gapDispositions ?? {});
+  const [processFixOpen, setProcessFixOpen] = useState(false);
+  const [processFixReason, setProcessFixReason] = useState("");
+  const [processFixSystemNote, setProcessFixSystemNote] = useState("");
+
   useEffect(() => {
     setSelectedDomain(getPersonaDomain());
   }, [person.id]);
 
   const demoRequests = useDemoStore((s) => s.requests);
 
-  // Combine seeded gaps with live session gaps from search requests
+  // Combine seeded gaps with live session gaps from search requests and apply dispositions
   const allGaps = useMemo(() => {
     const liveGaps: KnowledgeGap[] = [];
     demoRequests
@@ -107,10 +123,25 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
           });
         }
       });
-    return [...SEEDED_KNOWLEDGE_GAPS, ...liveGaps];
-  }, [demoRequests]);
+    return [...SEEDED_KNOWLEDGE_GAPS, ...liveGaps].map((g) => {
+      const disp = gapDispositions[g.id];
+      if (disp) {
+        return {
+          ...g,
+          status: "Resolved" as const,
+          disposition: disp.disposition,
+          disposition_reason: disp.reason,
+          system_note: disp.system_note,
+          resolved_by: disp.by,
+          resolved_at: disp.at,
+        };
+      }
+      return g;
+    });
+  }, [demoRequests, gapDispositions]);
 
   const counts = useMemo(() => {
+    const dispList = Object.values(gapDispositions);
     return {
       all: allGaps.length,
       insufficient: allGaps.filter((g) => g.type === "Insufficient").length,
@@ -118,8 +149,10 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
       outdated: allGaps.filter((g) => g.type === "Outdated").length,
       pharmacy: allGaps.filter((g) => (g.domain || classifyGapDomain(g.topic).domain) === "Pharmacy").length,
       insurance: allGaps.filter((g) => (g.domain || classifyGapDomain(g.topic).domain) === "Insurance").length,
+      unitClosed: dispList.filter((d) => d.disposition === "unit_created").length,
+      processFixClosed: dispList.filter((d) => d.disposition === "process_fix").length,
     };
-  }, [allGaps]);
+  }, [allGaps, gapDispositions]);
 
   const filteredGaps = useMemo(() => {
     return allGaps.filter((g) => {
@@ -181,7 +214,13 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, disposition?: string) => {
+    if (disposition === "process_fix") {
+      return <span className="inline-flex items-center rounded-md bg-[#EDE9FE] px-2 py-0.5 text-xs font-semibold text-[#6D28D9]">Process fix</span>;
+    }
+    if (disposition === "unit_created") {
+      return <span className="inline-flex items-center rounded-md bg-[#DCFCE7] px-2 py-0.5 text-xs font-semibold text-[#15803D]">Unit created</span>;
+    }
     switch (status) {
       case "Open":
         return <span className="inline-flex items-center rounded-md bg-[#FDE2E2] px-2 py-0.5 text-xs font-semibold text-[#D32F2F]">Open</span>;
@@ -203,6 +242,15 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
           <p className="mt-1 text-xs sm:text-sm text-ink-muted">
             Find topics with insufficient, outdated or conflicting information and take action.
           </p>
+          <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
+            <span className="text-ink-muted font-medium">Dispositions:</span>
+            <span className="inline-flex items-center rounded-md bg-[#DCFCE7] px-2 py-0.5 text-[11px] font-semibold text-[#15803D]">
+              Unit created: {counts.unitClosed}
+            </span>
+            <span className="inline-flex items-center rounded-md bg-[#EDE9FE] px-2 py-0.5 text-[11px] font-semibold text-[#6D28D9]">
+              Process fix: {counts.processFixClosed}
+            </span>
+          </div>
         </div>
         <Button
           onClick={() => onCreateUnit?.(selectedGap ?? undefined)}
@@ -409,7 +457,7 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
                         {gap.relatedSearches}
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
-                        {getStatusBadge(gap.status)}
+                        {getStatusBadge(gap.status, gap.disposition)}
                       </td>
                       <td className="px-4 py-3.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
@@ -547,7 +595,7 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
                     <dd className="font-medium text-ink text-right font-mono">{selectedGap.relatedSearches}</dd>
 
                     <dt className="text-ink-muted">Status</dt>
-                    <dd className="font-medium text-right">{getStatusBadge(selectedGap.status)}</dd>
+                    <dd className="font-medium text-right">{getStatusBadge(selectedGap.status, selectedGap.disposition)}</dd>
                   </dl>
                 </div>
 
@@ -569,24 +617,58 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
                   </div>
                 </div>
 
-                {/* Source Document Guidance */}
-                <div className="rounded-lg border border-[#FDE68A] bg-[#FEF3C7]/40 p-3 text-xs space-y-1.5">
-                  <p className="font-semibold text-[#92400E] flex items-center gap-1.5">
-                    <AlertCircle className="h-4 w-4" /> Source document required
-                  </p>
-                  <p className="text-[11px] text-[#92400E]/90 leading-relaxed">
-                    This knowledge gap requires an uploaded policy or handbook document to extract and propose verified knowledge units.
-                  </p>
-                </div>
+                {/* Source Document Guidance or Disposition Resolution */}
+                {selectedGap.disposition ? (
+                  <div className="rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] p-3 text-xs text-[#15803D] space-y-1.5">
+                    <p className="font-semibold flex items-center gap-1.5">
+                      <CheckCircle2 className="h-4 w-4 text-[#15803D]" />
+                      Resolved: {selectedGap.disposition === "process_fix" ? "Process Fix (No Unit)" : "Unit Created"}
+                    </p>
+                    <p className="text-[11px] text-[#166534] leading-relaxed">
+                      {selectedGap.disposition_reason}
+                    </p>
+                    {selectedGap.system_note && (
+                      <p className="text-[10px] text-ink-muted font-mono">
+                        Linked System: {selectedGap.system_note}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-ink-muted pt-1 border-t border-[#BBF7D0]/60">
+                      Resolved by {selectedGap.resolved_by} {selectedGap.resolved_at ? `on ${new Date(selectedGap.resolved_at).toLocaleDateString()}` : ""}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-[#FDE68A] bg-[#FEF3C7]/40 p-3 text-xs space-y-1.5">
+                      <p className="font-semibold text-[#92400E] flex items-center gap-1.5">
+                        <AlertCircle className="h-4 w-4" /> Source document or process resolution required
+                      </p>
+                      <p className="text-[11px] text-[#92400E]/90 leading-relaxed">
+                        Knowledge Owner can either upload a source document to draft an approved answer, or close as an operational Process Fix (no unit).
+                      </p>
+                    </div>
 
-                {/* Sticky Action Button */}
-                <Button
-                  type="button"
-                  onClick={() => onCreateUnit?.(selectedGap)}
-                  className="w-full h-9 bg-[#1E5E2E] text-xs font-medium text-white hover:bg-[#184d25] cursor-pointer"
-                >
-                  <Plus className="mr-1.5 h-4 w-4" /> Upload source document to close gap
-                </Button>
+                    <div className="space-y-2">
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          resolveGapUnitCreated(person.name, selectedGap.id, `D-GAP-${selectedGap.id}`);
+                          onCreateUnit?.(selectedGap);
+                        }}
+                        className="w-full h-9 bg-[#1E5E2E] text-xs font-medium text-white hover:bg-[#184d25] cursor-pointer"
+                      >
+                        <Plus className="mr-1.5 h-4 w-4" /> Create knowledge unit (Upload & draft)
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setProcessFixOpen(true)}
+                        className="w-full h-9 text-xs font-medium text-ink border-border hover:bg-muted cursor-pointer"
+                      >
+                        <CheckCircle2 className="mr-1.5 h-4 w-4 text-[#1E5E2E]" /> Resolve as Process Fix (No Unit)
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -656,6 +738,72 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
           </aside>
         )}
       </div>
+
+      {/* Process Fix Modal Dialog */}
+      <Dialog open={processFixOpen} onOpenChange={setProcessFixOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Resolve Gap as Process Fix</DialogTitle>
+            <DialogDescription>
+              Resolve this knowledge demand without authoring a new knowledge unit. Provide an operational or system rationale.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <p className="text-xs font-semibold text-ink mb-1">Gap Topic</p>
+              <p className="text-xs text-ink-muted bg-muted p-2 rounded">{selectedGap?.topic}</p>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-ink block mb-1">
+                Resolution Rationale <span className="text-red-500">*</span>
+              </label>
+              <Textarea
+                placeholder="Explain why this requires an operational workflow change or system adjustment rather than a knowledge unit..."
+                value={processFixReason}
+                onChange={(e) => setProcessFixReason(e.target.value)}
+                rows={3}
+                className="text-xs"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-ink block mb-1">
+                Linked System or Process Note <span className="text-ink-muted font-normal">(Optional)</span>
+              </label>
+              <Input
+                placeholder="e.g. Jira TICKET-4921, IVR Routing Config #88, Claims SOP v2.4"
+                value={processFixSystemNote}
+                onChange={(e) => setProcessFixSystemNote(e.target.value)}
+                className="text-xs"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setProcessFixOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-[#1E5E2E] hover:bg-[#184d25] text-white"
+              disabled={!processFixReason.trim()}
+              onClick={() => {
+                if (!selectedGap || !processFixReason.trim()) return;
+                resolveGapProcessFix(
+                  person.name,
+                  selectedGap.id,
+                  processFixReason.trim(),
+                  processFixSystemNote.trim() || undefined
+                );
+                toast.success("Gap marked resolved as Process Fix");
+                setProcessFixOpen(false);
+                setProcessFixReason("");
+                setProcessFixSystemNote("");
+              }}
+            >
+              Confirm Process Fix
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

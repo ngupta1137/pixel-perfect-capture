@@ -122,7 +122,7 @@ export interface PublishedUnitTable {
   effective_date: string;
   review_date: string;
   version: number;
-  status: "approved" | "stale" | "retired";
+  status: "approved" | "stale" | "retired" | "superseded";
   supersedes: string | null;
   synonyms_json: string;
   owner: string;

@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { ArrowRightCircle, Check, Copy, Lock, Phone, Volume2, Square, AlertTriangle, CheckCircle2, Terminal, ChevronRight } from "lucide-react";
+import { ArrowRightCircle, Check, Copy, Lock, Phone, Volume2, Square, AlertTriangle, CheckCircle2, Terminal, ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { type Choice, type Citation, type Part, reportConflictForResolution } from "@/services/verity";
+import { type Choice, type Citation, type Part, reportConflictForResolution, reverifyUnit } from "@/services/verity";
 import { TrustBadge } from "./TrustBadge";
 import { OutcomePill, OUTCOME_META } from "./outcomeMeta";
 import { CHANNELS, useSession } from "@/lib/session";
@@ -199,6 +199,9 @@ function Body({
   const { person } = useSession();
   const [handoff, setHandoff] = useState(false);
   const [reportedConflict, setReportedConflict] = useState<string | null>(null);
+  const [conflictNote, setConflictNote] = useState("");
+  const [showNoteInput, setShowNoteInput] = useState(false);
+  const [reverifiedStale, setReverifiedStale] = useState(false);
   const transfer = (
     <>
       <Button variant="outline" className="mt-4" onClick={() => setHandoff(true)}>
@@ -300,32 +303,68 @@ function Body({
             ))}
           </div>
           {!minimal && (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
-              <span className="text-xs text-ink-muted">Both owning teams notified. Need resolution?</span>
-              {reportedConflict ? (
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2.5 py-1">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                  Reported to Knowledge Ops ({reportedConflict})
-                </span>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const res = reportConflictForResolution(
-                      person.name,
-                      `req-${Date.now()}`,
-                      part.part,
-                      part.citations.map((c) => c.unit_id),
-                      "Advocate reported conflicting sources on call",
-                    );
-                    setReportedConflict(res.id);
-                  }}
-                  className="gap-1.5 text-xs border-amber-300 bg-amber-50/50 hover:bg-amber-100 text-amber-900"
-                >
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-                  Report for resolution
-                </Button>
+            <div className="mt-4 border-t border-border pt-3 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs text-ink-muted">Both owning teams notified. Need resolution?</span>
+                {reportedConflict ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2.5 py-1">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                    Conflict ticket created ({reportedConflict}) — routed to Knowledge Ops
+                  </span>
+                ) : !showNoteInput ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowNoteInput(true)}
+                    className="gap-1.5 text-xs border-amber-300 bg-amber-50/50 hover:bg-amber-100 text-amber-900 font-semibold"
+                  >
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                    Report for resolution
+                  </Button>
+                ) : null}
+              </div>
+
+              {showNoteInput && !reportedConflict && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-amber-950">Report conflict ticket to Knowledge Ops</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowNoteInput(false)}
+                      className="text-ink-muted hover:text-ink text-[11px]"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={conflictNote}
+                    onChange={(e) => setConflictNote(e.target.value)}
+                    placeholder="Optional short note (e.g. Member questioning 90 vs 100 days)..."
+                    className="w-full rounded border border-amber-300 bg-white px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                  <div className="flex justify-end gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const res = reportConflictForResolution(
+                          person.name,
+                          `req-${Date.now()}`,
+                          part.part,
+                          part.citations.map((c) => c.unit_id),
+                          conflictNote.trim() || "Advocate reported conflicting sources on call",
+                          part.citations.map((c) => c.version),
+                          person.role
+                        );
+                        setReportedConflict(res.id);
+                        setShowNoteInput(false);
+                      }}
+                      className="text-xs h-7 bg-amber-700 hover:bg-amber-800 text-white font-medium"
+                    >
+                      Submit ticket to Knowledge Ops
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           )}
@@ -343,14 +382,58 @@ function Body({
         );
       return (
         <>
-          <div className="mb-3 rounded border border-outcome-stale bg-outcome-stale/10 px-3 py-2 text-sm font-semibold text-outcome-stale">
-            Past review date
+          <div className="mb-3 flex items-center justify-between rounded border border-outcome-stale bg-outcome-stale/10 px-3 py-2 text-sm font-semibold text-outcome-stale">
+            <span>Past review date — Stale unit excluded from clean answer</span>
+            <span className="text-xs font-normal">Next step: Confirm or revise</span>
           </div>
           <p className="text-lg text-ink-muted line-through decoration-outcome-stale/40">
             {part.text}
           </p>
           <p className="mt-2 text-sm">{part.message}</p>
           {c0 && <CitationLine c={c0} onCite={onCite} minimal={minimal} showOwner={showOwner} />}
+
+          {/* Stale Serve-Time Actions */}
+          {!minimal && c0 && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs">
+              <span className="text-ink-muted">
+                {part.next_step || "Do not quote this as current. Say you will confirm and follow up."}
+              </span>
+              <div className="flex items-center gap-2">
+                {reverifiedStale ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2.5 py-1">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                    Confirmed still valid (+12 mo)
+                  </span>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        reverifyUnit(person.name, c0.unit_id);
+                        setReverifiedStale(true);
+                      }}
+                      className="h-7 text-xs border-emerald-300 bg-emerald-50/50 hover:bg-emerald-100 text-emerald-900 font-medium"
+                    >
+                      <CheckCircle2 className="h-3 w-3 text-emerald-700 mr-1" />
+                      Confirm still valid (+12 mo)
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        window.location.href = "/author";
+                      }}
+                      className="h-7 text-xs border-border bg-surface-alt hover:bg-muted text-ink font-medium"
+                    >
+                      <ExternalLink className="h-3 w-3 text-ink-muted mr-1" />
+                      Revise (Author flow)
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </>
       );
     case "not_authorized":

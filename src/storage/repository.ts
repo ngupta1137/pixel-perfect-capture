@@ -333,6 +333,18 @@ export class StorageRepository {
     await db.deleteFrom("published_units").where("unit_id", "=", unitId).execute();
   }
 
+  async updatePublishedUnitStatus(
+    unitId: string,
+    status: "approved" | "stale" | "retired"
+  ): Promise<void> {
+    const db = await this.getDb();
+    await db
+      .updateTable("published_units")
+      .set({ status, updated_at: new Date().toISOString() })
+      .where("unit_id", "=", unitId)
+      .execute();
+  }
+
   async resetPublishedUnitsToSeed(): Promise<void> {
     const db = await this.getDb();
     await db.deleteFrom("published_units").execute();

@@ -119,8 +119,18 @@ export async function fetchPublishedLibraryUnits(): Promise<DemoUnit[]> {
 
 // ---------------------------------------------------------------------------
 // Service seam. Every function below reads and writes the shared demo store,
-// so all people see the same requests, drafts, units and audit trail.
-import { getDemoState, resetDemoStore, updateDemoState, type DemoAudit, type DemoRequest, type DemoUnit, type DemoUnitVersion } from "./demoStore";
+import {
+  getDemoState,
+  resetDemoStore,
+  updateDemoState,
+  type DemoAudit,
+  type DemoRequest,
+  type DemoUnit,
+  type DemoUnitVersion,
+  type SynonymEntry,
+  type CandidateSynonym,
+} from "./demoStore";
+export type { SynonymEntry, CandidateSynonym };
 import type { AccessRequest, ActionResult, AuthoringState, DecideRequest, IngestView } from "./authoring";
 
 const now = () => new Date().toISOString();
@@ -178,7 +188,9 @@ export function reportConflictForResolution(
   requestId: string,
   query: string,
   unitIds: string[],
-  note: string = ""
+  note: string = "",
+  versions: number[] = [1, 1],
+  role: string = "pharmacy_advocate"
 ) {
   const id = `CONF-${Date.now().toString(36).toUpperCase()}`;
   const owner = "Knowledge Ops";
@@ -195,6 +207,10 @@ export function reportConflictForResolution(
         request_id: requestId,
         reason: reasonText,
         by: person,
+        versions,
+        query,
+        role,
+        at: now(),
       },
       ...s.reviewTasks,
     ],
@@ -204,11 +220,11 @@ export function reportConflictForResolution(
   void (async () => {
     try {
       const { createConflictReportFn } = await import("./review.functions");
-      await createConflictReportFn({ data: { person, unitIds, query, note: reasonText } });
+      await createConflictReportFn({ data: { person, unitIds, query, note: reasonText, versions, role } });
     } catch (err) {
       if (!isBrowser) {
         const { handleCreateConflictReport } = await import("./review.server");
-        await handleCreateConflictReport({ person, unitIds, query, note: reasonText });
+        await handleCreateConflictReport({ person, unitIds, query, note: reasonText, versions, role });
       }
     }
   })();
@@ -221,6 +237,99 @@ export function reportConflictForResolution(
   });
   giveFeedback(person, requestId, "flag", `Conflict reported: ${reasonText}`);
   return { id, owner, unitIds };
+}
+
+/**
+ * Knowledge Owner action: marks one unit authoritative and supersedes the loser unit(s).
+ * Creates draft unit linking supersedes, marks conflict ticket resolved, and logs audit.
+ */
+export async function resolveConflictBySuperseding(
+  person: string,
+  winnerUnitId: string,
+  loserUnitIds: string[],
+  ticketId?: string,
+  reason?: string
+): Promise<{ ok: boolean; draftId?: string; message?: string }> {
+  try {
+    let draftId = `REV-CONF-WIN-${Date.now().toString(36)}`;
+    try {
+      const { resolveConflictBySupersedingFn } = await import("./review.functions");
+      const res = await resolveConflictBySupersedingFn({
+        data: { person, ticketId, winnerUnitId, loserUnitIds, reason },
+      });
+      if (res?.draftId) draftId = res.draftId;
+    } catch (err) {
+      if (!isBrowser) {
+        const { handleResolveConflictBySuperseding } = await import("./review.server");
+        const res = await handleResolveConflictBySuperseding({
+          person,
+          ticketId,
+          winnerUnitId,
+          loserUnitIds,
+          reason,
+        });
+        if (res?.draftId) draftId = res.draftId;
+      }
+    }
+
+    const loserList = loserUnitIds.join(", ");
+    const winnerUnit = getDemoState().units.find((u) => u.unit_id === winnerUnitId);
+
+    const winDraft: ChainDraft = {
+      id: draftId,
+      cid: `cid-${winnerUnitId.toLowerCase()}`,
+      unit_id: winnerUnitId,
+      title: winnerUnit ? `${winnerUnit.title} (Authoritative)` : `Conflict Resolution: ${winnerUnitId}`,
+      proposed_text: winnerUnit?.versions[winnerUnit.versions.length - 1]?.text || "Authoritative policy wording.",
+      current_text: `Supersedes: ${loserList}`,
+      status: "in_review",
+      proposed_by: person || "Owen (Knowledge owner)",
+      proposed_at: new Date().toISOString(),
+      owner_team: winnerUnit?.owner || "Pharmacy Ops",
+      verbatim: winnerUnit?.verbatim || false,
+      route: winnerUnit?.verbatim ? "legal" : "owner",
+      effective_date: "2026-03-01",
+      tags: [`${winnerUnitId} authoritative`, `Supersedes ${loserList}`],
+      gate: { checked: 27, blocking: [] },
+      supersedes: loserList,
+      reason: reason || `Designated ${winnerUnitId} authoritative over ${loserList}.`,
+      decided_by: null,
+      history: [
+        {
+          status: "proposed",
+          at: new Date().toLocaleString(),
+          by: person || "Owen (Knowledge owner)",
+          note: `Conflict resolved: ${winnerUnitId} authoritative; ${loserList} superseded.`,
+        },
+      ],
+    };
+
+    updateDemoState((s) => ({
+      ...s,
+      chainDrafts: [winDraft, ...s.chainDrafts.filter((d) => d.id !== draftId)],
+      reviewTasks: s.reviewTasks.map((t) =>
+        t.kind === "conflict" &&
+        (t.id === ticketId || t.unit_ids.some((id) => loserUnitIds.includes(id)))
+          ? { ...t, status: "done" as const }
+          : t
+      ),
+    }));
+
+    audit({
+      actor: person || "Knowledge Owner",
+      action: "supersede_unit",
+      target: loserList,
+      detail: `Designated ${winnerUnitId} authoritative; marked ${loserList} superseded.`,
+    });
+
+    return {
+      ok: true,
+      draftId,
+      message: `Designated ${winnerUnitId} authoritative. Draft created superseding ${loserList}.`,
+    };
+  } catch (err: any) {
+    return { ok: false, message: err?.message || "Failed to resolve conflict" };
+  }
 }
 
 const isBrowser =
@@ -607,24 +716,62 @@ export function decideChainDraft(person: { name: string; capabilities: readonly 
   }
   if (d.gate?.blocking.length) return { ok: false, message: d.gate.blocked_reason ?? "Blocked by the publication gate" };
   let version = 1;
+  const nowIso = now();
+  const subscriberChannels = ["Agent Assist", "Member Chat", "IVR Voice Bot", "Advocate Portal"];
+  let prevVersion = 0;
+  const supersedesStr = (d as any).supersedes || "";
+  const supIds = new Set(supersedesStr ? supersedesStr.split(/[,;\s]+/).map((x: string) => x.trim()).filter(Boolean) : []);
+
   updateDemoState((s) => {
     const existing = s.units.find((u) => u.unit_id === d.unit_id);
-    version = existing ? existing.versions[existing.versions.length - 1]!.version + 1 : 1;
-    const v = { version, text: d.proposed_text, effective_date: d.effective_date, approver: person.name };
+    prevVersion = existing ? existing.versions[existing.versions.length - 1]!.version : 0;
+    version = existing ? prevVersion + 1 : 1;
+    const v = { version, text: d.proposed_text, effective_date: d.effective_date, approver: person.name, supersedes: supersedesStr || undefined };
     let units = existing
       ? s.units.map((u) => (u.unit_id === d.unit_id ? { ...u, status: "approved", versions: [...u.versions, v] } : u))
       : [...s.units, { unit_id: d.unit_id, title: d.title, owner: d.owner_team, verbatim: d.verbatim, status: "approved", versions: [v] }];
     
     // Mark superseded units (e.g. U-PH-007 and U-PH-107)
-    const supersedesStr = (d as any).supersedes || "";
     if (supersedesStr) {
-      const supIds = new Set(supersedesStr.split(/[,;\s]+/).map((x: string) => x.trim()).filter(Boolean));
       units = units.map((u) => supIds.has(u.unit_id) && u.unit_id !== d.unit_id ? { ...u, status: "superseded" } : u);
     }
-    return { ...s, units };
+
+    const publishSignal = {
+      unit_id: d.unit_id,
+      version,
+      from_version: prevVersion,
+      title: d.title,
+      at: nowIso,
+      by: person.name,
+      channels: subscriberChannels,
+    };
+
+    return {
+      ...s,
+      units,
+      latestPublishSignal: publishSignal,
+      publishSignals: [publishSignal, ...(s.publishSignals || [])],
+    };
   });
-  patchDraft(d.id, (x) => ({ ...x, status: "approved", decided_by: person.name, history: [...(x.history || []), { status: "approved", at: now(), by: person.name, note: `Published v${version}, effective ${d.effective_date}` }] }));
-  audit({ actor: person.name, action: "approve_publish", target: d.unit_id, detail: `v${version} · effective ${d.effective_date}` });
+
+  patchDraft(d.id, (x) => ({ ...x, status: "approved", decided_by: person.name, history: [...(x.history || []), { status: "approved", at: nowIso, by: person.name, note: `Published v${version}, effective ${d.effective_date}` }] }));
+  
+  audit({
+    actor: person.name,
+    action: "unit.published",
+    target: `${d.unit_id} (v${prevVersion} → v${version})`,
+    detail: `Published "${d.title}". Notified channels: ${subscriberChannels.join(", ")}. Invalidation signal sent.`,
+  });
+
+  Array.from(supIds).forEach((loserId) => {
+    audit({
+      actor: person.name,
+      action: "unit.superseded",
+      target: loserId,
+      detail: `Superseded by authoritative unit ${d.unit_id} v${version}. Retired from active retrieval.`,
+    });
+  });
+
   void submitReviewDecision({ draftId: d.id, action: "approve", notes: `Approved and published by ${person.name} in Legal workspace` }).catch(() => {});
   return { ok: true, message: `Published ${d.unit_id} v${version}` };
 }
@@ -670,7 +817,7 @@ export function reviewQueue(s: DemoState): ReviewItem[] {
   return items.sort((a, b) => Number(a.done) - Number(b.done) || KIND_RANK.indexOf(a.kind) - KIND_RANK.indexOf(b.kind) || b.demand - a.demand);
 }
 
-export function reverifyUnit(person: string, unitId: string) {
+export async function reverifyUnit(person: string, unitId: string, reviewDate = "2027-10-06"): Promise<void> {
   updateDemoState((s) => ({
     ...s,
     units: s.units.map((u) => (u.unit_id === unitId ? { ...u, status: "approved" } : u)),
@@ -679,9 +826,73 @@ export function reverifyUnit(person: string, unitId: string) {
   }));
   if (UNIT_META[unitId]) {
     UNIT_META[unitId].next_review_status = "Current";
-    UNIT_META[unitId].next_review = "31 Dec 2027";
+    UNIT_META[unitId].next_review = reviewDate;
   }
-  audit({ actor: person, action: "reverify", target: unitId, detail: "Re-verified" });
+
+  // Durable sync with SQLite repository & server engine
+  try {
+    const { reverifyUnitFn } = await import("./review.functions");
+    await reverifyUnitFn({ data: { person, unitId, reviewDate } });
+  } catch (err) {
+    if (!isBrowser) {
+      const { handleReverifyUnit } = await import("./review.server");
+      await handleReverifyUnit({ person, unitId, reviewDate });
+    }
+  }
+
+  audit({
+    actor: person,
+    action: "confirm_still_valid",
+    target: unitId,
+    detail: `Confirmed still valid. Review date extended to ${reviewDate} (+12 months).`,
+  });
+}
+
+/** Explicitly retire a published unit. Human only (Owner/Legal), mandatory reason required. */
+export async function retirePublishedUnit(
+  person: string,
+  unitId: string,
+  reason: string
+): Promise<{ ok: boolean; message: string }> {
+  if (!reason || !reason.trim()) {
+    throw new Error("A mandatory reason is required to retire a knowledge unit");
+  }
+
+  const units = getDemoState().units;
+  const target = units.find((u) => u.unit_id === unitId);
+  const priorStatus = target ? target.status : "approved";
+  const priorVersion = target?.versions[target.versions.length - 1]?.version ?? 1;
+
+  // 1. Update demo store unit
+  updateDemoState((s) => ({
+    ...s,
+    units: s.units.map((u) => (u.unit_id === unitId ? { ...u, status: "retired" } : u)),
+  }));
+
+  if (UNIT_META[unitId]) {
+    UNIT_META[unitId].next_review_status = "Retired" as any;
+  }
+
+  // 2. Durable sync with SQLite & engine
+  try {
+    const { retireUnitFn } = await import("./review.functions");
+    await retireUnitFn({ data: { person, unitId, reason: reason.trim() } });
+  } catch (err) {
+    if (!isBrowser) {
+      const { handleRetireUnit } = await import("./review.server");
+      await handleRetireUnit({ person, unitId, reason: reason.trim() });
+    }
+  }
+
+  audit({
+    actor: person,
+    action: "unit_retired",
+    target: unitId,
+    detail: `Prior status: ${priorStatus}, v${priorVersion}. Reason: ${reason.trim()}`,
+    reason: reason.trim(),
+  });
+
+  return { ok: true, message: `Unit ${unitId} retired successfully.` };
 }
 
 export function aepReadiness(s: DemoState) {
@@ -735,20 +946,189 @@ export function asOfWindow(unitId: string, date: string) {
   return { unit: u, version: sorted[i]!, until: sorted[i + 1]?.effective_date ?? null };
 }
 
-/** Grant or revoke a role's read access to a knowledge base. Reason required. */
-export function changeKbAccess(person: { name: string; capabilities: readonly string[] }, role: string, kb: string, grant: boolean, reason: string) {
-  if (!person.capabilities.includes("manage_access")) {
+/** Grant or revoke a role's read access to a knowledge base. Reason required. Effective immediately. */
+export async function changeKbAccess(
+  person: { name: string; capabilities?: readonly string[]; persona?: string; label?: string },
+  role: string,
+  kb: string,
+  grant: boolean,
+  reason: string
+): Promise<{ ok: boolean; message: string }> {
+  if (
+    !person ||
+    /^(agent|model|system|verity ai)\b/i.test(person.name) ||
+    person.persona === "ai_bot" ||
+    (person.label && person.label.includes("AI"))
+  ) {
+    throw new Error("AI cannot grant or revoke access");
+  }
+  if (!person.capabilities?.includes("manage_access")) {
     recordDenied(person.name, `access ${role}/${kb}`, "manage_access", "Only an access administrator changes access");
     return { ok: false, message: "Only an access administrator changes access" };
   }
-  if (!reason.trim()) return { ok: false, message: "A reason is required" };
+  if (!reason || !reason.trim()) {
+    throw new Error("A mandatory reason is required");
+  }
+
+  // 1. Update demo store entitlements
   updateDemoState((s) => {
     const cur = s.access[role] ?? [];
     const next = grant ? [...new Set([...cur, kb])] : cur.filter((k) => k !== kb);
     return { ...s, access: { ...s.access, [role]: next } };
   });
-  audit({ actor: person.name, action: grant ? "grant_access" : "revoke_access", target: `${role} → ${kb}`, detail: reason, reason });
+
+  // 2. Immediately update server engine KnowledgeStore & invalidate caches
+  try {
+    const { getStore } = await import("../verity-engine/server.ts");
+    getStore().setAccess(role, kb, grant, { name: person.name }, reason.trim());
+    const { questionStore } = await import("../verity-engine/semantic.ts");
+    questionStore.invalidate();
+  } catch (err) {
+    // If running in browser or already handled
+  }
+
+  audit({
+    actor: person.name,
+    action: grant ? "access_granted" : "access_revoked",
+    target: `${role}/${kb}`,
+    detail: `${grant ? "Granted" : "Revoked"} ${kb} for ${role}: ${reason.trim()}`,
+    reason: reason.trim(),
+  });
+
   return { ok: true, message: `${grant ? "Granted" : "Revoked"} ${kb} for ${role}` };
+}
+
+// ---------------------------------------------------------------------------
+// Synonyms & Humana-speak Lexicon Management (P1-1)
+export function listSynonyms(): SynonymEntry[] {
+  return getDemoState().synonyms ?? [];
+}
+
+export async function saveSynonym(
+  actor: string,
+  entry: { id?: string; term: string; expansion: string; category?: "acronym" | "humana_speak" | "spelling"; enabled?: boolean }
+): Promise<SynonymEntry> {
+  const isNew = !entry.id;
+  const id = entry.id || `SYN-${Date.now()}`;
+  const nowStr = now();
+  const syn: SynonymEntry = {
+    id,
+    term: entry.term.trim(),
+    expansion: entry.expansion.trim(),
+    category: entry.category || "acronym",
+    enabled: entry.enabled !== undefined ? entry.enabled : true,
+    created_at: nowStr,
+    updated_at: nowStr,
+    updated_by: actor,
+  };
+
+  updateDemoState((s) => {
+    const existing = s.synonyms ?? [];
+    const idx = existing.findIndex((x) => x.id === id);
+    const updated = idx >= 0
+      ? existing.map((x, i) => (i === idx ? { ...x, ...syn, created_at: x.created_at } : x))
+      : [syn, ...existing];
+    return { ...s, synonyms: updated };
+  });
+
+  audit({
+    actor,
+    action: isNew ? "synonym_created" : "synonym_updated",
+    target: syn.term,
+    detail: `${syn.term} → ${syn.expansion} (${syn.category})`,
+  });
+
+  try {
+    const { syncSynonymsToEngine } = await import("../verity-engine/server.ts");
+    syncSynonymsToEngine(getDemoState().synonyms);
+  } catch {}
+
+  return syn;
+}
+
+export async function toggleSynonym(actor: string, id: string, enabled: boolean): Promise<SynonymEntry | null> {
+  let found: SynonymEntry | null = null;
+  updateDemoState((s) => {
+    const updated = (s.synonyms ?? []).map((syn) => {
+      if (syn.id === id) {
+        found = { ...syn, enabled, updated_at: now(), updated_by: actor };
+        return found;
+      }
+      return syn;
+    });
+    return { ...s, synonyms: updated };
+  });
+
+  if (found) {
+    audit({
+      actor,
+      action: "synonym_toggled",
+      target: (found as SynonymEntry).term,
+      detail: enabled ? "Enabled synonym" : "Disabled synonym",
+    });
+
+    try {
+      const { syncSynonymsToEngine } = await import("../verity-engine/server.ts");
+      syncSynonymsToEngine(getDemoState().synonyms);
+    } catch {}
+  }
+
+  return found;
+}
+
+export async function deleteSynonym(actor: string, id: string): Promise<boolean> {
+  let removed: SynonymEntry | undefined;
+  updateDemoState((s) => {
+    removed = (s.synonyms ?? []).find((x) => x.id === id);
+    return { ...s, synonyms: (s.synonyms ?? []).filter((x) => x.id !== id) };
+  });
+
+  if (removed) {
+    audit({
+      actor,
+      action: "synonym_deleted",
+      target: removed.term,
+      detail: `Deleted synonym ${removed.term} → ${removed.expansion}`,
+    });
+
+    try {
+      const { syncSynonymsToEngine } = await import("../verity-engine/server.ts");
+      syncSynonymsToEngine(getDemoState().synonyms);
+    } catch {}
+    return true;
+  }
+  return false;
+}
+
+export function listCandidateSynonyms(): CandidateSynonym[] {
+  return getDemoState().candidateSynonyms ?? [];
+}
+
+export async function confirmCandidateSynonym(actor: string, candidateId: string, expansion?: string): Promise<SynonymEntry | null> {
+  const cand = (getDemoState().candidateSynonyms ?? []).find((c) => c.id === candidateId);
+  if (!cand) return null;
+
+  const targetExpansion = expansion?.trim() || cand.suggested_expansion;
+  const newSyn = await saveSynonym(actor, {
+    term: cand.term,
+    expansion: targetExpansion,
+    category: "humana_speak",
+    enabled: true,
+  });
+
+  updateDemoState((s) => ({
+    ...s,
+    candidateSynonyms: (s.candidateSynonyms ?? []).map((c) => (c.id === candidateId ? { ...c, status: "approved" as const } : c)),
+  }));
+
+  audit({
+    actor,
+    action: "candidate_synonym_confirmed",
+    target: cand.term,
+    detail: `Confirmed candidate from logs (${cand.evidence}): ${cand.term} → ${targetExpansion}`,
+  });
+
+  return newSyn;
 }
 
 // ---------------------------------------------------------------------------
@@ -943,6 +1323,342 @@ export async function submitReviewDecision(
       error: err?.message || "Server function failed to process review decision.",
     };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Gap Disposition: Unit vs Process Fix (P1-5)
+export function getGapDispositions() {
+  return getDemoState().gapDispositions ?? {};
+}
+
+export function resolveGapProcessFix(
+  person: string,
+  gapId: string,
+  reason: string,
+  systemNote?: string
+): { ok: boolean; message: string } {
+  if (!reason || !reason.trim()) {
+    throw new Error("A reason is mandatory to close a gap as a process fix");
+  }
+
+  const atStr = now();
+  updateDemoState((s) => ({
+    ...s,
+    gapDispositions: {
+      ...(s.gapDispositions ?? {}),
+      [gapId]: {
+        disposition: "process_fix",
+        reason: reason.trim(),
+        system_note: systemNote?.trim() || undefined,
+        by: person,
+        at: atStr,
+      },
+    },
+    reviewTasks: s.reviewTasks.map((t) => (t.id === gapId ? { ...t, status: "resolved" } : t)),
+  }));
+
+  audit({
+    actor: person,
+    action: "gap_disposition",
+    target: gapId,
+    detail: `Process fix: ${reason.trim()}${systemNote ? ` (Linked system: ${systemNote.trim()})` : ""}`,
+    reason: reason.trim(),
+  });
+
+  return { ok: true, message: `Gap ${gapId} resolved as Process Fix.` };
+}
+
+export function resolveGapUnitCreated(
+  person: string,
+  gapId: string,
+  draftId: string
+): { ok: boolean; message: string } {
+  const atStr = now();
+  updateDemoState((s) => ({
+    ...s,
+    gapDispositions: {
+      ...(s.gapDispositions ?? {}),
+      [gapId]: {
+        disposition: "unit_created",
+        reason: `Unit draft ${draftId} created for review and publishing`,
+        by: person,
+        at: atStr,
+      },
+    },
+  }));
+
+  audit({
+    actor: person,
+    action: "gap_disposition",
+    target: gapId,
+    detail: `Unit created: draft ${draftId}`,
+  });
+
+  return { ok: true, message: `Gap ${gapId} assigned to draft ${draftId}.` };
+}
+
+export function getGapDispositionCounts(): {
+  unitCreated: number;
+  processFix: number;
+  unit_created: number;
+  process_fix: number;
+  total: number;
+} {
+  const dispositions = Object.values(getDemoState().gapDispositions ?? {});
+  const unitCreated = dispositions.filter((d) => d.disposition === "unit_created").length;
+  const processFix = dispositions.filter((d) => d.disposition === "process_fix").length;
+  return {
+    unitCreated,
+    processFix,
+    unit_created: unitCreated,
+    process_fix: processFix,
+    total: dispositions.length,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Merge / Split Suggestions (P1-2)
+import type { MergeProposal, SplitSuggestion } from "./demoStore";
+export type { MergeProposal, SplitSuggestion };
+
+export function listMergeProposals(): MergeProposal[] {
+  return getDemoState().mergeProposals ?? [];
+}
+
+export async function acceptMergeProposal(
+  actor: string,
+  proposalId: string
+): Promise<{ ok: boolean; draft_id: string; message: string }> {
+  const proposals = getDemoState().mergeProposals ?? [];
+  const proposal = proposals.find((p) => p.id === proposalId);
+  if (!proposal) {
+    throw new Error(`Merge proposal ${proposalId} not found`);
+  }
+
+  const units = getDemoState().units;
+  const targetUnit = units.find((u) => u.unit_id === proposal.target_unit_id);
+  const draftId = `D-MERGE-${Date.now()}`;
+  const nowStr = now();
+
+  // Create surviving draft unit routing through normal human approval path (no auto-publish!)
+  const draft: ChainDraft = {
+    id: draftId,
+    cid: `CID-${draftId}`,
+    unit_id: proposal.target_unit_id,
+    title: targetUnit ? targetUnit.title : `Consolidated Unit (${proposal.target_unit_id})`,
+    current_text: targetUnit ? targetUnit.versions[targetUnit.versions.length - 1]?.text ?? null : null,
+    proposed_text: targetUnit ? targetUnit.versions[targetUnit.versions.length - 1]?.text ?? "" : "",
+    verbatim: targetUnit ? targetUnit.verbatim : false,
+    route: "owner",
+    owner_team: targetUnit ? targetUnit.owner : "Pharmacy Ops",
+    effective_date: "2027-01-01",
+    tags: ["merged", "supersedes", proposal.source_unit_id],
+    proposed_by: actor,
+    status: "proposed",
+    gate: null,
+    reason: `Merged from ${proposal.source_unit_id} into surviving unit ${proposal.target_unit_id}. ${proposal.reason}`,
+    decided_by: null,
+    history: [{ status: "proposed", at: nowStr, by: actor, note: `Merge accepted from near-duplicate ${proposal.source_unit_id}` }],
+  };
+
+  updateDemoState((s) => ({
+    ...s,
+    mergeProposals: (s.mergeProposals ?? []).map((p) =>
+      p.id === proposalId ? { ...p, status: "accepted" as const, decided_by: actor, decided_at: nowStr, draft_id: draftId } : p
+    ),
+    chainDrafts: [draft, ...s.chainDrafts],
+  }));
+
+  const draftVersion = (targetUnit ? targetUnit.versions[targetUnit.versions.length - 1]?.version ?? 1 : 1) + 1;
+  // Durably sync to SQLite repository so server review functions can approve
+  try {
+    const { repository } = await import("../storage/repository");
+    await repository.createDrafts([
+      {
+        draft_id: draftId,
+        candidate_id: null,
+        source_doc_id: null,
+        unit_id: proposal.target_unit_id,
+        title: draft.title,
+        proposed_text: draft.proposed_text,
+        current_text: `Merged near-duplicate ${proposal.source_unit_id}`,
+        candidate_type: "Policy",
+        verbatim: draft.verbatim ? 1 : 0,
+        route_to: "owner",
+        owner_team: draft.owner_team,
+        knowledge_base: "KB-PHARM",
+        effective_date: "2027-01-01",
+        proposed_by: actor,
+        status: "proposed",
+        version: draftVersion,
+        supersedes: proposal.source_unit_id,
+        tags_json: JSON.stringify(["merged", proposal.source_unit_id]),
+        annotations_json: JSON.stringify({ supersedes: [proposal.source_unit_id] }),
+        reason: draft.reason,
+        decided_by: null,
+        gate_json: JSON.stringify({ checked: 27, blocking: [] }),
+        history_json: JSON.stringify([
+          {
+            action: "Merge proposal accepted",
+            by: actor,
+            at: nowStr,
+            note: draft.reason,
+          },
+        ]),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ]);
+  } catch (err) {
+    console.error("Failed to sync merge draft to repository:", err);
+  }
+
+  audit({
+    actor,
+    action: "merge_accepted",
+    target: `${proposal.source_unit_id} → ${proposal.target_unit_id}`,
+    detail: `Accepted merge proposal. Created draft ${draftId} for standard approval path (supersedes ${proposal.source_unit_id}).`,
+  });
+
+  return {
+    ok: true,
+    draft_id: draftId,
+    message: `Merge proposal accepted. Draft ${draftId} submitted to review queue for approval.`,
+  };
+}
+
+export function rejectMergeProposal(
+  actor: string,
+  proposalId: string,
+  reason: string
+): { ok: boolean; message: string } {
+  if (!reason || !reason.trim()) {
+    throw new Error("A reason is required to reject a merge proposal");
+  }
+
+  const nowStr = now();
+  updateDemoState((s) => ({
+    ...s,
+    mergeProposals: (s.mergeProposals ?? []).map((p) =>
+      p.id === proposalId ? { ...p, status: "rejected" as const, decided_by: actor, decided_at: nowStr } : p
+    ),
+  }));
+
+  audit({
+    actor,
+    action: "merge_rejected",
+    target: proposalId,
+    detail: `Rejected merge proposal: ${reason.trim()}`,
+    reason: reason.trim(),
+  });
+
+  return { ok: true, message: "Merge proposal rejected. Units remain unchanged." };
+}
+
+export function listSplitSuggestions(): SplitSuggestion[] {
+  return getDemoState().splitSuggestions ?? [];
+}
+
+export async function confirmSplitSuggestion(
+  actor: string,
+  suggestionId: string
+): Promise<{ ok: boolean; draft_ids: string[]; message: string }> {
+  const suggestions = getDemoState().splitSuggestions ?? [];
+  const suggestion = suggestions.find((s) => s.id === suggestionId);
+  if (!suggestion) {
+    throw new Error(`Split suggestion ${suggestionId} not found`);
+  }
+
+  const nowStr = now();
+  const createdDrafts: ChainDraft[] = [];
+
+  suggestion.candidate_splits.forEach((split, idx) => {
+    const draftId = `D-SPLIT-${Date.now()}-${idx + 1}`;
+    const draft: ChainDraft = {
+      id: draftId,
+      cid: `CID-${draftId}`,
+      unit_id: `${suggestion.source_unit_id}-P${idx + 1}`,
+      title: split.title,
+      current_text: null,
+      proposed_text: split.span,
+      verbatim: false,
+      route: "owner",
+      owner_team: "Pharmacy Ops",
+      effective_date: "2027-01-01",
+      tags: ["split", suggestion.source_unit_id],
+      proposed_by: actor,
+      status: "proposed",
+      gate: null,
+      reason: `Split from compound unit ${suggestion.source_unit_id}. Statement ${idx + 1} of ${suggestion.candidate_splits.length}.`,
+      decided_by: null,
+      history: [{ status: "proposed", at: nowStr, by: actor, note: `Split confirmed from ${suggestion.source_unit_id}` }],
+    };
+    createdDrafts.push(draft);
+  });
+
+  updateDemoState((s) => ({
+    ...s,
+    splitSuggestions: (s.splitSuggestions ?? []).map((sug) =>
+      sug.id === suggestionId ? { ...sug, status: "accepted" as const } : sug
+    ),
+    chainDrafts: [...createdDrafts, ...s.chainDrafts],
+  }));
+
+  // Durably sync split candidate drafts to SQLite repository
+  try {
+    const { repository } = await import("../storage/repository");
+    await repository.createDrafts(
+      createdDrafts.map((d) => ({
+        draft_id: d.id,
+        candidate_id: null,
+        source_doc_id: null,
+        unit_id: d.unit_id,
+        title: d.title,
+        proposed_text: d.proposed_text,
+        current_text: `Split from compound unit ${suggestion.source_unit_id}`,
+        candidate_type: "Policy",
+        verbatim: 0,
+        route_to: "owner" as const,
+        owner_team: d.owner_team,
+        knowledge_base: "KB-PHARM",
+        effective_date: "2027-01-01",
+        proposed_by: actor,
+        status: "proposed" as const,
+        version: 1,
+        supersedes: null,
+        tags_json: JSON.stringify(d.tags),
+        annotations_json: JSON.stringify({ split_from: suggestion.source_unit_id }),
+        reason: d.reason,
+        decided_by: null,
+        gate_json: JSON.stringify({ checked: 27, blocking: [] }),
+        history_json: JSON.stringify([
+          {
+            action: "Split suggestion confirmed",
+            by: actor,
+            at: nowStr,
+            note: d.reason,
+          },
+        ]),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }))
+    );
+  } catch (err) {
+    console.error("Failed to sync split drafts to repository:", err);
+  }
+
+  audit({
+    actor,
+    action: "split_confirmed",
+    target: suggestion.source_unit_id,
+    detail: `Split confirmed. Created ${createdDrafts.length} drafts: ${createdDrafts.map((d) => d.id).join(", ")}. Normal review path required.`,
+  });
+
+  return {
+    ok: true,
+    draft_ids: createdDrafts.map((d) => d.id),
+    message: `Split confirmed. ${createdDrafts.length} candidate drafts created for approval.`,
+  };
 }
 
 

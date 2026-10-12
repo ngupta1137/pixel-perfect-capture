@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useDemoStore } from "@/services/demoStore";
 
 export const Route = createFileRoute("/platform")({
   head: () => ({
@@ -99,6 +100,81 @@ function BuiltRoadmap() {
   );
 }
 
+function SubscriberChangePanel() {
+  const publishSignals = useDemoStore((s) => s.publishSignals) || [];
+
+  const displaySignals = publishSignals.length > 0 ? publishSignals : [
+    {
+      unit_id: "U-PH-003",
+      version: 1,
+      from_version: 0,
+      title: "Pricing disclaimer (Rx)",
+      at: "2026-01-15T09:00:00Z",
+      by: "Rita (Legal)",
+      channels: ["Agent Assist", "Member Chat", "IVR Voice Bot", "Advocate Portal"],
+    },
+  ];
+
+  return (
+    <div className="rounded-lg border border-border p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-semibold text-base">4. Change Propagation & Channel Subscribers</h2>
+          <p className="text-xs text-ink-muted">
+            When Legal or Knowledge Owners publish a unit, cache invalidation signals notify all subscriber channels in real-time.
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#EAF7EE] border border-[#C6E7D0] text-[#1E5E2E] text-xs font-semibold">
+          Active Invalidation Stream
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+        {["Agent Assist", "Member Chat", "IVR Voice Bot", "Advocate Portal"].map((ch) => (
+          <div key={ch} className="rounded-md border border-border bg-surface-alt p-3 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-ink">{ch}</span>
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            </div>
+            <p className="text-[11px] text-ink-muted">Direct subscriber • Response cache auto-invalidated</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-md border border-border overflow-hidden">
+        <table className="w-full text-xs text-left">
+          <thead className="bg-surface-alt text-ink-muted font-medium border-b border-border">
+            <tr>
+              <th className="p-2.5">Time</th>
+              <th className="p-2.5">Unit & Version</th>
+              <th className="p-2.5">Title</th>
+              <th className="p-2.5">Publisher</th>
+              <th className="p-2.5">Notified Subscribers</th>
+              <th className="p-2.5">Cache Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border font-mono text-[11px]">
+            {displaySignals.map((sig, idx) => (
+              <tr key={idx} className="hover:bg-surface-alt/50">
+                <td className="p-2.5 text-ink-muted">{new Date(sig.at).toLocaleTimeString()}</td>
+                <td className="p-2.5 font-bold text-ink">
+                  {sig.unit_id} (v{sig.from_version ?? 0} → v{sig.version})
+                </td>
+                <td className="p-2.5 font-sans font-medium text-ink">{sig.title}</td>
+                <td className="p-2.5 font-sans text-ink-muted">{sig.by}</td>
+                <td className="p-2.5 font-sans text-emerald-800">
+                  {sig.channels.join(", ")}
+                </td>
+                <td className="p-2.5 text-emerald-700 font-semibold">Invalidated & refreshed</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function PlatformPage() {
   return (
     <section className="space-y-8">
@@ -117,6 +193,7 @@ function PlatformPage() {
         <h2 className="mb-2 font-semibold">3. Built vs Roadmap</h2>
         <BuiltRoadmap />
       </div>
+      <SubscriberChangePanel />
     </section>
   );
 }

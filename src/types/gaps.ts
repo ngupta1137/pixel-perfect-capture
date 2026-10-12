@@ -35,6 +35,11 @@ export interface KnowledgeGap {
   knowledge_base?: "KB-PHARM" | "KB-INS";
   ownerTeam?: string;
   assignedOwner?: string;
+  disposition?: "unit_created" | "process_fix";
+  disposition_reason?: string;
+  system_note?: string;
+  resolved_by?: string;
+  resolved_at?: string;
 }
 
 export const SEEDED_KNOWLEDGE_GAPS: KnowledgeGap[] = [

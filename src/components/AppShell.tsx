@@ -23,6 +23,45 @@ import { useSession } from "@/lib/session";
 import { SIDEBAR_ITEMS } from "@/components/workspace/navigation";
 import { canOpen, canView } from "@/lib/rights";
 import { useBreadcrumbs } from "@/lib/breadcrumbs";
+import { useDemoStore } from "@/services/demoStore";
+
+function PublishNotificationBanner() {
+  const signal = useDemoStore((s) => s.latestPublishSignal);
+  const [dismissedAt, setDismissedAt] = useState<string | null>(null);
+
+  if (!signal || signal.at === dismissedAt) return null;
+
+  return (
+    <div
+      role="status"
+      data-testid="publish-signal-banner"
+      className="border-b border-emerald-300 bg-emerald-50 px-6 py-2.5 text-xs text-emerald-950 flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-1 duration-200"
+    >
+      <div className="flex items-center gap-2.5 flex-wrap">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-700 text-white font-bold text-[10px]">
+          ✓
+        </span>
+        <span className="font-semibold text-emerald-900">
+          Unit {signal.unit_id} v{signal.version} published — consumers refreshed
+        </span>
+        <span className="text-emerald-800">
+          Notified channels: <span className="font-semibold">{signal.channels.join(", ")}</span>
+        </span>
+        <span className="rounded bg-emerald-200/80 px-1.5 py-0.5 text-[10px] font-mono text-emerald-900">
+          Cache invalidated
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={() => setDismissedAt(signal.at)}
+        className="text-emerald-700 hover:text-emerald-950 font-bold p-1"
+        aria-label="Dismiss publication notice"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
 
 function GuideButton() {
   const open = useGuide((s) => s.open);
@@ -267,6 +306,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         {pathname !== "/" && <ActingAsBar />}
+        <PublishNotificationBanner />
 
         {/* Main Workspace Content */}
         <main
