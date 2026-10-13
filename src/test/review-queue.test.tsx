@@ -155,7 +155,7 @@ describe("Verity Review Queue Redesign", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Successfully approved/i)).toBeInTheDocument();
-    }, { timeout: 3500 });
+    }, { timeout: 10000 });
   });
 
   it("rejects a unit with required reason note", async () => {

@@ -181,8 +181,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (publicPage) {
     return (
-      <div className="flex min-h-screen flex-col bg-surface text-ink">
-        <header className="border-b border-border">
+      <div className={`flex min-h-screen flex-col bg-surface text-ink transition-all duration-300 ${docked ? "md:pr-80" : ""}`}>
+        <header className="border-b border-border bg-surface sticky top-0 z-20">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-6 py-4">
             <Link to="/welcome" className="flex items-center gap-2 text-2xl font-semibold">
               <VerityLogo className="h-8 w-8" />
@@ -203,7 +203,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </header>
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 w-full">{children}</main>
         <footer className="border-t border-border px-6 py-5 text-center text-xs text-ink-muted">
           Concept prototype by Nitin Gupta · Synthetic data · Not a Humana product
         </footer>
