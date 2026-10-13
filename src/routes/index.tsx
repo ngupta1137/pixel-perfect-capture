@@ -274,6 +274,7 @@ export function AskPage() {
   const [showHistory, setShowHistory] = useState(false);
 
   const storedRequests = useDemoStore((s) => s.requests);
+  const latestPublishSignal = useDemoStore((s) => s.latestPublishSignal);
   const userRequests = storedRequests.filter((r) => r.person === persona.name);
   const sessionHistory = userRequests.slice(0, showHistory ? 12 : 5);
 
@@ -582,6 +583,43 @@ export function AskPage() {
               Get accurate, approved answers from trusted knowledge. Verity uses only verified
               content and shows you the source.
             </p>
+          </div>
+        )}
+
+        {!isChat && latestPublishSignal && (
+          <div
+            role="status"
+            className="mb-2 mt-2 flex items-center justify-between rounded-xl border border-emerald-300 bg-emerald-50/90 p-3.5 text-xs text-emerald-950 shadow-sm animate-in fade-in slide-in-from-top-1"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-700 text-white font-bold text-xs shrink-0">
+                <ShieldCheck className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="font-semibold text-emerald-950">
+                  Recently approved by {latestPublishSignal.by}: {latestPublishSignal.unit_id} v{latestPublishSignal.version} — “{latestPublishSignal.title}”
+                </p>
+                <p className="text-emerald-800 text-[11px]">
+                  Published into live search. Channels notified: {latestPublishSignal.channels.join(", ")}. Cache invalidated.
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const q = latestPublishSignal.title.toLowerCase().includes("supply")
+                  ? "how many days supply can I get by mail"
+                  : latestPublishSignal.title.toLowerCase().includes("pricing")
+                  ? "Rx pricing disclaimer"
+                  : latestPublishSignal.title;
+                setQuery(q);
+                void run(q);
+              }}
+              className="h-8 border-emerald-300 bg-white text-xs font-semibold text-emerald-900 hover:bg-emerald-100"
+            >
+              Test re-query →
+            </Button>
           </div>
         )}
 

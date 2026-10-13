@@ -141,6 +141,7 @@ export const INITIAL_REVIEW_QUEUE: ReviewQueueItem[] = [
     source_doc: "S06_source_Home_Delivery_REVISED.md",
     section: "Section 2: Pricing disclaimer",
     type: "Legal",
+    version: 2,
     verbatim: 1,
     status: "Pending review",
     extracted_on: "12 Oct 2026",

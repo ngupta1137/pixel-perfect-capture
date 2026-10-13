@@ -64,7 +64,7 @@ const CONTENT_TYPE_ICONS: Record<ContentType, typeof FileText> = {
   Guidance: Lightbulb,
 };
 
-export function KnowledgeLibraryView() {
+export function KnowledgeLibraryView({ initialUnitId }: { initialUnitId?: string } = {}) {
   const { person, can } = useSession();
   const rawUnits = useDemoStore((s) => s.units);
 
@@ -92,8 +92,16 @@ export function KnowledgeLibraryView() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // Selection & Detail Panel
-  const [selectedUnitId, setSelectedUnitId] = useState<string | null>("U-PH-010");
-  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set(["U-PH-010"]));
+  const defaultSelected = initialUnitId || "U-PH-010";
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(defaultSelected);
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set([defaultSelected]));
+
+  useEffect(() => {
+    if (initialUnitId) {
+      setSelectedUnitId(initialUnitId);
+      setSelectedRowIds(new Set([initialUnitId]));
+    }
+  }, [initialUnitId]);
 
   // Modals
   const [sourceModalUnit, setSourceModalUnit] = useState<EnrichedKnowledgeUnit | null>(null);
@@ -136,6 +144,11 @@ export function KnowledgeLibraryView() {
           const isStale = u.status === "Stale" || u.next_review_status === "Overdue";
           if (!isStale) return false;
         } else if (u.status !== statusFilter) {
+          return false;
+        }
+      } else {
+        // By default, "All" displays active repository units; Retired units are categorized in the Retired tab
+        if (u.status === "Retired" && !searchQuery.trim()) {
           return false;
         }
       }
@@ -259,6 +272,56 @@ export function KnowledgeLibraryView() {
         </div>
       </div>
 
+      {/* Overdue / Stale Banner for Owner attention */}
+      {(() => {
+        // Only Knowledge Owners and Approvers who can reverify units or manage review queues should see this banner.
+        // Advocates and consumers cannot confirm validity or manage review cycles.
+        const canManageReviews =
+          can("reverify_unit") ||
+          can("resolve_owner_item") ||
+          can("view_owner_queue") ||
+          can("approve_standard") ||
+          can("approve_legal");
+        if (!canManageReviews) return null;
+
+        const overdueUnits = allUnits.filter((u) => u.status === "Stale" || u.next_review_status === "Overdue");
+        if (overdueUnits.length === 0) return null;
+        const target = overdueUnits[0]!;
+        const isSelected = selectedUnitId === target.unit_id;
+        return (
+          <div className="flex items-center justify-between rounded-xl border border-amber-300 bg-amber-50/90 p-3.5 text-xs text-amber-950 shadow-sm animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 text-white font-bold">
+                <Clock className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="font-semibold text-amber-950">
+                  {overdueUnits.length} knowledge unit past review date: {target.unit_id} ({target.title})
+                </p>
+                <p className="text-amber-800 text-[11px]">
+                  Annual review expired ({target.next_review || "2025-06-30"}). Click to confirm still valid (+12 mo) or revise version & dates.
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setSelectedUnitId(target.unit_id);
+                setSelectedRowIds(new Set([target.unit_id]));
+              }}
+              className={`h-8 text-xs font-semibold ${
+                isSelected
+                  ? "bg-amber-200 border-amber-400 text-amber-950"
+                  : "bg-white border-amber-300 text-amber-900 hover:bg-amber-100"
+              }`}
+            >
+              {isSelected ? "Selected in details →" : `Select ${target.unit_id}`}
+            </Button>
+          </div>
+        );
+      })()}
+
       {/* Quick Status Section Tabs */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border pb-3">
         {[
@@ -267,13 +330,16 @@ export function KnowledgeLibraryView() {
           { label: "Stale", value: "Stale" },
           { label: "Under review", value: "Under review" },
           { label: "Conflict", value: "Conflict" },
+          { label: "Retired", value: "Retired" },
         ].map((tab) => {
           const isActive = statusFilter === tab.value;
           const count =
             tab.value === "All"
-              ? allUnits.length
+              ? allUnits.filter((u) => u.status !== "Retired").length
               : tab.value === "Stale"
               ? allUnits.filter((u) => u.status === "Stale" || u.next_review_status === "Overdue").length
+              : tab.value === "Retired"
+              ? allUnits.filter((u) => u.status === "Retired").length
               : allUnits.filter((u) => u.status === tab.value).length;
 
           return (
@@ -295,7 +361,7 @@ export function KnowledgeLibraryView() {
                 className={`rounded-full px-1.5 py-0.2 text-[10px] font-semibold ${
                   isActive
                     ? "bg-white/20 text-white"
-                    : tab.value === "Stale" && count > 0
+                    : (tab.value === "Stale" || tab.value === "Retired") && count > 0
                     ? "bg-[#FEE2E2] text-[#DC2626]"
                     : "bg-muted text-ink-muted"
                 }`}
@@ -599,7 +665,9 @@ export function KnowledgeLibraryView() {
                                     ? "bg-[#F3F4F6] text-[#6B7280]"
                                     : u.status === "Conflict"
                                       ? "bg-[#F3E8FF] text-[#7E22CE]"
-                                      : "bg-[#EFF6FF] text-[#1D4ED8]"
+                                      : u.status === "Retired"
+                                        ? "bg-[#FEE2E2] text-[#DC2626]"
+                                        : "bg-[#EFF6FF] text-[#1D4ED8]"
                             }`}
                           >
                             {u.status}
@@ -718,7 +786,11 @@ export function KnowledgeLibraryView() {
                               ? "bg-[#FEF3C7] text-[#D97706]"
                               : u.status === "Stale"
                                 ? "bg-[#F3F4F6] text-[#6B7280]"
-                                : "bg-[#F3E8FF] text-[#7E22CE]"
+                                : u.status === "Conflict"
+                                  ? "bg-[#F3E8FF] text-[#7E22CE]"
+                                  : u.status === "Retired"
+                                    ? "bg-[#FEE2E2] text-[#DC2626]"
+                                    : "bg-[#EFF6FF] text-[#1D4ED8]"
                         }`}
                       >
                         {u.status}

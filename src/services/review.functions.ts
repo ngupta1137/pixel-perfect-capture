@@ -20,6 +20,7 @@ export interface ReviewDecisionResponse {
   error?: string;
   message?: string;
   draft?: DraftTable;
+  publishSignal?: import("./demoStore").PublishSignal;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,4 +97,21 @@ export const retireUnitFn = createServerFn({ method: "POST" })
     const { handleRetireUnit } = await import("./review.server");
     return await handleRetireUnit(data);
   });
+
+export const revisePublishedUnitFn = createServerFn({ method: "POST" })
+  .validator((d: {
+    person: string;
+    unitId: string;
+    version?: number;
+    effectiveDate?: string;
+    reviewDate?: string;
+    changeNote?: string;
+    summary?: string;
+    text?: string;
+  }) => d)
+  .handler(async ({ data }) => {
+    const { handleRevisePublishedUnit } = await import("./review.server");
+    return await handleRevisePublishedUnit(data);
+  });
+
 

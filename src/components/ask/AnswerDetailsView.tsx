@@ -372,7 +372,7 @@ export function AnswerDetailsView({
               {/* Answer Body Text */}
               <div className="space-y-5 text-sm text-ink leading-relaxed">
                 <div className="text-[15px] leading-relaxed text-ink">
-                  <TypewriterResponse text={content.intro || part?.text || ""} />
+                  <TypewriterResponse text={part?.text ?? content.intro ?? ""} />
                 </div>
 
                 {content.keyPoints.length > 0 && (
@@ -407,7 +407,9 @@ export function AnswerDetailsView({
                 <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
                 <div>
                   <h2 className="text-base font-bold">A little more context is needed</h2>
-                  <p className="text-sm text-amber-800 mt-0.5">{part?.message}</p>
+                  <p className="text-sm text-amber-800 mt-0.5">
+                    <TypewriterResponse text={part?.message ?? ""} />
+                  </p>
                 </div>
               </div>
               {part?.choices && part.choices.length > 0 && (
@@ -434,7 +436,9 @@ export function AnswerDetailsView({
                 <FileText className="h-5 w-5 text-ink-muted shrink-0" />
                 <div>
                   <h2 className="text-base font-bold">No approved answer found</h2>
-                  <p className="text-sm text-ink-muted mt-0.5">{part?.message}</p>
+                  <p className="text-sm text-ink-muted mt-0.5">
+                    <TypewriterResponse text={part?.message ?? ""} />
+                  </p>
                 </div>
               </div>
               <p className="text-sm text-ink-muted">
@@ -533,7 +537,9 @@ export function AnswerDetailsView({
                   </p>
                 </div>
               </div>
-              <p className="text-sm text-ink">{part?.message}</p>
+              <p className="text-sm text-ink">
+                <TypewriterResponse text={part?.message ?? ""} />
+              </p>
               {part?.next_step && (
                 <div className="mt-2 rounded-lg border border-border/80 bg-surface-alt p-3 text-xs text-ink">
                   <span className="font-semibold text-ink">Next step: </span>
@@ -549,7 +555,9 @@ export function AnswerDetailsView({
                 <Phone className="h-6 w-6 text-red-600 shrink-0" />
                 <h2 className="text-base font-bold">Immediate safety escalation</h2>
               </div>
-              <p className="text-base font-medium text-red-900">{part?.text}</p>
+              <div className="text-base font-medium text-red-900">
+                <TypewriterResponse text={part?.text ?? ""} />
+              </div>
             </div>
           )}
 

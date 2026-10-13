@@ -139,6 +139,53 @@ export const SEEDED_KNOWLEDGE_GAPS: KnowledgeGap[] = [
   },
   {
     id: "GAP-003",
+    topic: "Formulary Exception Appeals Escalation Process",
+    description: "Prescribers and members inquiring about non-formulary drug tiering appeal escalation workflows.",
+    type: "Insufficient",
+    severity: "High",
+    lastIdentified: "10 Oct 2026",
+    relatedSearches: 19,
+    status: "Open",
+    lob: "MAPD",
+    state: "All states",
+    domain: "Pharmacy",
+    knowledge_base: "KB-PHARM",
+    ownerTeam: "Pharmacy Ops",
+    assignedOwner: "Owen (Knowledge owner)",
+    summary:
+      "Prescribers and members frequently inquire about formulary exception and appeal workflows. Escalations are handled operationally via Provider Portal form FA-992 rather than requiring a published knowledge unit.",
+    reasons: [
+      "Frequent inquiries regarding formulary tiering appeals",
+      "Process governed by operational claims workflow (FA-992)",
+      "High impact on member escalations",
+    ],
+    activity: [
+      {
+        user: "System",
+        action: "Identified from advocate searches (Scenario S03 / Golden Set)",
+        date: "10 Oct 2026",
+      },
+    ],
+    searchInsights: {
+      totalQueries: 19,
+      sampleQueries: [
+        "How do I appeal a tier exception denial?",
+        "Where do I send the formulary exception escalation form?",
+        "Can a member appeal a formulary exception decision by phone?",
+      ],
+      topChannels: ["Advocate portal (14)", "Member chat (5)"],
+    },
+    relatedContent: [
+      {
+        id: "U-PH-021",
+        title: "Formulary exceptions",
+        type: "Policy",
+        similarity: "78%",
+      },
+    ],
+  },
+  {
+    id: "GAP-006",
     topic: "Vision hardware allowance for 2026",
     description: "Members inquiring about frame allowance, contact lens benefits, and exam copays.",
     type: "Insufficient",

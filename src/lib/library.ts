@@ -74,7 +74,8 @@ export function normalizeStatus(status: string): KnowledgeStatus {
   if (s === "draft" || s === "proposed" || s === "new" || s === "changed" || s === "unchanged" || s === "duplicate_candidate") return "Draft";
   if (s === "stale") return "Stale";
   if (s === "conflict") return "Conflict";
-  if (s === "retired" || s === "archived" || s === "rejected") return "Retired";
+  if (s === "retired" || s === "archived") return "Retired";
+  if (s === "rejected") return "Draft";
   return "Draft";
 }
 
@@ -91,16 +92,20 @@ export function enrichUnit(u: DemoUnit): EnrichedKnowledgeUnit {
   const last_updated_formatted = formatUnitDate(rawLastUpdated);
 
   const rawStatus = normalizeStatus(u.status);
-  const reviewDate = (u as any).review_date || meta?.review_date;
-  const isDateOverdue = Boolean(reviewDate && reviewDate < "2026-10-06");
+  const isRetired = rawStatus === "Retired" || u.status === "retired";
+  const reviewDate = (u as any).review_date || meta?.next_review || meta?.review_date;
+  const isDateOverdue = Boolean(
+    meta?.next_review_status !== "Current" && reviewDate && reviewDate < "2026-10-06"
+  );
   const isOverdue =
-    meta?.next_review_status === "Overdue" ||
-    u.status === "stale" ||
-    rawStatus === "Stale" ||
-    isDateOverdue;
+    !isRetired &&
+    (meta?.next_review_status === "Overdue" ||
+      u.status === "stale" ||
+      rawStatus === "Stale" ||
+      isDateOverdue);
 
-  const status: KnowledgeStatus = isOverdue ? "Stale" : rawStatus;
-  const isApproved = status === "Approved" || status === "Stale";
+  const status: KnowledgeStatus = isRetired ? "Retired" : (isOverdue ? "Stale" : rawStatus);
+  const isApproved = status === "Approved" || status === "Stale" || status === "Retired";
 
   const approved_on_formatted = isApproved ? formatUnitDate(rawApprovedOn) : "—";
 
@@ -119,8 +124,8 @@ export function enrichUnit(u: DemoUnit): EnrichedKnowledgeUnit {
   const kb = meta?.kb ?? (u.unit_id.startsWith("U-SH") ? "KB-SHARED" : "KB-PHARM");
   const section = meta?.section ?? `Section ${versionNum}.0`;
 
-  const next_review = meta?.next_review ?? formatUnitDate(meta?.review_date ?? "2025-01-01");
-  const next_review_status = status === "Stale" ? "Overdue" : (meta?.next_review_status ?? "Current");
+  const next_review = isRetired ? "Retired" : (meta?.next_review ?? formatUnitDate(meta?.review_date ?? "2025-01-01"));
+  const next_review_status = isRetired ? "Current" : (status === "Stale" ? "Overdue" : (meta?.next_review_status ?? "Current"));
 
   const approved_by = isApproved
     ? (meta?.approved_by ?? latestV?.approver ?? (u.owner === "Legal" || u.verbatim ? "Rita (Legal)" : "Pharmacy Ops"))
@@ -205,7 +210,7 @@ export function scopedLibrary(units: DemoUnit[], person: Person): EnrichedKnowle
     .filter((unit) => {
       // Governance rule: Drafts, candidates, and rejected units must never leak into library views
       const status = normalizeStatus(unit.status);
-      if (status === "Draft" || status === "Retired") return false;
+      if (status === "Draft" || (unit as any).status === "rejected") return false;
 
       const kb = UNIT_META[unit.unit_id]?.kb ?? (unit.unit_id.startsWith("U-SH") ? "KB-SHARED" : "KB-PHARM");
       return !!kb && person.kbs.includes(kb);

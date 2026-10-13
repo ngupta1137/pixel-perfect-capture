@@ -61,13 +61,13 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
   };
 
   const [activeTab, setActiveTab] = useState<"All" | GapType>("All");
-  const [selectedDomain, setSelectedDomain] = useState<"all" | "Pharmacy" | "Insurance">(getPersonaDomain());
+  const [selectedDomain, setSelectedDomain] = useState<"all" | "Pharmacy" | "Insurance">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLob, setSelectedLob] = useState("all");
   const [selectedState, setSelectedState] = useState("all");
   const [selectedSeverity, setSelectedSeverity] = useState("all");
   const [selectedGapIds, setSelectedGapIds] = useState<string[]>([]);
-  const [selectedGap, setSelectedGap] = useState<KnowledgeGap | null>(SEEDED_KNOWLEDGE_GAPS[0] ?? null);
+  const [selectedGapId, setSelectedGapId] = useState<string>("GAP-003");
   const [detailTab, setDetailTab] = useState<"Overview" | "Search insights" | "Related content">("Overview");
 
   // Gap disposition state (P1-5)
@@ -75,10 +75,6 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
   const [processFixOpen, setProcessFixOpen] = useState(false);
   const [processFixReason, setProcessFixReason] = useState("");
   const [processFixSystemNote, setProcessFixSystemNote] = useState("");
-
-  useEffect(() => {
-    setSelectedDomain(getPersonaDomain());
-  }, [person.id]);
 
   const demoRequests = useDemoStore((s) => s.requests);
 
@@ -140,42 +136,53 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
     });
   }, [demoRequests, gapDispositions]);
 
+  const domainScopedGaps = useMemo(() => {
+    if (selectedDomain === "all") return allGaps;
+    return allGaps.filter((g) => (g.domain || classifyGapDomain(g.topic).domain) === selectedDomain);
+  }, [allGaps, selectedDomain]);
+
   const counts = useMemo(() => {
     const dispList = Object.values(gapDispositions);
     return {
-      all: allGaps.length,
-      insufficient: allGaps.filter((g) => g.type === "Insufficient").length,
-      conflicting: allGaps.filter((g) => g.type === "Conflicting").length,
-      outdated: allGaps.filter((g) => g.type === "Outdated").length,
+      all: domainScopedGaps.length,
+      insufficient: domainScopedGaps.filter((g) => g.type === "Insufficient").length,
+      conflicting: domainScopedGaps.filter((g) => g.type === "Conflicting").length,
+      outdated: domainScopedGaps.filter((g) => g.type === "Outdated").length,
+      totalAll: allGaps.length,
       pharmacy: allGaps.filter((g) => (g.domain || classifyGapDomain(g.topic).domain) === "Pharmacy").length,
       insurance: allGaps.filter((g) => (g.domain || classifyGapDomain(g.topic).domain) === "Insurance").length,
       unitClosed: dispList.filter((d) => d.disposition === "unit_created").length,
       processFixClosed: dispList.filter((d) => d.disposition === "process_fix").length,
     };
-  }, [allGaps, gapDispositions]);
+  }, [allGaps, domainScopedGaps, gapDispositions]);
 
   const filteredGaps = useMemo(() => {
     return allGaps.filter((g) => {
       if (activeTab !== "All" && g.type !== activeTab) return false;
-      if (selectedDomain !== "all") {
+      const q = searchQuery.trim().toLowerCase();
+      const isDirectIdSearch = Boolean(q && (q.startsWith("gap-") || q.startsWith("live-gap-")));
+      if (!isDirectIdSearch && selectedDomain !== "all") {
         const d = g.domain || classifyGapDomain(g.topic).domain;
         if (d !== selectedDomain) return false;
       }
       if (selectedLob !== "all" && g.lob !== selectedLob) return false;
       if (selectedSeverity !== "all" && g.severity.toLowerCase() !== selectedSeverity.toLowerCase()) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        return g.topic.toLowerCase().includes(q) || g.description.toLowerCase().includes(q);
+      if (q) {
+        return (
+          g.id.toLowerCase().includes(q) ||
+          g.topic.toLowerCase().includes(q) ||
+          g.description.toLowerCase().includes(q) ||
+          (g.assignedOwner && g.assignedOwner.toLowerCase().includes(q))
+        );
       }
       return true;
     });
   }, [allGaps, activeTab, selectedDomain, selectedLob, selectedSeverity, searchQuery]);
 
-  useEffect(() => {
-    if (filteredGaps.length > 0 && (!selectedGap || !filteredGaps.some((g) => g.id === selectedGap.id))) {
-      setSelectedGap(filteredGaps[0] ?? null);
-    }
-  }, [filteredGaps, selectedGap]);
+  const selectedGap = useMemo(() => {
+    if (!selectedGapId) return filteredGaps[0] ?? null;
+    return allGaps.find((g) => g.id === selectedGapId) ?? filteredGaps[0] ?? null;
+  }, [allGaps, selectedGapId, filteredGaps]);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -327,7 +334,7 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
               <SelectValue placeholder="All domains" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All domains ({counts.all})</SelectItem>
+              <SelectItem value="all">All domains ({counts.totalAll})</SelectItem>
               <SelectItem value="Pharmacy">Pharmacy · Owen ({counts.pharmacy})</SelectItem>
               <SelectItem value="Insurance">Insurance · Olivia ({counts.insurance})</SelectItem>
             </SelectContent>
@@ -419,7 +426,7 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
                   return (
                     <tr
                       key={gap.id}
-                      onClick={() => setSelectedGap(gap)}
+                      onClick={() => setSelectedGapId(gap.id)}
                       className={`cursor-pointer transition-colors ${
                         isSelectedRow ? "bg-[#EAF7EE]/60" : "hover:bg-[#F9FAFB]"
                       }`}
@@ -427,9 +434,14 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
                       <td className="px-4 py-3.5" onClick={(e) => handleToggleGap(gap.id, e)}>
                         <Checkbox checked={isChecked} aria-label={`Select ${gap.topic}`} />
                       </td>
-                      <td className="px-4 py-3.5 min-w-[220px]">
-                        <p className="font-semibold text-ink text-[13px]">{gap.topic}</p>
-                        <p className="mt-0.5 text-xs text-ink-muted line-clamp-1">{gap.description}</p>
+                      <td className="px-4 py-3.5 min-w-[240px]">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[11px] font-bold text-ink-muted bg-muted px-1.5 py-0.5 rounded border border-border shrink-0">
+                            {gap.id}
+                          </span>
+                          <p className="font-semibold text-ink text-[13px]">{gap.topic}</p>
+                        </div>
+                        <p className="mt-1 text-xs text-ink-muted line-clamp-1">{gap.description}</p>
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         {(gap.domain || classifyGapDomain(gap.topic).domain) === "Insurance" ? (
@@ -474,8 +486,14 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
                             <DropdownMenuItem onClick={() => onCreateUnit?.(gap)}>
                               Create knowledge unit
                             </DropdownMenuItem>
-                            <DropdownMenuItem>Assign knowledge team</DropdownMenuItem>
-                            <DropdownMenuItem>Mark as resolved</DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedGapId(gap.id);
+                                setProcessFixOpen(true);
+                              }}
+                            >
+                              Resolve as Process Fix
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -484,10 +502,25 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
                 })}
                 {filteredGaps.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="p-12 text-center text-ink-muted">
+                    <td colSpan={9} className="p-12 text-center text-ink-muted">
                       <AlertCircle className="mx-auto h-8 w-8 text-ink-muted mb-2" />
                       <p className="font-medium text-sm text-ink">No matching knowledge gaps</p>
-                      <p className="mt-1 text-xs">Try adjusting your filters or search keywords.</p>
+                      <p className="mt-1 text-xs">
+                        {selectedDomain !== "all" ? (
+                          <>
+                            Filtered by queue: <strong>{selectedDomain}</strong>.{" "}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedDomain("all")}
+                              className="font-medium text-[#1E5E2E] underline hover:text-[#174A24] cursor-pointer"
+                            >
+                              Search across all queues
+                            </button>
+                          </>
+                        ) : (
+                          "Try adjusting your filters or search keywords."
+                        )}
+                      </p>
                     </td>
                   </tr>
                 )}
@@ -503,6 +536,9 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
             <div className="flex items-start justify-between gap-3 border-b border-border pb-4">
               <div className="space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-ink-muted bg-muted px-2 py-0.5 rounded border border-border">
+                    {selectedGap.id}
+                  </span>
                   <h2 className="text-base font-bold text-ink leading-snug">{selectedGap.topic}</h2>
                   {selectedGap.severity === "High" && (
                     <span className="rounded-md bg-[#FDE2E2] px-2 py-0.5 text-[11px] font-semibold text-[#D32F2F]">
@@ -513,7 +549,7 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedGap(null)}
+                onClick={() => setSelectedGapId("")}
                 className="rounded-lg p-1 text-ink-muted hover:bg-muted hover:text-ink cursor-pointer"
                 aria-label="Close details"
               >
@@ -793,7 +829,7 @@ export function KnowledgeGapsView({ onCreateUnit }: KnowledgeGapsViewProps) {
                   processFixReason.trim(),
                   processFixSystemNote.trim() || undefined
                 );
-                toast.success("Gap marked resolved as Process Fix");
+                toast.success(`Gap ${selectedGap.id} marked resolved as Process Fix`);
                 setProcessFixOpen(false);
                 setProcessFixReason("");
                 setProcessFixSystemNote("");

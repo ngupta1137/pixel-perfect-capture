@@ -226,9 +226,9 @@ function Body({
           {c0?.verbatim && part.text ? (
             <VerbatimBox text={part.text} />
           ) : compact ? (
-            <MessageResponse className="text-lg leading-relaxed">
+            <div className="text-lg leading-relaxed">
               <TypewriterResponse text={part.text ?? ""} />
-            </MessageResponse>
+            </div>
           ) : (
             <div className="text-lg leading-8">
               <TypewriterResponse text={part.text ?? ""} />
@@ -240,7 +240,9 @@ function Body({
     case "needs_clarification":
       return (
         <>
-          <p className="text-xl font-semibold">{part.message}</p>
+          <p className="text-xl font-semibold">
+            <TypewriterResponse text={part.message} />
+          </p>
           {part.choices && part.choices.length > 0 ? (
             <Choices choices={part.choices} onChoose={onChoose} />
           ) : (
@@ -251,7 +253,9 @@ function Body({
     case "insufficient_evidence":
       return (
         <>
-          <p className="text-lg">{part.message}</p>
+          <p className="text-lg">
+            <TypewriterResponse text={part.message} />
+          </p>
           <p className="mt-2 text-sm text-ink-muted">
             Verity does not answer from general knowledge.
           </p>
@@ -267,14 +271,16 @@ function Body({
         return (
           <>
             <p className="text-lg">
-              The available plan information disagrees. I cannot choose an answer for you.
+              <TypewriterResponse text="The available plan information disagrees. I cannot choose an answer for you." />
             </p>
             {transfer}
           </>
         );
       return (
         <>
-          <p className="text-lg">{part.message}</p>
+          <p className="text-lg">
+            <TypewriterResponse text={part.message} />
+          </p>
           <p className="mt-4 text-sm font-semibold">
             Verity will not pick. Both owners have been notified.
           </p>
@@ -441,9 +447,13 @@ function Body({
         <>
           {showOwner && <p className="text-lg font-semibold">Owned by {part.owner_team}</p>}
           <p className="mt-2">
-            {minimal
-              ? "I cannot answer this question from the plan information available to me."
-              : part.message}
+            <TypewriterResponse
+              text={
+                minimal
+                  ? "I cannot answer this question from the plan information available to me."
+                  : part.message
+              }
+            />
           </p>
           {transfer}
         </>
@@ -452,7 +462,9 @@ function Body({
       return (
         <div className="flex flex-col gap-5 md:flex-row md:items-center">
           <Phone className="h-10 w-10 shrink-0 text-outcome-safety" aria-hidden="true" />
-          <p className="flex-1 text-xl font-semibold leading-relaxed">{part.text}</p>
+          <div className="flex-1 text-xl font-semibold leading-relaxed">
+            <TypewriterResponse text={part.text ?? ""} />
+          </div>
           {transfer}
         </div>
       );

@@ -39,6 +39,7 @@ import { useSession } from "@/lib/session";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
 import { markUnitStale, reverifyUnit, retirePublishedUnit } from "@/services/verity";
+import { ReviseUnitModal } from "./ReviseUnitModal";
 
 interface KnowledgeDetailPanelProps {
   unit: EnrichedKnowledgeUnit;
@@ -59,16 +60,22 @@ export function KnowledgeDetailPanel({
   const [activeTab, setActiveTab] = useState<"overview" | "source" | "history" | "related">("overview");
   const [retireModalOpen, setRetireModalOpen] = useState(false);
   const [retireReason, setRetireReason] = useState("");
+  const [reviseModalOpen, setReviseModalOpen] = useState(false);
 
   const canEdit = can("propose_unit") || can("approve_standard") || can("approve_legal");
   const canRetire = can("approve_standard") || can("approve_legal");
 
   const handleEditClick = () => {
+    if (unit.status === "Retired") {
+      toast.error(
+        "This knowledge unit has been retired and cannot be edited. Retained for compliance and audit logs."
+      );
+      return;
+    }
     if (canEdit) {
+      setReviseModalOpen(true);
       if (onEditUnit) {
         onEditUnit(unit);
-      } else {
-        toast.success(`Opening editor for ${unit.unit_id}`);
       }
     } else {
       toast.error(
@@ -117,7 +124,9 @@ export function KnowledgeDetailPanel({
                       ? "bg-[#F3F4F6] text-[#6B7280]"
                       : unit.status === "Conflict"
                         ? "bg-[#F3E8FF] text-[#7E22CE]"
-                        : "bg-[#EFF6FF] text-[#1D4ED8]"
+                        : unit.status === "Retired"
+                          ? "bg-[#FEE2E2] text-[#DC2626]"
+                          : "bg-[#EFF6FF] text-[#1D4ED8]"
               }`}
             >
               {unit.status}
@@ -165,7 +174,17 @@ export function KnowledgeDetailPanel({
         {activeTab === "overview" && (
           <>
             {/* Status Alert Banner */}
-            {unit.status === "Approved" ? (
+            {unit.status === "Retired" ? (
+              <div className="flex items-start gap-3 rounded-lg border border-[#FCA5A5] bg-[#FEF2F2] p-3.5 text-[#991B1B]">
+                <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-[#DC2626]" />
+                <div className="text-xs">
+                  <p className="font-semibold text-[#991B1B]">Retired Knowledge Unit</p>
+                  <p className="mt-0.5 text-[#7F1D1D]/90 leading-relaxed">
+                    This unit has been retired and will never be returned in search answers. Retained for audit and compliance.
+                  </p>
+                </div>
+              </div>
+            ) : unit.status === "Approved" ? (
               <div className="flex items-start gap-3 rounded-lg border border-[#C6E7D0] bg-[#EAF7EE] p-3.5 text-[#1E5E2E]">
                 <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#1E5E2E] text-white">
                   <CheckCircle2 className="h-3.5 w-3.5" />
@@ -557,6 +576,12 @@ export function KnowledgeDetailPanel({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ReviseUnitModal
+        unit={unit}
+        open={reviseModalOpen}
+        onOpenChange={setReviseModalOpen}
+      />
     </aside>
   );
 }

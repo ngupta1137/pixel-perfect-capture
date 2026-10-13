@@ -700,6 +700,25 @@ export const UNIT_META: Record<string, UnitMeta> = {
     key_points: ["60 calendar days from claim denial to file", "Standard review within 30 days; expedited within 72 hours", "Oral or written submission accepted"],
     related_unit_ids: ["U-IN-001"],
   },
+  "U-SH-000": {
+    kb: "KB-SHARED",
+    verifier: "Rita (Legal)",
+    review_date: "2024-01-01",
+    applies_to: "Call closing, legacy",
+    channels: ["advocate_view", "voice"],
+    content_type: "Legal",
+    lob: "MAPD",
+    state: "All states",
+    section: "Section 1.0 (Retired)",
+    last_updated: "2024-01-01",
+    next_review: "Retired",
+    next_review_status: "Current",
+    approved_by: "Rita (Legal)",
+    approved_on: "01 Jan 2024",
+    summary: "Legacy call closing script that was retired and superseded by U-SH-002.",
+    key_points: ["Retired policy unit", "Superseded by U-SH-002", "Retained for regulatory compliance and audit logs"],
+    related_unit_ids: ["U-SH-002"],
+  },
 };
 
 const YEAR_CHOICES = [
@@ -1185,8 +1204,8 @@ export function seedDemoState(): DemoState {
     gapDispositions: {
       "GAP-003": {
         disposition: "process_fix",
-        reason: "Member profile portal and IVR automation handle phone and mailing address changes directly; advocates route callers to digital settings rather than manual knowledge lookup.",
-        system_note: "CORE-SYS-402: Member Self-Service Integration",
+        reason: "Appeals must be submitted via Provider Portal form FA-992. No knowledge unit required; handled in core claims adjudication.",
+        system_note: "ServiceNow #INC-88391",
         by: "Owen (Knowledge owner)",
         at: "2026-10-08T11:00:00Z",
       },

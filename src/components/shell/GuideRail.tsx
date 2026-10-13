@@ -20,6 +20,8 @@ export function useRunGuideAction() {
     if (a.to === "/audit") {
       const id = a.replay ? guide.get().recorded[a.replay] : undefined;
       void navigate({ to: "/audit", search: id ? { id } : {} });
+    } else if (a.to === "/library") {
+      void navigate({ to: "/library", search: a.unitId ? { unit: a.unitId } : {} });
     } else {
       void navigate({ to: a.to });
     }

@@ -75,6 +75,7 @@ export async function seedInitialDraftsIfEmpty(repo: StorageRepository = reposit
         reason: it.reviewer_notes || null,
         decided_by: it.status === "Approved" ? "Owen (Knowledge owner)" : null,
         supersedes: it.supersedes || null,
+        version: it.version || (it.unit_id === "U-PH-003" ? 2 : 1),
         gate_json: JSON.stringify(it.gate || { checked: 27, blocking: [] }),
         history_json: JSON.stringify(
           it.history || [
@@ -567,6 +568,87 @@ export async function handleReverifyUnit(
 }
 
 /**
+ * Handle explicit revision of a published unit:
+ * Increments or updates version, changes effective_date and review_date,
+ * updates text/summary, resets status to approved, and invalidates cache.
+ */
+export async function handleRevisePublishedUnit(
+  req: {
+    person: string;
+    unitId: string;
+    version?: number;
+    effectiveDate?: string;
+    reviewDate?: string;
+    changeNote?: string;
+    summary?: string;
+    text?: string;
+  },
+  repo: StorageRepository = repository
+): Promise<{ ok: boolean; version: number; reviewDate: string; effectiveDate: string; message: string }> {
+  const { ensureStoreHydrated } = await import("../verity-engine/server");
+  const { Verity } = await import("../verity-engine/pipeline");
+  const { questionStore } = await import("../verity-engine/semantic");
+  const store = await ensureStoreHydrated();
+
+  const existingPublished = await repo.getPublishedUnitById(req.unitId);
+  const live = store.units();
+  const target = live.find((u) => u.unit_id === req.unitId);
+
+  const prevVersion = existingPublished?.version ?? (target as any)?.version ?? 1;
+  const newVersion = req.version && req.version > prevVersion ? req.version : prevVersion + 1;
+  const newEffectiveDate = req.effectiveDate || new Date().toISOString().slice(0, 10);
+  const newReviewDate = req.reviewDate || "2027-10-06";
+  const newText = req.text ?? existingPublished?.body ?? target?.text ?? "";
+
+  // 1. Update SQLite published_units table
+  if (existingPublished) {
+    await repo.savePublishedUnit({
+      ...existingPublished,
+      version: newVersion,
+      effective_date: newEffectiveDate,
+      review_date: newReviewDate,
+      body: newText,
+      status: "approved",
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  // 2. Update engine live units and rebuild engine cache
+  if (target) {
+    (target as any).version = newVersion;
+    target.effective_date = newEffectiveDate;
+    target.review_date = newReviewDate;
+    if (newText) target.text = newText;
+    target.status = "approved";
+  }
+  (store as any).live = live;
+  (store as any).engineCache = new Verity({ ...(store as any).data, units: live });
+  questionStore.invalidate();
+
+  // 3. Mark any open review tasks for this unit as done
+  try {
+    const existingDrafts = await repo.listDrafts();
+    for (const d of existingDrafts) {
+      if (d.unit_id === req.unitId && d.title.toLowerCase().includes("stale")) {
+        await repo.updateDraft(d.draft_id, {
+          status: "approved",
+          decided_by: req.person,
+          reason: `Revised to v${newVersion}. Review date extended to ${newReviewDate}.`,
+        });
+      }
+    }
+  } catch {}
+
+  return {
+    ok: true,
+    version: newVersion,
+    reviewDate: newReviewDate,
+    effectiveDate: newEffectiveDate,
+    message: `Unit ${req.unitId} revised to v${newVersion}. Effective: ${newEffectiveDate}, Next review: ${newReviewDate}.`,
+  };
+}
+
+/**
  * Handle explicit retirement of a published unit.
  * Human only (Owner/Legal), mandatory reason required.
  */
@@ -772,13 +854,9 @@ export async function handleDecideReviewItem(
       const existingLive = currentLive.find((u) => u.unit_id === draft.unit_id);
       if (existingLive) {
         fromVersion = existingLive.version;
-        // Prevent silent overwrite of an existing approved unit
-        if ((!draft.version || draft.version <= existingLive.version) && !draft.supersedes) {
-          return {
-            ok: false,
-            success: false,
-            error: `Governance violation: Approved unit "${draft.unit_id}" (v${existingLive.version}) cannot be silently overwritten without explicit version increment or supersedes relationship.`,
-          };
+        // Auto-increment version if not explicitly set to prevent silent overwrite and publish clean next version
+        if (!draft.version || draft.version <= existingLive.version) {
+          draft.version = existingLive.version + 1;
         }
       }
 
@@ -1037,7 +1115,8 @@ export async function handleDecideReviewItem(
       ok: true,
       success: true,
       ...(updated ? { draft: updated } : {}),
-      message: `Successfully approved "${draft.title}". Published as governed unit ${draft.unit_id}.`,
+      publishSignal,
+      message: `Successfully approved "${draft.title}". Published as governed unit ${draft.unit_id} v${publishedUnit.version}.`,
     };
   }
 

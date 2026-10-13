@@ -820,13 +820,14 @@ export function reviewQueue(s: DemoState): ReviewItem[] {
 export async function reverifyUnit(person: string, unitId: string, reviewDate = "2027-10-06"): Promise<void> {
   updateDemoState((s) => ({
     ...s,
-    units: s.units.map((u) => (u.unit_id === unitId ? { ...u, status: "approved" } : u)),
+    units: s.units.map((u) => (u.unit_id === unitId ? { ...u, status: "approved", review_date: reviewDate } : u)),
     reverified: [{ unit_id: unitId, by: person, at: now() }, ...s.reverified],
     reviewTasks: s.reviewTasks.map((t) => (t.unit_ids.includes(unitId) ? { ...t, status: "done" } : t)),
   }));
   if (UNIT_META[unitId]) {
     UNIT_META[unitId].next_review_status = "Current";
     UNIT_META[unitId].next_review = reviewDate;
+    UNIT_META[unitId].review_date = reviewDate;
   }
 
   // Durable sync with SQLite repository & server engine
@@ -893,6 +894,97 @@ export async function retirePublishedUnit(
   });
 
   return { ok: true, message: `Unit ${unitId} retired successfully.` };
+}
+
+/** Explicitly revise a published unit (Knowledge Owner or Author): update version, dates, text, and reset status to approved */
+export async function revisePublishedUnit(
+  person: string,
+  unitId: string,
+  params: {
+    version?: number;
+    effectiveDate?: string;
+    reviewDate?: string;
+    changeNote?: string;
+    summary?: string;
+    text?: string;
+  }
+): Promise<{ ok: boolean; message: string; version: number }> {
+  const newEffectiveDate = params.effectiveDate || new Date().toISOString().slice(0, 10);
+  const newReviewDate = params.reviewDate || "2027-10-06";
+  let targetVersion = params.version || 2;
+
+  updateDemoState((s) => {
+    const existing = s.units.find((u) => u.unit_id === unitId);
+    const prevVersion = existing ? existing.versions[existing.versions.length - 1]!.version : 1;
+    targetVersion = params.version && params.version > prevVersion ? params.version : prevVersion + 1;
+    const v = {
+      version: targetVersion,
+      text: params.text || (existing ? existing.versions[existing.versions.length - 1]!.text : ""),
+      effective_date: newEffectiveDate,
+      approver: person,
+      change_note: params.changeNote || "Document version and review date revised by knowledge owner.",
+    };
+    const updatedUnits = existing
+      ? s.units.map((u) => (u.unit_id === unitId ? { ...u, status: "approved", versions: [...u.versions, v] } : u))
+      : s.units;
+
+    return {
+      ...s,
+      units: updatedUnits,
+      reverified: [{ unit_id: unitId, by: person, at: now() }, ...s.reverified],
+      reviewTasks: s.reviewTasks.map((t) => (t.unit_ids.includes(unitId) ? { ...t, status: "done" } : t)),
+    };
+  });
+
+  if (UNIT_META[unitId]) {
+    UNIT_META[unitId].next_review_status = "Current";
+    UNIT_META[unitId].next_review = newReviewDate;
+    UNIT_META[unitId].effective_date = newEffectiveDate;
+    if (params.summary) UNIT_META[unitId].summary = params.summary;
+  }
+
+  try {
+    const { revisePublishedUnitFn } = await import("./review.functions");
+    await revisePublishedUnitFn({
+      data: {
+        person,
+        unitId,
+        version: targetVersion,
+        effectiveDate: newEffectiveDate,
+        reviewDate: newReviewDate,
+        changeNote: params.changeNote,
+        summary: params.summary,
+        text: params.text,
+      },
+    });
+  } catch (err) {
+    if (!isBrowser) {
+      const { handleRevisePublishedUnit } = await import("./review.server");
+      await handleRevisePublishedUnit({
+        person,
+        unitId,
+        version: targetVersion,
+        effectiveDate: newEffectiveDate,
+        reviewDate: newReviewDate,
+        changeNote: params.changeNote,
+        summary: params.summary,
+        text: params.text,
+      });
+    }
+  }
+
+  audit({
+    actor: person,
+    action: "unit.revised",
+    target: `${unitId} (v${targetVersion})`,
+    detail: `Revised document version to v${targetVersion}, effective ${newEffectiveDate}, next review ${newReviewDate}. Reason: ${params.changeNote || "Owner revision"}`,
+  });
+
+  return {
+    ok: true,
+    version: targetVersion,
+    message: `Unit ${unitId} updated to v${targetVersion}. Effective: ${newEffectiveDate}, Next review: ${newReviewDate}.`,
+  };
 }
 
 export function aepReadiness(s: DemoState) {
@@ -1310,19 +1402,30 @@ export async function submitReviewDecision(
     ...req,
     sessionToken: req.sessionToken || getActiveSessionToken(),
   };
+  let res: import("./review.functions").ReviewDecisionResponse;
   if (!isBrowser) {
     const { handleDecideReviewItem } = await import("./review.server");
-    return await handleDecideReviewItem(payload);
+    res = await handleDecideReviewItem(payload);
+  } else {
+    try {
+      const { decideReviewItemFn } = await import("./review.functions");
+      res = await decideReviewItemFn({ data: payload });
+    } catch (err: any) {
+      res = {
+        ok: false,
+        error: err?.message || "Server function failed to process review decision.",
+      };
+    }
   }
-  try {
-    const { decideReviewItemFn } = await import("./review.functions");
-    return await decideReviewItemFn({ data: payload });
-  } catch (err: any) {
-    return {
-      ok: false,
-      error: err?.message || "Server function failed to process review decision.",
-    };
+
+  if (res.ok && res.publishSignal) {
+    updateDemoState((s) => ({
+      ...s,
+      latestPublishSignal: res.publishSignal,
+      publishSignals: [res.publishSignal!, ...(s.publishSignals || [])],
+    }));
   }
+  return res;
 }
 
 // ---------------------------------------------------------------------------

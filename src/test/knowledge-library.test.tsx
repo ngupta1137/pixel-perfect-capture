@@ -125,4 +125,20 @@ describe("Knowledge Library Screen & Functionality", () => {
     const addBtn = screen.getByRole("button", { name: /Add knowledge/i });
     expect(addBtn).toBeInTheDocument();
   });
+
+  it("does not display overdue/stale review banner for advocates like Priya", () => {
+    renderLibrary("priya");
+
+    // Priya is a pharmacy advocate (consumer) without reverify_unit or review queue capabilities
+    expect(screen.queryByText(/knowledge unit past review date/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Click to confirm still valid/i)).not.toBeInTheDocument();
+  });
+
+  it("displays overdue/stale review banner for Knowledge Owner (Owen)", () => {
+    renderLibrary("owen");
+
+    // Owen has reverify_unit and view_owner_queue capabilities
+    expect(screen.getByText(/knowledge unit past review date/i)).toBeInTheDocument();
+    expect(screen.getByText(/Click to confirm still valid/i)).toBeInTheDocument();
+  });
 });

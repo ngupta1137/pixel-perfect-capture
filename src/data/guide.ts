@@ -7,6 +7,7 @@ export interface GuideAction {
   /** Person name from src/data/personas.json. Omit to keep the current person. */
   person?: string;
   to: GuideRoute;
+  unitId?: string;
   context?: { lob?: string; state?: string; planYear?: string };
   query?: string;
   /** Switch the plan year after the first result arrives. */
@@ -42,7 +43,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     say: "Units past next_review are blocked from returning as clean answers. Owner confirms still valid to restore.",
     actions: [
       { label: "1. Stale served", person: "Priya", to: "/", context: CTX, query: "is there a shipping fee for mail order", hint: "Past review date (2026-06-30): served as 'stale' with confirm/revise guidance." },
-      { label: "2. Confirm still valid", person: "Owen", to: "/library", hint: "Select U-PH-008 and click 'Confirm still valid (+12 mo)'." },
+      { label: "2. Confirm still valid", person: "Owen", to: "/library", unitId: "U-PH-008", hint: "Select U-PH-008 and click 'Confirm still valid (+12 mo)'." },
       { label: "3. Re-query restored", person: "Priya", to: "/", context: CTX, query: "is there a shipping fee for mail order", hint: "Returns clean approved answer citing v1." },
     ],
   },

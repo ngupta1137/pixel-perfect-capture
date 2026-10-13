@@ -12,8 +12,18 @@ export function NotificationPopover() {
   const [open, setOpen] = useState(false);
   const audit = useDemoStore((s) => s.audit);
   const reviewTasks = useDemoStore((s) => s.reviewTasks);
+  const publishSignals = useDemoStore((s) => s.publishSignals) || [];
 
   const notifications = [
+    ...publishSignals.slice(0, 3).map((ps, i) => ({
+      id: `n-pub-${i}`,
+      title: `Approved: ${ps.unit_id} v${ps.version}`,
+      desc: `"${ps.title}" published by ${ps.by}. Live in search for ${ps.channels.join(", ")}.`,
+      time: "Just now",
+      icon: ShieldCheck,
+      iconColor: "text-emerald-700 bg-emerald-100",
+      to: "/library",
+    })),
     {
       id: "n-1",
       title: "Review queue update",
@@ -69,7 +79,7 @@ export function NotificationPopover() {
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h3 className="text-xs font-semibold text-ink">Notifications</h3>
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-            {reviewTasks.length || 3} new
+            {(reviewTasks.length || 3) + publishSignals.length} new
           </span>
         </div>
         <div className="max-h-80 divide-y divide-border overflow-y-auto">
