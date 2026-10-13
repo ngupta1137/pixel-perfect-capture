@@ -1,4 +1,5 @@
 import type { Choice, Citation, Outcome, SearchRequest, SearchResponse } from "./verity";
+import { redact } from "../verity-engine/guards";
 
 let storeGetter: (() => any) | null = null;
 export function registerDemoStoreGetter(getter: () => any) {
@@ -1016,11 +1017,12 @@ function match(req: SearchRequest): Fixture {
 }
 
 function buildTrace(req: SearchRequest, f: Fixture, requestId: string): string[] {
+  const red = redact(req.query);
   const ent = ENTITLEMENTS[req.role] ?? "none";
   const safety = f.outcome === "safety_escalation";
   const trace = [
     `1. Resolve role and entitlements [D]: ${req.role}: ${ent}`,
-    "2. Redact PHI/PII [D]: nothing to redact",
+    `2. Redact PHI/PII [D]: ${red.applied.length ? `redacted ${red.applied.join(", ")}` : "nothing to redact"}`,
     `3. Safety pre-check [D+P]: ${safety ? "urgent language detected, human handoff" : "clear"}`,
   ];
   if (safety) return trace;

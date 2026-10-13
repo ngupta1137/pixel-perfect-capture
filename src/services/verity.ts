@@ -1,6 +1,7 @@
 import { mockSearch, UNIT_META as UNIT_META_LOCAL } from "./mockData";
 import personasFile from "@/data/personas.json";
 import { classifyGapDomain } from "@/lib/gapClassifier";
+import { redact } from "@/verity-engine/guards";
 const UNIT_META = UNIT_META_LOCAL;
 const PEOPLE_LOCAL = personasFile.people as { name: string; persona: string; kbs: string[] }[];
 
@@ -141,10 +142,11 @@ const audit = (e: Omit<DemoAudit, "at">) => updateDemoState((s) => ({ ...s, audi
 export async function searchAs(person: string, req: SearchRequest): Promise<SearchResponse> {
   const units = getDemoState().units;
   const res = withPublishedVersions(await search(req), units);
+  const sanitizedQuery = redactQuery(req.query);
   const record: DemoRequest = {
     id: res.request_id,
     at: now(),
-    query: req.query,
+    query: sanitizedQuery,
     person,
     context: { role: req.role, channel: req.channel, lob: req.lob ?? null, state: req.state ?? null, plan_year: req.plan_year === undefined ? "2026" : req.plan_year, input_mode: req.input_mode ?? "typed" },
     outcome: res.outcome,
@@ -159,7 +161,7 @@ export async function searchAs(person: string, req: SearchRequest): Promise<Sear
     ),
   };
   updateDemoState((s) => ({ ...s, requests: [record, ...s.requests] }));
-  audit({ actor: person, action: "search", target: res.request_id, detail: `${req.query} → ${res.outcome}` });
+  audit({ actor: person, action: "search", target: res.request_id, detail: `${sanitizedQuery} → ${res.outcome}` });
   if (res.outcome === "not_authorized")
     audit({ actor: person, action: "denied", target: res.request_id, detail: "Retrieval outside entitlement", capability: "search", reason: `Role ${req.role} is not entitled to the knowledge base that owns this answer` });
   return res;
@@ -195,7 +197,8 @@ export function reportConflictForResolution(
 ) {
   const id = `CONF-${Date.now().toString(36).toUpperCase()}`;
   const owner = "Knowledge Ops";
-  const reasonText = note.trim() || `Advocate reported conflicting sources on query "${query}"`;
+  const sanitizedQuery = redactQuery(query);
+  const reasonText = note.trim() || `Advocate reported conflicting sources on query "${sanitizedQuery}"`;
   updateDemoState((s) => ({
     ...s,
     reviewTasks: [
@@ -209,7 +212,7 @@ export function reportConflictForResolution(
         reason: reasonText,
         by: person,
         versions,
-        query,
+        query: sanitizedQuery,
         role,
         at: now(),
       },
@@ -1022,9 +1025,20 @@ export function recordDenied(person: string, target: string, capability: string,
   audit({ actor: person, action: "denied", target, detail: `Open ${target}`, capability, reason });
 }
 
-/** Mask anything that looks like PHI in a stored query: digits, dates, emails, ids. */
-export const redactQuery = (q: string) =>
-  q.replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]").replace(/\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/g, "[date]").replace(/\b[A-Z]{1,3}\d{5,}\b|\b\d{5,}\b/g, "[id]");
+/** Mask all PHI/PII in a stored query: names, DOBs, dates, SSNs, phone numbers, emails, member IDs. */
+export function redactQuery(q: string): string {
+  if (!q) return "";
+  const engineRedacted = redact(q).text;
+  return engineRedacted
+    .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[EMAIL]")
+    .replace(/\b(ssn|social security( number)?)?[:#\s]*\d{3}-\d{2}-\d{4}\b/gi, "[SSN]")
+    .replace(/\b(phone|tel|cell)?[:#\s]*\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/gi, "[PHONE]")
+    .replace(/\b(dob|d\.o\.b\.?|date of birth|born( on)?)?[:\s]*\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/gi, "[DOB]")
+    .replace(/\b([Mm]ember|[Pp]atient|[Cc]aller|[Nn]ame is|[Ff]or)\s+[A-Z][a-z]+\s+[A-Z][a-z]+\b/g, "[NAME]")
+    .replace(/\b[A-Z]{1,3}\d{5,}\b|\b\d{8,}\b/g, "[MEMBER_ID]")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 /** Which step of the policy pipeline decided the outcome. */
 export function policyPath(r: DemoRequest): string {

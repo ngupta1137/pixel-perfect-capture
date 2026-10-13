@@ -24,7 +24,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { executeEvaluation, getLatestEvalRun } from "@/services/verity";
+import { executeEvaluation, getLatestEvalRun, redactQuery } from "@/services/verity";
 import type { EvalCaseResult, EvalReport } from "@/verity-engine/evalRunner";
 
 export const Route = createFileRoute("/evals")({
@@ -485,6 +485,11 @@ function EvalsPage() {
                     </td>
                     <td className="px-4 py-2 max-w-xs truncate" title={c.query}>
                       {c.query}
+                      {redactQuery(c.query) !== c.query && (
+                        <span className="ml-1.5 inline-flex items-center rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                          PHI Scrubbed
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-2 text-xs font-mono">
                       <span className="font-semibold">{c.expected_outcome}</span>
@@ -573,6 +578,12 @@ function EvalsPage() {
               <div>
                 <p className="text-xs text-ink-muted font-medium">Input Query</p>
                 <p className="font-medium mt-0.5">"{selectedCase.query}"</p>
+                {selectedCase.query && redactQuery(selectedCase.query) !== selectedCase.query && (
+                  <p className="text-xs font-mono text-emerald-700 dark:text-emerald-400 mt-1.5 flex items-center gap-1 font-medium">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    <span>Redacted for AI: "{redactQuery(selectedCase.query)}"</span>
+                  </p>
+                )}
               </div>
               <div>
                 <p className="text-xs text-ink-muted font-medium">Context & Route</p>
