@@ -30,11 +30,8 @@ export function ScopeChips({ kbs }: { kbs: string[] }) {
   );
 }
 
-const HIDDEN_PERSONA_NAMES = new Set(["Sam", "Agent Assist", "Casey"]);
-const HIDDEN_PERSONA_KEYS = new Set(["advocate_supervisor", "ai_agent", "compliance_auditor"]);
-
-export const isDemoVisiblePerson = (p: { name: string; persona: string }) =>
-  !HIDDEN_PERSONA_NAMES.has(p.name) && !HIDDEN_PERSONA_KEYS.has(p.persona);
+// All personas are visible in the UI dropdown and demo governance views
+export const isDemoVisiblePerson = (_p?: { name: string; persona: string }) => true;
 
 export function PersonaPicker() {
   const { person, setPersona } = useSession();
