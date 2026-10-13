@@ -49,6 +49,12 @@ export const SIDEBAR_ITEMS: NavItemConfig[] = [
   { to: "/evals", label: "Evaluations", icon: FlaskConical, view: "evals" },
   { to: "/health", label: "Analytics", icon: BarChart2, view: "analytics" },
   { to: "/agents", label: "Agents & tools", icon: Plug, view: "agents" },
+  {
+    to: "/platform",
+    label: "Platform runtime",
+    icon: Network,
+    views: ["evals", "analytics", "agents"],
+  },
   { to: "/access", label: "Settings", icon: Settings, view: "author_access" },
 ];
 

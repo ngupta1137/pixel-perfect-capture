@@ -22,6 +22,7 @@ import {
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
+  Network,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { executeEvaluation, getLatestEvalRun, redactQuery } from "@/services/verity";
@@ -130,6 +131,16 @@ function EvalsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            asChild
+            variant="outline"
+            className="flex items-center gap-2 border-border text-ink hover:bg-surface-alt"
+          >
+            <a href="/platform">
+              <Network className="h-4 w-4 text-emerald-600" />
+              <span>13-Step Runtime Platform</span>
+            </a>
+          </Button>
           <Button
             onClick={handleRunEvaluation}
             disabled={isExecuting}

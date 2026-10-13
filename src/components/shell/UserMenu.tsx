@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ChevronDown, ShieldCheck, RotateCcw, BookOpen, User, ExternalLink, LogOut } from "lucide-react";
+import { ChevronDown, ShieldCheck, RotateCcw, BookOpen, User, ExternalLink, LogOut, Network } from "lucide-react";
 import { useSession } from "@/lib/session";
 import { resetDemoStore } from "@/services/demoStore";
 import { resetDemo } from "@/services/verity";
@@ -69,6 +69,12 @@ export function UserMenu() {
           <Link to="/story" className="flex items-center gap-2 text-xs">
             <BookOpen className="h-3.5 w-3.5 text-ink-muted" />
             <span>Why Verity exists</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link to="/platform" className="flex items-center gap-2 text-xs">
+            <Network className="h-3.5 w-3.5 text-primary" />
+            <span>Platform (13-step runtime)</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className="cursor-pointer">
