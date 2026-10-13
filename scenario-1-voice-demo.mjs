@@ -135,12 +135,28 @@ await context.addInitScript(() => {
     });
 });
 
+// Audio-sync mode (used by make-scenario-1-video.mjs): pre-generated narration drives the pacing.
+const MANIFEST = process.env.VTY_AUDIO_MANIFEST ? JSON.parse(fs.readFileSync(process.env.VTY_AUDIO_MANIFEST, "utf8")) : null;
+const LAG = Number(process.env.VIDEO_LAG_MS || 0);
+const EXACT = process.env.EXACT_TRANSCRIPT === "1"; // force the original transcript for cues 3 and 4
+const timeline = [];
+const cuts = [];
+const T0 = Date.now();
 const page = await context.newPage();
 let mx = 640, my = 360;
+const mark = (n) => log(`t=${((Date.now() - T0) / 1000).toFixed(1)}s ${n}`);
 
 // ---------- helpers ----------
 const speechResults = [];
 async function speak(text) {
+  if (MANIFEST) {
+    const m = MANIFEST[text];
+    if (!m) throw new Error("No audio generated for line: " + text);
+    await page.evaluate((t) => { const s = document.getElementById("vty-sub"); if (s) { s.textContent = t; s.classList.add("on"); } }, text);
+    timeline.push({ id: m.id, file: m.file, startMs: Date.now() - T0 + LAG, durationMs: m.durationMs });
+    await sleep(m.durationMs + 350);
+    return;
+  }
   const est = Math.round((text.split(/\s+/).length / WPS) * 1000);
   const why = await page.evaluate(([t, ms]) => window.__vtySpeak(t, ms), [text, est]);
   speechResults.push(why);
@@ -197,8 +213,11 @@ async function clickWithSpot(loc, opts, hold = 700) {
   await glideTo(x, y);
   await spot(loc, opts);
   await sleep(hold);
+  const tClick = Date.now() - T0;
   await loc.first().click();
   await unspot(loc);
+  const tBack = Date.now() - T0;
+  if (tBack - tClick > 4000) cuts.push({ startMs: tClick + 1500, endMs: tBack - 300 }); // idle wait the video builder trims
 }
 
 // ---------- run ----------
@@ -241,9 +260,12 @@ await Promise.all([
   })(),
 ]);
 
+mark("cue 1 done");
 // [Cue 2] Unit segmentation
 const reviewReady = page.getByText(/Extracted candidate units/);
-await reviewReady.first().waitFor({ timeout: 45000 });
+const tWait = Date.now() - T0;
+await reviewReady.first().waitFor({ timeout: 90000 });
+{ const tDone = Date.now() - T0; if (tDone - tWait > 4000) cuts.push({ startMs: tWait + 1500, endMs: tDone - 300 }); }
 await sleep(800);
 const unitsCol = page.locator("div.overflow-y-auto").filter({ has: page.getByRole("checkbox") }).first();
 await Promise.all([
@@ -251,6 +273,7 @@ await Promise.all([
   hover(unitsCol, { zoom: 1.02, pad: 4 }, 2200),
 ]);
 
+mark("cue 2 done");
 // [Cue 3] Candidate inspection (pricing disclaimer)
 const candidate = page.getByRole("heading", { name: /prices i give you today/i }).first();
 // The citation lives in the "Source reference" field of the unit panel (for example "AEP contact-center script 2027 - Section 1.2").
@@ -263,7 +286,9 @@ if (!sectionLabel) deviations.push(`Cue 3: the Source reference field reads "${r
 else if (!/1\.0$/.test(sectionLabel)) deviations.push(`Cue 3: the screen cites "${sectionLabel}" for this candidate, not "Section 1.0"; narration uses the on-screen value.`);
 deviations.push('Cue 3: this candidate is titled "The prices i give you today" and shows no "U-PH-003" id in the candidate list.');
 await Promise.all([
-  speak(sectionLabel
+  speak(EXACT
+    ? "Dana inspects the pricing disclaimer candidate. The prototype links directly to the source passage in Section 1.0."
+    : sectionLabel
     ? `Dana inspects the pricing disclaimer candidate. The prototype links directly to the source passage in ${sectionLabel}.`
     : "Dana inspects the pricing disclaimer candidate. The prototype records its provenance back to the source document."),
   (async () => {
@@ -276,23 +301,26 @@ await Promise.all([
   })(),
 ]);
 
+mark("cue 3 done");
 // [Cue 4] Duplicate match
 const dup = page.getByText(/near-duplicate|similar:|0\.67|67%/i);
 const hasDup = await visible(dup, 800);
 if (!hasDup) deviations.push("Cue 4: this screen does not render a near-duplicate card or 0.67 similarity score for the extracted unit; spoke a truthful line and spotlighted Unit details.");
 await Promise.all([
-  speak(hasDup
+  speak(EXACT || hasDup
     ? "It flags a near-duplicate match against existing unit U-PH-003 with a sixty-seven percent similarity score."
     : "On this screen the near-duplicate score is not displayed. The match data is returned by the engine but is not yet shown in the unit panel."),
   hover(hasDup ? dup : page.getByText("Unit details").first().locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]"), { zoom: 1.03, pad: 4 }, 2200),
 ]);
 
+mark("cue 4 done");
 // [Cue 5] Proposal submission (only the pricing disclaimer selected)
 const others = ["Fragment a", "Fragment b", "For plan year 2027, maintenance supply", "Mail order packages can be delivered"];
 const propose = page.getByRole("button", { name: /Propose selected/ });
 await Promise.all([
   speak("Dana reviews the proposed update and submits it into the review queue."),
   (async () => {
+    mark("cue 5 actions start");
     for (const name of others) {
       const cb = page.getByRole("checkbox", { name: "Select " + name });
       if (await visible(cb, 500)) {
@@ -301,14 +329,29 @@ await Promise.all([
         await cb.click();
       }
     }
+    mark("deselected others");
     await sleep(400);
-    await clickWithSpot(propose, { zoom: 1.08 }, 1000);
+    {
+      const { x, y } = await centerOf(propose);
+      await glideTo(x, y);
+      await spot(propose, { zoom: 1.08 });
+      await sleep(1000);
+      const tClick = Date.now() - T0;
+      await propose.first().click();
+      await unspot(propose);
+      const tBack = Date.now() - T0;
+      // The app can take a while to answer; the video builder cuts that dead time (keeping 1.5s of it) so the narration stays tight.
+      if (tBack - tClick > 4000) cuts.push({ startMs: tClick + 1500, endMs: tBack - 300 });
+    }
+    mark("propose clicked");
   })(),
 ]);
 
+mark("cue 5 done");
 // [Cue 6] Maker-checker governance on My drafts
 await page.getByText(/My active draft proposals/).first().waitFor({ timeout: 30000 });
 await sleep(600);
+mark("drafts tab loaded");
 const needsLegal = page.getByText(/Needs Legal/i);
 const hasBadge = await visible(needsLegal, 800);
 const gate = hasBadge ? needsLegal : page.getByText(/A second person approves/i);
@@ -330,6 +373,7 @@ const video = page.video();
 await context.close();
 await browser.close();
 const vpath = video ? await video.path() : "(none)";
+if (process.env.VTY_TIMELINE) fs.writeFileSync(process.env.VTY_TIMELINE, JSON.stringify({ timeline, cuts, videoPath: vpath }, null, 2));
 log("speech completion modes:", speechResults.join(", "));
 log("deviations from the requested script:", deviations.length ? "\n  - " + deviations.join("\n  - ") : "none");
 log("video:", vpath);
