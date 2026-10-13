@@ -1,7 +1,7 @@
 """Generate narration clips for Scenario 1.
 Usage: python3 scenario-1-tts.py lines.json out_dir [auto|edge|kokoro]
 lines.json: [{"id": "c1", "tts": "text to speak"}]
-Engines: edge (edge-tts, en-US-JennyNeural, needs internet) or kokoro (local ONNX voice, af_heart).
+Engines: edge (edge-tts, en-US-GuyNeural, male, needs internet) or kokoro (local ONNX voice, am_michael, male).
 auto tries edge first and falls back to kokoro."""
 import asyncio, json, os, sys
 
@@ -9,8 +9,8 @@ lines = json.load(open(sys.argv[1]))
 out = sys.argv[2]
 engine = sys.argv[3] if len(sys.argv) > 3 else "auto"
 os.makedirs(out, exist_ok=True)
-EDGE_VOICE = os.environ.get("EDGE_VOICE", "en-US-JennyNeural")
-KOKORO_VOICE = os.environ.get("KOKORO_VOICE", "af_heart")
+EDGE_VOICE = os.environ.get("EDGE_VOICE", "en-US-GuyNeural")
+KOKORO_VOICE = os.environ.get("KOKORO_VOICE", "am_michael")
 KDIR = os.environ.get("KOKORO_DIR", "/home/claude/tts-models")
 
 async def edge():
