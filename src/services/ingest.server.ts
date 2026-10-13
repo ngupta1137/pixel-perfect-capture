@@ -435,8 +435,8 @@ export async function handleUploadAndIngest(
 
     return {
       ok: true,
-      isDuplicate: false,
-      duplicate_of: null,
+      isDuplicate: Boolean(existing),
+      duplicate_of: existing ? existing.id : null,
       doc_id: createdDoc.id,
       source_id: createdDoc.id,
       filename: fileName,
