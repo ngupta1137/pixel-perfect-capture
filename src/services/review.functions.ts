@@ -37,10 +37,10 @@ export const listReviewQueueFn = createServerFn({ method: "GET" }).handler(
 );
 
 export const listMyDraftsFn = createServerFn({ method: "POST" })
-  .validator((d: { proposerName?: string; sessionToken?: string }) => d)
+  .validator((d: { proposerName?: string | undefined; sessionToken?: string | undefined }) => d)
   .handler(async ({ data }): Promise<DraftTable[]> => {
     const { handleListMyDrafts } = await import("./review.server");
-    return await handleListMyDrafts(data.proposerName, undefined, data.sessionToken);
+    return await handleListMyDrafts(data.proposerName);
   });
 
 export const decideReviewItemFn = createServerFn({ method: "POST" })
@@ -64,28 +64,28 @@ export const listPublishedUnitsFn = createServerFn({ method: "GET" }).handler(
 );
 
 export const createConflictReportFn = createServerFn({ method: "POST" })
-  .validator((d: { person: string; unitIds: string[]; query: string; note?: string; versions?: number[]; role?: string }) => d)
+  .validator((d: { person: string; unitIds: string[]; query: string; note?: string | undefined; versions?: number[] | undefined; role?: string | undefined }) => d)
   .handler(async ({ data }) => {
     const { handleCreateConflictReport } = await import("./review.server");
     return await handleCreateConflictReport(data);
   });
 
 export const applyConsolidationFn = createServerFn({ method: "POST" })
-  .validator((d: { person: string; supersedesIds?: string }) => d)
+  .validator((d: { person: string; supersedesIds?: string | undefined }) => d)
   .handler(async ({ data }) => {
     const { handleApplyConsolidatingConflictResolution } = await import("./review.server");
     return await handleApplyConsolidatingConflictResolution(data);
   });
 
 export const resolveConflictBySupersedingFn = createServerFn({ method: "POST" })
-  .validator((d: { person: string; ticketId?: string; winnerUnitId: string; loserUnitIds: string[]; reason?: string }) => d)
+  .validator((d: { person: string; ticketId?: string | undefined; winnerUnitId: string; loserUnitIds: string[]; reason?: string | undefined }) => d)
   .handler(async ({ data }) => {
     const { handleResolveConflictBySuperseding } = await import("./review.server");
     return await handleResolveConflictBySuperseding(data);
   });
 
 export const reverifyUnitFn = createServerFn({ method: "POST" })
-  .validator((d: { person: string; unitId: string; reviewDate?: string }) => d)
+  .validator((d: { person: string; unitId: string; reviewDate?: string | undefined }) => d)
   .handler(async ({ data }) => {
     const { handleReverifyUnit } = await import("./review.server");
     return await handleReverifyUnit(data);
@@ -102,16 +102,24 @@ export const revisePublishedUnitFn = createServerFn({ method: "POST" })
   .validator((d: {
     person: string;
     unitId: string;
-    version?: number;
-    effectiveDate?: string;
-    reviewDate?: string;
-    changeNote?: string;
-    summary?: string;
-    text?: string;
+    version?: number | undefined;
+    effectiveDate?: string | undefined;
+    reviewDate?: string | undefined;
+    changeNote?: string | undefined;
+    summary?: string | undefined;
+    text?: string | undefined;
   }) => d)
   .handler(async ({ data }) => {
     const { handleRevisePublishedUnit } = await import("./review.server");
     return await handleRevisePublishedUnit(data);
   });
+
+export const markUnitStaleFn = createServerFn({ method: "POST" })
+  .validator((d: { person: string; unitId: string }) => d)
+  .handler(async ({ data }) => {
+    const { handleMarkUnitStale } = await import("./review.server");
+    return await handleMarkUnitStale(data);
+  });
+
 
 

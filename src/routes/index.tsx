@@ -391,7 +391,7 @@ export function AskPage() {
     if (!guide.consume(command.id)) return;
     const ctx = {
       lob: command.context?.lob ?? lob,
-      state: command.context?.state ?? state,
+      state: command.context && "state" in command.context ? (command.context.state ?? "") : (command.context?.state ?? state),
       planYear: command.context?.planYear ?? planYear,
     };
     setLob(ctx.lob);

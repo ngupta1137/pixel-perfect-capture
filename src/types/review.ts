@@ -32,6 +32,7 @@ export interface ReviewQueueItem {
   version_id?: string | undefined;
   supersedes?: string | undefined;
   duplicate_of?: string | undefined;
+  is_duplicate_review?: boolean | undefined;
   current_text?: string | null | undefined;
   verbatim_drift?: boolean | undefined;
   drift?: {

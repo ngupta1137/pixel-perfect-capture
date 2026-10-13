@@ -76,7 +76,9 @@ export interface ChainDraft {
   gate: GateResult | null;
   reason: string | null;
   decided_by: string | null;
-  history: { status: ChainStatus | "edited"; at: string; by: string; note?: string }[];
+  proposed_at?: string | undefined;
+  supersedes?: string | undefined;
+  history: { status: ChainStatus | "edited"; at: string; by: string; note?: string | undefined }[];
 }
 
 export interface SynonymEntry {
@@ -142,13 +144,13 @@ export interface DemoState {
   reverified: { unit_id: string; by: string; at: string }[];
   /** Entitlements: role → knowledge bases it may read. */
   access: Record<string, string[]>;
-  latestPublishSignal?: PublishSignal | null;
-  publishSignals?: PublishSignal[];
+  latestPublishSignal?: PublishSignal | null | undefined;
+  publishSignals?: PublishSignal[] | undefined;
   synonyms: SynonymEntry[];
-  candidateSynonyms?: CandidateSynonym[];
-  gapDispositions?: Record<string, GapDispositionRecord>;
-  mergeProposals?: MergeProposal[];
-  splitSuggestions?: SplitSuggestion[];
+  candidateSynonyms?: CandidateSynonym[] | undefined;
+  gapDispositions?: Record<string, GapDispositionRecord> | undefined;
+  mergeProposals?: MergeProposal[] | undefined;
+  splitSuggestions?: SplitSuggestion[] | undefined;
 }
 
 let state: DemoState = seedDemoState();

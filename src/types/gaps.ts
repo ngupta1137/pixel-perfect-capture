@@ -34,10 +34,10 @@ export interface KnowledgeGap {
   domain?: "Pharmacy" | "Insurance";
   knowledge_base?: "KB-PHARM" | "KB-INS";
   ownerTeam?: string;
-  assignedOwner?: string;
+  assignedOwner?: string | undefined;
   disposition?: "unit_created" | "process_fix";
   disposition_reason?: string;
-  system_note?: string;
+  system_note?: string | undefined;
   resolved_by?: string;
   resolved_at?: string;
 }

@@ -75,6 +75,18 @@ export class StorageRepository {
       .execute();
   }
 
+  async updateSourceDocument(
+    id: string,
+    updates: Updateable<SourceDocumentTable>
+  ): Promise<void> {
+    const db = await this.getDb();
+    await db
+      .updateTable("source_documents")
+      .set(updates)
+      .where("id", "=", id)
+      .execute();
+  }
+
   async deleteSourceDocument(id: string): Promise<void> {
     const db = await this.getDb();
     await db.deleteFrom("candidate_units").where("source_doc_id", "=", id).execute();
@@ -348,6 +360,61 @@ export class StorageRepository {
   async resetPublishedUnitsToSeed(): Promise<void> {
     const db = await this.getDb();
     await db.deleteFrom("published_units").execute();
+  }
+
+  /**
+   * Scans published knowledge units and source documents, marking any with review_date < asOf as 'stale'.
+   */
+  async markOverdueUnitsAndDocsAsStale(
+    asOf: string = "2026-10-12"
+  ): Promise<{ updatedUnitsCount: number; updatedDocsCount: number }> {
+    const db = await this.getDb();
+
+    // 1. Mark published units with review_date < asOf as stale
+    const unitsToUpdate = await db
+      .selectFrom("published_units")
+      .select("unit_id")
+      .where("review_date", "<", asOf)
+      .where("status", "!=", "retired")
+      .where("status", "!=", "stale")
+      .execute();
+
+    if (unitsToUpdate.length > 0) {
+      const ids = unitsToUpdate.map((u) => u.unit_id);
+      await db
+        .updateTable("published_units")
+        .set({ status: "stale", updated_at: new Date().toISOString() })
+        .where("unit_id", "in", ids)
+        .execute();
+    }
+
+    // 2. Mark source documents with review_date < asOf as stale
+    let docsUpdated = 0;
+    try {
+      const docsToUpdate = await db
+        .selectFrom("source_documents")
+        .select("id")
+        .where("review_date", "<", asOf)
+        .where((eb) => eb.or([eb("status", "!=", "stale"), eb("status", "is", null)]))
+        .execute();
+
+      if (docsToUpdate.length > 0) {
+        const docIds = docsToUpdate.map((d) => d.id);
+        await db
+          .updateTable("source_documents")
+          .set({ status: "stale" })
+          .where("id", "in", docIds)
+          .execute();
+        docsUpdated = docIds.length;
+      }
+    } catch {
+      // Column might not exist in old schemas without migration
+    }
+
+    return {
+      updatedUnitsCount: unitsToUpdate.length,
+      updatedDocsCount: docsUpdated,
+    };
   }
 }
 

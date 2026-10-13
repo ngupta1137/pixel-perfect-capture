@@ -471,7 +471,7 @@
       "effective_date": "2025-06-30",
       "review_date": "2026-06-30",
       "version": 1,
-      "status": "approved",
+      "status": "stale",
       "supersedes": null,
       "synonyms": [
         "shipping fee",

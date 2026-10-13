@@ -3,7 +3,7 @@ import { calculateSha256 } from "./ingestion/hasher";
 
 
 export const VERITY_STORAGE_BUCKET =
-  process.env.SUPABASE_STORAGE_BUCKET || "verity-source-documents";
+  process.env["SUPABASE_STORAGE_BUCKET"] || "verity-source-documents";
 
 let storageClientInstance: SupabaseClient | null = null;
 
@@ -19,18 +19,18 @@ function isValidKey(k?: string): boolean {
 
 export function getStorageClient(): SupabaseClient | null {
   const url =
-    process.env.SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env["SUPABASE_URL"] ||
+    process.env["NEXT_PUBLIC_SUPABASE_URL"] ||
     (typeof import.meta !== "undefined" && import.meta.env
-      ? import.meta.env.VITE_SUPABASE_URL
+      ? (import.meta.env as any)["VITE_SUPABASE_URL"]
       : undefined);
 
   const candidateKeys = [
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    process.env.SUPABASE_ANON_KEY,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    process.env["SUPABASE_SERVICE_ROLE_KEY"],
+    process.env["SUPABASE_ANON_KEY"],
+    process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"],
     typeof import.meta !== "undefined" && import.meta.env
-      ? import.meta.env.VITE_SUPABASE_ANON_KEY
+      ? (import.meta.env as any)["VITE_SUPABASE_ANON_KEY"]
       : undefined,
   ];
 

@@ -63,10 +63,10 @@ describe("Scenario 6: Verbatim Drift Flagging & Deterministic Diff", () => {
     );
 
     expect(ingestRes.ok).toBe(true);
-    expect(ingestRes.units.length).toBeGreaterThan(0);
+    expect(ingestRes.units!.length).toBeGreaterThan(0);
 
     // Find the pricing disclaimer candidate
-    const disclaimerCandidate = ingestRes.units.find(
+    const disclaimerCandidate: any = ingestRes.units!.find(
       (u) =>
         u.title.toLowerCase().includes("pricing disclaimer") ||
         u.content.toLowerCase().includes("home delivery cost")
@@ -96,7 +96,7 @@ describe("Scenario 6: Verbatim Drift Flagging & Deterministic Diff", () => {
       inMemoryRepo
     );
 
-    const disclaimer = ingestRes.units.find(
+    const disclaimer = ingestRes.units!.find(
       (u) =>
         u.title.toLowerCase().includes("pricing disclaimer") ||
         u.content.toLowerCase().includes("home delivery cost")
@@ -115,7 +115,7 @@ describe("Scenario 6: Verbatim Drift Flagging & Deterministic Diff", () => {
     expect(proposeRes.ok).toBe(true);
     expect(proposeRes.drafts).toHaveLength(1);
 
-    const draft = proposeRes.drafts[0]!;
+    const draft = proposeRes.drafts![0]!;
     expect(draft.current_text).toBe(baselineText);
     expect(draft.proposed_text).toContain(revisedText);
     expect(draft.verbatim).toBe(1);
@@ -144,7 +144,7 @@ describe("Scenario 6: Verbatim Drift Flagging & Deterministic Diff", () => {
       inMemoryRepo
     );
 
-    const disclaimer = ingestRes.units.find(
+    const disclaimer = ingestRes.units!.find(
       (u) =>
         u.title.toLowerCase().includes("pricing disclaimer") ||
         u.content.toLowerCase().includes("home delivery cost")
@@ -185,7 +185,7 @@ describe("Scenario 6: Verbatim Drift Flagging & Deterministic Diff", () => {
       unit_id: queueItem!.unit_id!,
       title: queueItem!.title,
       proposed_text: queueItem!.content,
-      current_text: queueItem!.current_text,
+      current_text: queueItem!.current_text ?? null,
       proposed_by: "Dana",
       status: "proposed",
       route: "legal",
@@ -207,7 +207,7 @@ describe("Scenario 6: Verbatim Drift Flagging & Deterministic Diff", () => {
       unit_id: queueItem!.unit_id!,
       title: queueItem!.title,
       proposed_text: queueItem!.content,
-      current_text: queueItem!.current_text,
+      current_text: queueItem!.current_text ?? null,
       proposed_by: "Dana",
       status: "proposed",
       route: "legal",

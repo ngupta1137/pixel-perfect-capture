@@ -22,11 +22,11 @@ export interface SemanticConfig {
 }
 
 export const DEFAULT_SEMANTIC_CONFIG: SemanticConfig = {
-  similarityThreshold: Number(process.env.VERITY_SIMILARITY_THRESHOLD ?? 0.85),
-  ambiguityDelta: Number(process.env.VERITY_AMBIGUITY_DELTA ?? 0.05),
-  offlineMode: process.env.VERITY_OFFLINE_MODE === 'true',
-  debugLogging: process.env.VERITY_DEBUG_LOGS === 'true' || process.env.NODE_ENV !== 'production',
-  embeddingModel: process.env.VERITY_EMBEDDING_MODEL ?? 'verity-embed-v1',
+  similarityThreshold: Number(process.env["VERITY_SIMILARITY_THRESHOLD"] ?? 0.85),
+  ambiguityDelta: Number(process.env["VERITY_AMBIGUITY_DELTA"] ?? 0.05),
+  offlineMode: process.env["VERITY_OFFLINE_MODE"] === 'true',
+  debugLogging: process.env["VERITY_DEBUG_LOGS"] === 'true' || process.env["NODE_ENV"] !== 'production',
+  embeddingModel: process.env["VERITY_EMBEDDING_MODEL"] ?? 'verity-embed-v1',
 };
 
 export interface StoredQuestion {
@@ -236,9 +236,11 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   let normA = 0;
   let normB = 0;
   for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
+    const ai = a[i] ?? 0;
+    const bi = b[i] ?? 0;
+    dot += ai * bi;
+    normA += ai * ai;
+    normB += bi * bi;
   }
   if (normA === 0 || normB === 0) return 0;
   const sim = dot / (Math.sqrt(normA) * Math.sqrt(normB));
@@ -261,21 +263,27 @@ function levenshteinDistance(s1: string, s2: string): number {
   for (let i = 0; i <= m; i++) {
     d[i] = [i];
   }
-  for (let j = 0; j <= n; j++) {
-    d[0][j] = j;
+  const d0 = d[0];
+  if (d0) {
+    for (let j = 0; j <= n; j++) {
+      d0[j] = j;
+    }
   }
 
   for (let i = 1; i <= m; i++) {
+    const prevRow = d[i - 1];
+    const currRow = d[i];
+    if (!prevRow || !currRow) continue;
     for (let j = 1; j <= n; j++) {
       const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
-      d[i][j] = Math.min(
-        d[i - 1][j] + 1, // deletion
-        d[i][j - 1] + 1, // insertion
-        d[i - 1][j - 1] + cost, // substitution
+      currRow[j] = Math.min(
+        (prevRow[j] ?? 0) + 1, // deletion
+        (currRow[j - 1] ?? 0) + 1, // insertion
+        (prevRow[j - 1] ?? 0) + cost, // substitution
       );
     }
   }
-  return d[m][n];
+  return d[m]?.[n] ?? 0;
 }
 
 function stringSimilarityRatio(s1: string, s2: string): number {
@@ -362,8 +370,8 @@ class QuestionEmbeddingStore {
         this.cache.delete(key);
       }
     }
-    // Re-index unit if approved
-    if (unit.status === 'approved') {
+    // Re-index unit if approved or stale
+    if (unit.status === 'approved' || unit.status === 'stale') {
       const questions: string[] = [unit.title, ...(unit.synonyms || [])];
       questions.forEach((raw, idx) => {
         const id = `${unit.unit_id}:q:${idx}`;
@@ -393,7 +401,7 @@ class QuestionEmbeddingStore {
 
     this.initPromise = (async () => {
       this.cache.clear();
-      const approved = units.filter((u) => u.status === 'approved');
+      const approved = units.filter((u) => u.status === 'approved' || u.status === 'stale');
       const pendingQuestions: StoredQuestion[] = [];
 
       for (const unit of approved) {
@@ -420,7 +428,9 @@ class QuestionEmbeddingStore {
       try {
         const vectors = await this.provider.embed(texts);
         for (let i = 0; i < pendingQuestions.length; i++) {
-          pendingQuestions[i].vector = vectors[i];
+          const q = pendingQuestions[i];
+          const v = vectors[i];
+          if (q && v) q.vector = v;
         }
       } catch (err) {
         // Fall back gracefully to individual embedding
@@ -438,7 +448,7 @@ class QuestionEmbeddingStore {
   initSync(units: KnowledgeUnit[]): void {
     if (this.isInitialized && this.cache.size > 0) return;
     this.cache.clear();
-    const approved = units.filter((u) => u.status === 'approved');
+    const approved = units.filter((u) => u.status === 'approved' || u.status === 'stale');
     for (const unit of approved) {
       const questions = [unit.title, ...(unit.synonyms || [])];
       questions.forEach((raw, idx) => {
@@ -571,8 +581,8 @@ export function matchQuerySemanticSync(
   const topCandidate = inScopeCandidates[0] ?? null;
   const secondCandidate = inScopeCandidates[1] ?? null;
 
-  if (restrictedCandidates.length > 0 && restrictedCandidates[0].score >= config.similarityThreshold) {
-    const bestRestricted = restrictedCandidates[0];
+  const bestRestricted = restrictedCandidates[0];
+  if (bestRestricted && bestRestricted.score >= config.similarityThreshold) {
     if (!topCandidate || bestRestricted.score >= topCandidate.score) {
       const res: SemanticMatchResult = {
         outcome: 'not_authorized',

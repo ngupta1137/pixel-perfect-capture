@@ -29,18 +29,17 @@ const renderReviewRoute = (personId = "priya") => {
   );
 };
 
-import { getDb } from "@/storage/db";
+import { repository } from "@/storage/repository";
 
 describe("Verity Review Queue Redesign", () => {
   beforeEach(async () => {
     resetDemoStore();
     try {
-      const db = await getDb();
-      await db
-        .updateTable("drafts")
-        .set({ status: "proposed", reason: null, decided_by: null })
-        .where("draft_id", "=", "REV-001")
-        .execute();
+      await repository.updateDraft("REV-001", {
+        status: "proposed",
+        reason: null,
+        decided_by: null,
+      });
     } catch {
       // ignore
     }

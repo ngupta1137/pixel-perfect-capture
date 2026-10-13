@@ -47,10 +47,10 @@ Rules:
 
 function catalog(units: KnowledgeUnit[], role: Role): string {
   const lines: string[] = ['IN SCOPE (id | title | synonyms):'];
-  for (const u of units.filter((x) => x.status === 'approved' && role.knowledge_bases.includes(x.knowledge_base)))
+  for (const u of units.filter((x) => (x.status === 'approved' || x.status === 'stale') && role.knowledge_bases.includes(x.knowledge_base)))
     lines.push(`${u.unit_id} | ${u.title} | ${u.synonyms.join(', ')}`);
   lines.push('', 'OUT OF SCOPE for this caller (id | title | owning team):');
-  for (const u of units.filter((x) => x.status === 'approved' && !role.knowledge_bases.includes(x.knowledge_base)))
+  for (const u of units.filter((x) => (x.status === 'approved' || x.status === 'stale') && !role.knowledge_bases.includes(x.knowledge_base)))
     lines.push(`${u.unit_id} | ${u.title} | ${u.owner}`);
   return lines.join('\n');
 }
@@ -66,8 +66,14 @@ export function parseAssist(text: string, units: KnowledgeUnit[], role: Role): O
   }
   if (!Array.isArray(j.parts) || j.parts.length === 0) return null;
   const byId = new Map(units.map((u) => [u.unit_id, u]));
-  const inScope = (id: string) => byId.get(id)?.status === 'approved' && role.knowledge_bases.includes(byId.get(id)!.knowledge_base);
-  const outScope = (id: string) => byId.get(id)?.status === 'approved' && !role.knowledge_bases.includes(byId.get(id)!.knowledge_base);
+  const inScope = (id: string) => {
+    const s = byId.get(id)?.status;
+    return (s === 'approved' || s === 'stale') && role.knowledge_bases.includes(byId.get(id)!.knowledge_base);
+  };
+  const outScope = (id: string) => {
+    const s = byId.get(id)?.status;
+    return (s === 'approved' || s === 'stale') && !role.knowledge_bases.includes(byId.get(id)!.knowledge_base);
+  };
   const parts = j.parts.slice(0, 4).map((p: any) => ({
     text: String(p.text ?? '').slice(0, 300),
     // Hallucinated or misfiled ids are dropped here, deterministically.

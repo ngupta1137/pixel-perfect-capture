@@ -48,6 +48,8 @@ describe("redesign entitlement safeguards", () => {
       </SessionProvider>,
     );
     fireEvent.click(screen.getByText("Select member"));
+    const region = container.querySelector('[role="region"]');
+    if (region) fireEvent.click(region);
     expect(screen.getByText(part.text)).toBeInTheDocument();
     expect(container.textContent).not.toContain(citation.unit_id);
     expect(container.textContent).not.toContain(citation.owner);

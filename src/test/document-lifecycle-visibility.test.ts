@@ -19,11 +19,16 @@ import {
 } from "../verity-engine/server";
 import { normalizeStatus, enrichUnit, scopedLibrary } from "../lib/library";
 import { findPerson } from "../lib/rights";
+import { toAuthenticatedUser, type AuthenticatedUser } from "../services/auth.server";
 import type { DemoUnit } from "../services/demoStore";
 
 describe("Document Lifecycle, Visibility, and Approval-Status Verification", () => {
   let inMemoryRepo: StorageRepository;
   let testDb: ReturnType<typeof createDatabaseClient>;
+
+  const danaUser: AuthenticatedUser = toAuthenticatedUser(findPerson("dana")!);
+  const owenUser: AuthenticatedUser = toAuthenticatedUser(findPerson("owen")!);
+  const ritaUser: AuthenticatedUser = toAuthenticatedUser(findPerson("rita")!);
 
   beforeEach(async () => {
     testDb = createDatabaseClient(":memory:");
@@ -38,15 +43,6 @@ describe("Document Lifecycle, Visibility, and Approval-Status Verification", () 
   });
 
   it("1. Uploaded/ingested source document never inherits Approved status or leaks to library", async () => {
-    const danaUser = {
-      id: "dana-author-id",
-      name: "Dana",
-      label: "Knowledge author",
-      role: "knowledge_author",
-      capabilities: ["ingest_source", "propose_unit", "get_unit"],
-      kbs: ["KB-PHARM", "KB-SHARED"],
-    };
-
     // Dana uploads an incorrect draft document
     const uploadRes = await handleUploadAndIngest(
       {
@@ -100,15 +96,6 @@ Maintenance medications include acute short-term antibiotics and temporary stero
   });
 
   it("2. Proposed draft has Pending review status, never Approved, and does not leak to published library", async () => {
-    const danaUser = {
-      id: "dana-author-id",
-      name: "Dana",
-      label: "Knowledge author",
-      role: "knowledge_author",
-      capabilities: ["ingest_source", "propose_unit", "get_unit"],
-      kbs: ["KB-PHARM", "KB-SHARED"],
-    };
-
     const uploadRes = await handleUploadAndIngest(
       {
         fileName: "Proposed_Guideline.txt",
@@ -164,15 +151,6 @@ Maintenance medications include acute short-term antibiotics and temporary stero
   });
 
   it("3. Rejected draft and draft awaiting changes never appear in published library or search", async () => {
-    const danaUser = {
-      id: "dana-author-id",
-      name: "Dana",
-      label: "Knowledge author",
-      role: "knowledge_author",
-      capabilities: ["ingest_source", "propose_unit", "get_unit"],
-      kbs: ["KB-PHARM", "KB-SHARED"],
-    };
-
     const uploadRes = await handleUploadAndIngest(
       {
         fileName: "Flawed_Policy.txt",
@@ -199,15 +177,6 @@ Maintenance medications include acute short-term antibiotics and temporary stero
     const unitId = proposeRes.drafts![0]!.unit_id;
 
     // Reviewer requests changes
-    const ritaUser = {
-      id: "rita-legal-id",
-      name: "Rita",
-      label: "Legal Approver",
-      role: "legal_approver",
-      capabilities: ["approve_legal", "approve_standard", "get_unit"],
-      kbs: ["KB-PHARM", "KB-SHARED"],
-    };
-
     const changeRes = await handleDecideReviewItem(
       {
         draftId,
@@ -230,15 +199,6 @@ Maintenance medications include acute short-term antibiotics and temporary stero
     expect(await inMemoryRepo.getPublishedUnitById(unitId)).toBeUndefined();
 
     // Now Owen rejects the draft
-    const owenUser = {
-      id: "owen-owner-id",
-      name: "Owen",
-      label: "Knowledge Owner",
-      role: "knowledge_owner",
-      capabilities: ["approve_standard", "get_unit"],
-      kbs: ["KB-PHARM", "KB-SHARED"],
-    };
-
     const rejectRes = await handleDecideReviewItem(
       {
         draftId,
@@ -273,15 +233,6 @@ Maintenance medications include acute short-term antibiotics and temporary stero
   });
 
   it("4. Approved draft is transactionally published to published_units, visible in library, and searchable", async () => {
-    const danaUser = {
-      id: "dana-author-id",
-      name: "Dana",
-      label: "Knowledge author",
-      role: "knowledge_author",
-      capabilities: ["ingest_source", "propose_unit", "get_unit"],
-      kbs: ["KB-PHARM", "KB-SHARED"],
-    };
-
     // Dana ingests the valid Routine Refill Request Window Update
     const uploadRes = await handleUploadAndIngest(
       {
@@ -326,15 +277,6 @@ Members may submit routine refill requests when between 20% and 25% of their cur
     expect(draft.unit_id).toBe("RX-006");
 
     // Owen approves the draft
-    const owenUser = {
-      id: "owen-owner-id",
-      name: "Owen",
-      label: "Knowledge Owner",
-      role: "knowledge_owner",
-      capabilities: ["approve_standard", "get_unit"],
-      kbs: ["KB-PHARM", "KB-SHARED"],
-    };
-
     const approveRes = await handleDecideReviewItem(
       {
         draftId: draft.draft_id,

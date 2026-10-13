@@ -12,6 +12,7 @@ import {
   Trash2,
   Eye,
   RefreshCw,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -629,6 +630,11 @@ export function IngestSourceWizard({
                         <td className="px-4 py-3 text-ink-muted">{item.lob}</td>
                         <td className="px-4 py-3 text-ink-muted">{item.uploaded_on}</td>
                         <td className="px-4 py-3">
+                          {item.status === "Stale" && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-amber-800 border border-amber-200">
+                              <Clock className="h-3 w-3 text-amber-600" /> Stale (Review Due)
+                            </span>
+                          )}
                           {item.status === "Extracted" && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 border border-emerald-200">
                               <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Extracted

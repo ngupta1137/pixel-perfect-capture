@@ -64,7 +64,7 @@ const CONTENT_TYPE_ICONS: Record<ContentType, typeof FileText> = {
   Guidance: Lightbulb,
 };
 
-export function KnowledgeLibraryView({ initialUnitId }: { initialUnitId?: string } = {}) {
+export function KnowledgeLibraryView({ initialUnitId }: { initialUnitId?: string | undefined } = {}) {
   const { person, can } = useSession();
   const rawUnits = useDemoStore((s) => s.units);
 

@@ -86,14 +86,14 @@ function LegalPage() {
                 status: isApproved ? "approved" : isRejected ? "rejected" : "in_review",
                 gate: { checked: 27, blocking: [] },
                 reason: item.reviewer_notes || null,
-                decided_by: isApproved ? item.assigned_reviewer : null,
+                decided_by: isApproved ? (item.assigned_reviewer ?? null) : null,
                 history: (item.history || []).map((h) => ({
                   status: (h.action?.toLowerCase().includes("approve") ? "approved" : "proposed") as ChainStatus,
                   at: h.at || new Date().toISOString(),
                   by: h.by || "Owen (Knowledge owner)",
-                  note: h.note,
+                  ...(h.note ? { note: h.note } : {}),
                 })),
-                supersedes: item.supersedes,
+                supersedes: item.supersedes || undefined,
               };
               if (existingIdx >= 0) {
                 newChain[existingIdx] = { ...mapped, ...newChain[existingIdx] };

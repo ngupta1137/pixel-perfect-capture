@@ -1,4 +1,4 @@
-import { createFileRoute, useRouterState } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { ArrowLeft, FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,6 +28,9 @@ import {
 } from "@/types/ingest";
 
 export const Route = createFileRoute("/work")({
+  validateSearch: (s: Record<string, unknown>): { tab?: string | undefined } => ({
+    tab: typeof s["tab"] === "string" ? s["tab"] : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Ingestion & drafts — Verity" },
@@ -53,22 +56,27 @@ export const Route = createFileRoute("/work")({
 
 function WorkPage() {
   const { person } = useSession();
-  const searchTab = useRouterState({
-    select: (s) => (s.location.search as any)?.tab,
-  });
+  let searchTab: string | undefined;
+  try {
+    const search = Route.useSearch();
+    searchTab = search?.tab;
+  } catch {
+    searchTab = undefined;
+  }
 
   const getSearchTab = () => {
-    if (searchTab === "gaps" && person.capabilities.includes("view_gaps")) {
+    const caps = person?.capabilities ?? [];
+    if (searchTab === "gaps" && caps.includes("view_gaps")) {
       return "gaps";
     }
-    if (searchTab === "drafts" && (person.capabilities.includes("ingest_source") || person.capabilities.includes("propose_unit"))) {
+    if (searchTab === "drafts" && (caps.includes("ingest_source") || caps.includes("propose_unit"))) {
       return "drafts";
     }
-    if (searchTab === "sources" && person.capabilities.includes("ingest_source")) {
+    if (searchTab === "sources" && caps.includes("ingest_source")) {
       return "sources";
     }
-    if (person.capabilities.includes("ingest_source")) return "sources";
-    if (person.capabilities.includes("view_gaps")) return "gaps";
+    if (caps.includes("ingest_source")) return "sources";
+    if (caps.includes("view_gaps")) return "gaps";
     return "drafts";
   };
 
@@ -205,7 +213,7 @@ function WorkPage() {
           suggested_effective_date: u.suggested_effective_date || "2024-01-01",
           match_status: u.match_status,
           similarity: u.similarity,
-          route_to: u.route_to,
+          route_to: (u.route_to === "legal" ? "legal" : "owner") as "legal" | "owner" | undefined,
           selected: i === 0 || u.match_status === "new",
         }))
       );
@@ -478,7 +486,7 @@ function MyDrafts() {
               cid: d.candidate_id || d.draft_id,
               unit_id: d.unit_id,
               title: d.title,
-              current_text: d.current_text || annotations.current_text || null,
+              current_text: d.current_text || (annotations as any)["current_text"] || null,
               proposed_text: d.proposed_text,
               verbatim: Boolean(d.verbatim),
               route: d.route_to,

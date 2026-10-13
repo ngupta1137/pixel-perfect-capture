@@ -91,7 +91,7 @@ export function ReviewExtractWorkspace({
     setEditTitle(unit.title);
     setEditType(unit.type);
     setEditContent(unit.content);
-    setEditKeyPoints(unit.key_points.map((p) => `• ${p}`).join("\n"));
+    setEditKeyPoints(Array.isArray(unit.key_points) ? unit.key_points.map((p) => `• ${p}`).join("\n") : "");
     setEditSourceRef(unit.source_reference);
     setEditEffectiveDate(unit.suggested_effective_date);
     setSaveSuccess(false);

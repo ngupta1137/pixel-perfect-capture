@@ -88,7 +88,7 @@ export async function handleUploadAndIngest(
       existingCandidates = await repo.getCandidatesByDocId(existing.id);
 
       const mappedUnits = existingCandidates.map((c) => {
-        let annotations: Record<string, any> = {};
+        let annotations: any = {};
         try {
           annotations = JSON.parse(c.annotations_json || "{}");
         } catch {}
@@ -381,7 +381,7 @@ export async function handleUploadAndIngest(
     const savedCandidates = await repo.saveCandidateUnits(candidateInserts);
 
     const mappedUnits = savedCandidates.map((c) => {
-      let annotations: Record<string, any> = {};
+      let annotations: any = {};
       try {
         annotations = JSON.parse(c.annotations_json || "{}");
       } catch {}
@@ -463,6 +463,8 @@ export async function handleListRecentUploads(): Promise<RecentUpload[]> {
       year: "numeric",
     });
 
+    const isStale = doc.status === "stale" || (Boolean(doc.review_date) && doc.review_date! < "2026-10-12");
+
     uploads.push({
       id: doc.id,
       title: doc.title,
@@ -470,12 +472,14 @@ export async function handleListRecentUploads(): Promise<RecentUpload[]> {
       source_type: doc.source_type,
       lob: doc.lob,
       uploaded_on: dateFormatted,
-      status:
-        job?.status === "completed"
-          ? "Extracted"
-          : job?.status === "failed"
-          ? "Error"
-          : "Processing",
+      status: isStale
+        ? "Stale"
+        : job?.status === "completed"
+        ? "Extracted"
+        : job?.status === "failed"
+        ? "Error"
+        : "Processing",
+      review_date: doc.review_date,
       snippet: doc.description || doc.raw_text.slice(0, 120) + "...",
       description: doc.description || undefined,
     });
@@ -521,7 +525,7 @@ export async function handleProposeDrafts(
   const liveUnits = getStore().units();
   const nowIso = new Date().toISOString();
   const draftInserts = selected.map((c, i) => {
-    let candidateAnnotations: Record<string, any> = {};
+    let candidateAnnotations: any = {};
     try {
       candidateAnnotations = JSON.parse(c.annotations_json || "{}");
     } catch {}

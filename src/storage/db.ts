@@ -43,7 +43,7 @@ export function isConfiguredPostgresUrl(url?: string | null): boolean {
 
 export function getDatabasePath(): string {
   // 1. Authoritative Supabase PostgreSQL
-  const supabaseUrl = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
+  const supabaseUrl = process.env["SUPABASE_DB_URL"] || process.env["DATABASE_URL"];
   if (isConfiguredPostgresUrl(supabaseUrl)) {
     return supabaseUrl!.trim();
   }
@@ -65,7 +65,7 @@ export function getDatabasePath(): string {
   }
 
   // 2. Explicit SQLite override
-  const verityDbUrl = process.env["VERITY_DB_URL"] || process.env.VERITY_DB_URL;
+  const verityDbUrl = process.env["VERITY_DB_URL"];
   if (verityDbUrl) {
     return verityDbUrl;
   }

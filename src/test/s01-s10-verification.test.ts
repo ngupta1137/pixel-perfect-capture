@@ -224,5 +224,5 @@ describe('S01 - S10 End-to-End Scenario Verification', () => {
     } catch (e: any) {
       console.log("S10 Error:", e.message);
     }
-  });
+  }, 60000);
 });

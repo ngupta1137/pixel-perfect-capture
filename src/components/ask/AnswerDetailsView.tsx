@@ -26,6 +26,7 @@ import {
   Phone,
   ArrowRightCircle,
   Sparkles,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -127,6 +128,7 @@ export function AnswerDetailsView({
   const [flagReason, setFlagReason] = useState("");
   const [flagSent, setFlagSent] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedAnswer, setCopiedAnswer] = useState(false);
   const [showTrace, setShowTrace] = useState(false);
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [conflictNote, setConflictNote] = useState("");
@@ -155,6 +157,28 @@ export function AnswerDetailsView({
   const handleRate = (r: "up" | "down") => {
     setRated(r);
     giveFeedback(persona.name, response.request_id, r);
+  };
+
+  const handleCopyAnswer = async () => {
+    try {
+      const textToCopy = response.parts
+        .map((p) => {
+          const citeInfo =
+            p.citations.length > 0
+              ? `\nSource: ` +
+                p.citations
+                  .map((c) => `[${c.unit_id}] ${c.title} (v${c.version}, ${c.owner}, eff. ${c.effective_date})`)
+                  .join("; ")
+              : "";
+          return `${p.text || p.message}${citeInfo}`;
+        })
+        .join("\n\n");
+      await navigator.clipboard.writeText(textToCopy);
+      setCopiedAnswer(true);
+      setTimeout(() => setCopiedAnswer(false), 2000);
+    } catch {
+      // Fallback
+    }
   };
 
   const handleShare = async () => {
@@ -258,6 +282,27 @@ export function AnswerDetailsView({
         </Button>
 
         <div className="flex items-center gap-2">
+          {isApproved && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopyAnswer}
+              className="flex items-center gap-1.5 text-xs text-ink hover:text-primary font-medium"
+            >
+              {copiedAnswer ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Copied with source!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5 text-ink-muted" />
+                  <span>Copy response & source</span>
+                </>
+              )}
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -361,43 +406,182 @@ export function AnswerDetailsView({
               {/* Approved Answer Banner */}
               <div className="flex items-center gap-3.5 rounded-xl border border-[#D1F2D9] bg-[#EAF7EE]/60 px-4 py-3.5">
                 <CheckCircle2 className="h-5 w-5 shrink-0 text-[#2E7D32]" />
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-ink">Approved answer</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-bold text-ink">Approved answer</p>
+                    {firstCitation && (
+                      <span className="inline-flex items-center gap-1 rounded bg-[#D1F2D9] px-2 py-0.5 font-mono text-[11px] font-bold text-[#1E5E2E]">
+                        Source: {firstCitation.unit_id}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-ink-muted mt-0.5">
-                    Last updated {lastUpdatedDate} · Applies to {lob || "MAPD"} plans · Verified and approved
+                    {firstCitation ? (
+                      <>
+                        Grounded in <strong className="text-ink font-semibold">{firstCitation.title}</strong> (v{firstCitation.version}, {firstCitation.owner}) · Applies to {lob || "MAPD"} plans · Verified
+                      </>
+                    ) : (
+                      <>
+                        Last updated {lastUpdatedDate} · Applies to {lob || "MAPD"} plans · Verified and approved
+                      </>
+                    )}
                   </p>
                 </div>
               </div>
 
-              {/* Answer Body Text */}
-              <div className="space-y-5 text-sm text-ink leading-relaxed">
-                <div className="text-[15px] leading-relaxed text-ink">
-                  <TypewriterResponse text={part?.text ?? content.intro ?? ""} />
-                </div>
+              {/* Response parts with grounded knowledge unit citations */}
+              {response.parts.map((p, pIdx) => {
+                const pContent = parseAnswerContent(p.text);
+                const isPartVerbatim = p.citations.some((c) => c.verbatim);
+                const partCitations = p.citations;
 
-                {content.keyPoints.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-bold text-ink">Key points</h3>
-                    <ul className="space-y-1.5 pl-1">
-                      {content.keyPoints.map((pt, i) => (
-                        <li key={i} className="flex items-start gap-2.5 text-[14px] text-ink">
-                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2E7D32]" />
-                          <span>{pt}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                return (
+                  <div
+                    key={p.part || pIdx}
+                    className="space-y-4 rounded-xl border border-border/80 bg-surface p-5 shadow-2xs"
+                  >
+                    {response.parts.length > 1 && (
+                      <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded bg-primary/10 px-2 py-0.5 font-mono text-xs font-bold text-primary">
+                            Part {pIdx + 1} of {response.parts.length}
+                          </span>
+                          <span className="text-xs font-semibold text-ink">
+                            {p.part}
+                          </span>
+                        </div>
+                        {partCitations[0] && (
+                          <span className="font-mono text-[11px] text-ink-muted">
+                            KU: {partCitations[0].unit_id}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
-                {content.important && (
-                  <div className="space-y-1 pt-1">
-                    <h3 className="text-sm font-bold text-ink">Important</h3>
-                    <p className="text-[14px] text-ink-muted leading-relaxed">
-                      {content.important}
-                    </p>
+                    {/* Answer text / Verbatim reading block */}
+                    {isPartVerbatim && p.text ? (
+                      <div className="overflow-hidden rounded-lg border-l-4 border-brand-green-dark bg-primary/5 border border-border">
+                        <div className="flex items-center justify-between border-b border-border bg-surface-alt px-4 py-2">
+                          <span className="flex items-center gap-1.5 text-xs font-bold tracking-wide text-brand-green-dark">
+                            <Lock className="h-3.5 w-3.5" aria-hidden="true" />
+                            READ EXACTLY AS WRITTEN
+                            {partCitations[0] && ` · Legal wording from ${partCitations[0].unit_id}`}
+                          </span>
+                          <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                            Verbatim Required
+                          </span>
+                        </div>
+                        <div
+                          aria-readonly="true"
+                          className="select-all px-5 py-4 text-[15px] leading-relaxed text-ink font-medium"
+                        >
+                          <TypewriterResponse text={p.text} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[15px] leading-relaxed text-ink">
+                        <TypewriterResponse text={p.text ?? pContent.intro ?? ""} />
+                      </div>
+                    )}
+
+                    {pContent.keyPoints.length > 0 && !isPartVerbatim && (
+                      <div className="space-y-2 pt-1">
+                        <h3 className="text-sm font-bold text-ink">Key points</h3>
+                        <ul className="space-y-1.5 pl-1">
+                          {pContent.keyPoints.map((pt, i) => (
+                            <li key={i} className="flex items-start gap-2.5 text-[14px] text-ink">
+                              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2E7D32]" />
+                              <span>{pt}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {pContent.important && !isPartVerbatim && (
+                      <div className="space-y-1 pt-1">
+                        <h3 className="text-sm font-bold text-ink">Important</h3>
+                        <p className="text-[14px] text-ink-muted leading-relaxed">
+                          {pContent.important}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Prominent Governed Source Knowledge Unit Section */}
+                    {partCitations.length > 0 && (
+                      <div className="mt-4 rounded-xl border border-[#D1F2D9] bg-[#F7FCF8] p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-[#2E7D32]" />
+                            <span className="text-xs font-bold uppercase tracking-wider text-[#1E5E2E]">
+                              Source Knowledge Unit{partCitations.length > 1 ? "s" : ""}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-ink-muted">
+                            Verified single source of truth
+                          </span>
+                        </div>
+
+                        <div className="space-y-2.5">
+                          {partCitations.map((c) => {
+                            const u = getUnit(c.unit_id);
+                            return (
+                              <div
+                                key={c.unit_id}
+                                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/80 bg-white p-3.5 shadow-2xs hover:border-[#2E7D32]/60 transition-colors"
+                              >
+                                <div className="flex items-start gap-3 min-w-0">
+                                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#EAF7EE] text-[#1E5E2E] font-mono text-xs font-bold">
+                                    KU
+                                  </div>
+                                  <div className="min-w-0 space-y-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="font-mono text-xs font-bold text-ink bg-surface-alt px-1.5 py-0.5 rounded border border-border">
+                                        {c.unit_id}
+                                      </span>
+                                      <span className="text-xs font-bold text-ink">
+                                        {c.title}
+                                      </span>
+                                      {c.verbatim && (
+                                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                                          Verbatim
+                                        </span>
+                                      )}
+                                      {Boolean((u as any)?.knowledge_base || (c.unit_id ? UNIT_META[c.unit_id]?.kb : undefined)) && (
+                                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">
+                                          {(u as any)?.knowledge_base || (c.unit_id ? UNIT_META[c.unit_id]?.kb : "")}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[11px] text-ink-muted flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                      <span>Owner: <strong className="text-ink font-medium">{c.owner}</strong></span>
+                                      <span>·</span>
+                                      <span>Version: <strong className="text-ink font-medium">v{c.version}</strong></span>
+                                      <span>·</span>
+                                      <span>Effective: <strong className="text-ink font-medium">{c.effective_date}</strong></span>
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  type="button"
+                                  onClick={() => setOpenCite(c)}
+                                  className="h-7 gap-1 border-[#2E7D32]/40 bg-[#EAF7EE]/50 hover:bg-[#EAF7EE] text-[#1E5E2E] text-xs font-semibold shrink-0"
+                                >
+                                  <span>View source unit</span>
+                                  <ChevronRight className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                );
+              })}
             </div>
           )}
 
@@ -489,15 +673,27 @@ export function AnswerDetailsView({
 
               <div className="grid gap-3 sm:grid-cols-2 pt-2">
                 {uniqueCitations.map((c) => (
-                  <div key={c.unit_id} className="rounded-lg border border-amber-200 bg-white p-3.5 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-xs text-ink">{c.title}</p>
-                      <span className="font-mono text-[10px] bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-semibold">{c.unit_id}</span>
+                  <div key={c.unit_id} className="rounded-lg border border-amber-200 bg-white p-3.5 space-y-2 flex flex-col justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <p className="font-semibold text-xs text-ink">{c.title}</p>
+                        <span className="font-mono text-[10px] bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-semibold">{c.unit_id}</span>
+                      </div>
+                      <p className="text-[11px] text-ink-muted">
+                        {c.owner} · v{c.version} · effective {c.effective_date}
+                      </p>
+                      {c.text && <p className="text-xs text-ink pt-1.5 border-t border-border/40">{c.text}</p>}
                     </div>
-                    <p className="text-[11px] text-ink-muted">
-                      {c.owner} · v{c.version} · effective {c.effective_date}
-                    </p>
-                    {c.text && <p className="text-xs text-ink pt-1.5">{c.text}</p>}
+                    <div className="pt-2 flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setOpenCite(c)}
+                        className="h-6 text-[11px] border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900"
+                      >
+                        Inspect unit
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -512,17 +708,48 @@ export function AnswerDetailsView({
           )}
 
           {isStale && (
-            <div className="rounded-xl border border-amber-300 bg-amber-50/60 p-5 space-y-3">
+            <div className="rounded-xl border border-amber-300 bg-amber-50/60 p-5 space-y-4">
               <div className="flex items-center gap-2 text-amber-900">
                 <Clock className="h-5 w-5 text-amber-600 shrink-0" />
-                <h2 className="text-base font-bold">Review required — answer withheld</h2>
+                <div>
+                  <h2 className="text-base font-bold">Review required — answer withheld</h2>
+                  <p className="text-xs text-amber-800 mt-0.5">
+                    This knowledge unit is past its scheduled review date. Do not present as current; an owner has been tasked to re-verify.
+                  </p>
+                </div>
               </div>
               <p className="text-sm text-ink-muted line-through decoration-amber-500/50">
                 {part?.text}
               </p>
-              <p className="text-sm text-amber-800">
-                This unit is past its scheduled review date. An owner has been tasked to re-verify.
-              </p>
+              {uniqueCitations.length > 0 && (
+                <div className="space-y-2 pt-1 border-t border-amber-200/60">
+                  <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider">
+                    Knowledge unit past review date:
+                  </span>
+                  {uniqueCitations.map((c) => (
+                    <div
+                      key={c.unit_id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white p-3 text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded">
+                          {c.unit_id}
+                        </span>
+                        <span className="font-semibold text-ink">{c.title}</span>
+                        <span className="text-ink-muted">· {c.owner} · v{c.version} · Effective {c.effective_date}</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setOpenCite(c)}
+                        className="h-6 text-[11px] border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900"
+                      >
+                        View unit
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

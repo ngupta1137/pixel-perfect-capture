@@ -53,7 +53,7 @@ function Events({ showDetail }: { showDetail: boolean }) {
   const actions = [...new Set(events.map((e) => e.action))].sort();
   const rows = events.filter((e) =>
     (!actor || e.actor === actor) && (!action || e.action === action) &&
-    (!unit || e.target.toLowerCase().includes(unit.toLowerCase())) && (!date || e.at.startsWith(date)));
+    (!unit || (e.target ? e.target.toLowerCase().includes(unit.toLowerCase()) : false)) && (!date || e.at.startsWith(date)));
   return (
     <div>
       <h2 className="text-lg font-semibold">Events</h2>
@@ -98,7 +98,13 @@ function Events({ showDetail }: { showDetail: boolean }) {
 }
 
 function Replay() {
-  const { id } = Route.useSearch();
+  let id: string | undefined;
+  try {
+    const search = Route.useSearch();
+    id = search?.id;
+  } catch {
+    id = undefined;
+  }
   const navigate = useNavigate({ from: "/audit" });
   const requests = useDemoStore((s) => s.requests);
   const [draft, setDraft] = useState(id ?? "");

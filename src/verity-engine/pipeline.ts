@@ -227,7 +227,7 @@ export class Verity {
         verification: { verbatim_exact: null, in_scope: true },
       };
     }
-    let candidates = refUnit && refUnit.status === 'approved'
+    let candidates = refUnit && (refUnit.status === 'approved' || refUnit.status === 'stale')
       ? [{ unit_id: refUnit.unit_id, version: refUnit.version, score: 100, coverage: 1, phrase_match: true, anchored: true }]
       : this.index.search(part, role.knowledge_bases);
 
@@ -235,12 +235,12 @@ export class Verity {
       const semUnit = this.byId.get(semanticRes.bestCandidate.unit_id);
       const reqYear = req.context.plan_year ?? Number(this.data.asOf.slice(0, 4));
       const isYearApplicable = !semUnit?.applies_to?.plan_year || semUnit.applies_to.plan_year === reqYear;
-      if (semUnit && semUnit.status === 'approved' && isYearApplicable && role.knowledge_bases.includes(semUnit.knowledge_base)) {
+      if (semUnit && (semUnit.status === 'approved' || semUnit.status === 'stale') && isYearApplicable && role.knowledge_bases.includes(semUnit.knowledge_base)) {
         const topScore = Math.max(10, ...candidates.map((c) => c.score));
         const semCandidate: Candidate = {
           unit_id: semUnit.unit_id,
           version: semUnit.version,
-          score: topScore + 50,
+          score: topScore,
           coverage: 1,
           phrase_match: true,
           anchored: true,

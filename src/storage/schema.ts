@@ -14,8 +14,10 @@ export interface SourceDocumentTable {
   source_type: string;
   description: string | null;
   created_by: string;
-  created_by_user_id?: string | null;
+  created_by_user_id?: string | null | undefined;
   created_at: string;
+  review_date?: string | null | undefined;
+  status?: ("active" | "stale" | "archived" | string | null) | undefined;
 }
 
 export interface SourceFileTable {
@@ -23,11 +25,11 @@ export interface SourceFileTable {
   source_doc_id: string;
   file_name: string;
   mime_type: string;
-  storage_bucket?: string | null;
-  storage_path?: string | null;
-  file_size?: number | null;
-  content_hash?: string | null;
-  data_base64?: string | null;
+  storage_bucket?: string | null | undefined;
+  storage_path?: string | null | undefined;
+  file_size?: number | null | undefined;
+  content_hash?: string | null | undefined;
+  data_base64?: string | null | undefined;
   created_at: string;
 }
 
@@ -91,7 +93,7 @@ export interface DraftTable {
   effective_date: string;
   tags_json: string;
   proposed_by: string;
-  proposer_id?: string | null;
+  proposer_id?: string | null | undefined;
   status: "proposed" | "in_review" | "approved" | "rejected" | "requested_changes";
   reason: string | null;
   decided_by: string | null;

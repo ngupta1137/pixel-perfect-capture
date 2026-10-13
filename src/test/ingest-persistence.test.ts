@@ -66,7 +66,7 @@ describe("Phase 3A: Storage Foundation & Real Document Ingestion", () => {
       const retrievedFile = await repo.getSourceFileByDocId(doc.id);
       expect(retrievedFile).toBeDefined();
       expect(retrievedFile?.source_doc_id).toBe(doc.id);
-      expect(Buffer.from(retrievedFile!.data_base64, "base64").toString("utf-8")).toBe(
+      expect(Buffer.from(retrievedFile!.data_base64 || "", "base64").toString("utf-8")).toBe(
         "# Heading\nSample body text"
       );
     });

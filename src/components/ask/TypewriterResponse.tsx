@@ -42,7 +42,7 @@ export function TypewriterResponse({
     // In unit test runner (Vitest), strictly honor matchMedia mock for unit test coverage
     const isTest =
       typeof process !== "undefined" &&
-      (process.env.NODE_ENV === "test" || (process.env as any).VITEST === "true");
+      (process.env["NODE_ENV"] === "test" || (process.env as any)["VITEST"] === "true");
     if (isTest) {
       return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     }
@@ -58,7 +58,7 @@ export function TypewriterResponse({
   });
 
   useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
+    if (typeof window === "undefined" || !window.matchMedia) return undefined;
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     const handler = (e: MediaQueryListEvent) => {
       setPrefersReducedMotion(e.matches);
@@ -70,6 +70,7 @@ export function TypewriterResponse({
       (mediaQuery as any).addListener(handler);
       return () => (mediaQuery as any).removeListener(handler);
     }
+    return undefined;
   }, []);
 
   // Compute character reveal interval targeting roughly 8–15 seconds for a ~200-word answer

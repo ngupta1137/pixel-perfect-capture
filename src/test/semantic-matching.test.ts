@@ -165,12 +165,12 @@ describe('Phase 3–6 — Semantic Question Matching Suite', () => {
     // Construct query that is balanced between two units
     const ambiguousUnits: KnowledgeUnit[] = [
       {
-        ...SAMPLE_UNITS[0],
+        ...SAMPLE_UNITS[0]!,
         title: 'Prescription mail order facility inquiry',
         synonyms: ['mail order fulfillment details', 'prescription mail order details'],
       },
       {
-        ...SAMPLE_UNITS[1],
+        ...SAMPLE_UNITS[1]!,
         title: 'Prescription mail order delivery timeline',
         synonyms: ['mail order fulfillment timing', 'prescription mail order timing'],
       },
@@ -220,8 +220,8 @@ describe('Phase 3–6 — Semantic Question Matching Suite', () => {
     expect(questionStore.size).toBe(0);
 
     // 4. Update unit re-indexes specifically that unit
-    questionStore.updateUnit(SAMPLE_UNITS[0]);
-    expect(questionStore.size).toBe(1 + SAMPLE_UNITS[0].synonyms.length);
+    questionStore.updateUnit(SAMPLE_UNITS[0]!);
+    expect(questionStore.size).toBe(1 + SAMPLE_UNITS[0]!.synonyms.length);
   });
 
   it('offline fuzzy fallback uses normalized 0-1 scores and applies rules', () => {
@@ -268,11 +268,11 @@ describe('Phase 3–6 — Semantic Question Matching Suite', () => {
     const lastLog = logs[logs.length - 1];
 
     expect(lastLog).toBeDefined();
-    expect(lastLog.query).toBe('where are prescriptions filled');
-    expect(lastLog.matchedUnitId).toBe('U-PH-001');
-    expect(lastLog.similarityScore).toBeGreaterThan(0);
-    expect(lastLog.matchingMethod).toBe('embeddings');
-    expect(lastLog.threshold).toBe(0.85);
-    expect(lastLog.outcome).toBe('answer');
+    expect(lastLog!.query).toBe('where are prescriptions filled');
+    expect(lastLog!.matchedUnitId).toBe('U-PH-001');
+    expect(lastLog!.similarityScore).toBeGreaterThan(0);
+    expect(lastLog!.matchingMethod).toBe('embeddings');
+    expect(lastLog!.threshold).toBe(0.85);
+    expect(lastLog!.outcome).toBe('answer');
   });
 });

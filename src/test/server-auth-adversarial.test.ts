@@ -128,7 +128,7 @@ describe("Phase 1: Adversarial Server-Side Identity & RBAC Tests", () => {
 
       const res = await handleDecideReviewItem(
         {
-          draftId: draft.draft_id,
+          draftId: draft!.draft_id,
           action: "approve",
           sessionToken: authorSession.token,
         },
@@ -170,7 +170,7 @@ describe("Phase 1: Adversarial Server-Side Identity & RBAC Tests", () => {
 
       const rejectRes = await handleDecideReviewItem(
         {
-          draftId: draft.draft_id,
+          draftId: draft!.draft_id,
           action: "reject",
           sessionToken: authorSession.token,
           notes: "Attempting reject as author",
@@ -182,7 +182,7 @@ describe("Phase 1: Adversarial Server-Side Identity & RBAC Tests", () => {
 
       const changeRes = await handleDecideReviewItem(
         {
-          draftId: draft.draft_id,
+          draftId: draft!.draft_id,
           action: "request_changes",
           sessionToken: authorSession.token,
           notes: "Attempting change request as author",
@@ -227,7 +227,7 @@ describe("Phase 1: Adversarial Server-Side Identity & RBAC Tests", () => {
       // Dana's session token is provided, but request maliciously claims to be Rita with legal capabilities
       const res = await handleDecideReviewItem(
         {
-          draftId: draft.draft_id,
+          draftId: draft!.draft_id,
           action: "approve",
           sessionToken: authorSession.token, // Authenticated as Dana
           reviewerName: "Rita",
@@ -296,7 +296,7 @@ describe("Phase 1: Adversarial Server-Side Identity & RBAC Tests", () => {
       // Owen attempts to approve his own draft with a spoofed display name in body
       const res = await handleDecideReviewItem(
         {
-          draftId: draft.draft_id,
+          draftId: draft!.draft_id,
           action: "approve",
           sessionToken: ownerSession.token, // Verified as Owen
           reviewerName: "Alex Reviewer", // Altered display name
@@ -341,7 +341,7 @@ describe("Phase 1: Adversarial Server-Side Identity & RBAC Tests", () => {
 
       const res = await handleDecideReviewItem(
         {
-          draftId: draft.draft_id,
+          draftId: draft!.draft_id,
           action: "approve",
           sessionToken: ownerSession.token, // Owen holds approve_standard but NOT approve_legal
         },
@@ -383,7 +383,7 @@ describe("Phase 1: Adversarial Server-Side Identity & RBAC Tests", () => {
 
       const res = await handleDecideReviewItem(
         {
-          draftId: draft.draft_id,
+          draftId: draft!.draft_id,
           action: "approve",
           sessionToken: legalSession.token, // Rita holds approve_legal
           notes: "Approved verbatim statement by Legal.",
@@ -429,7 +429,7 @@ describe("Phase 1: Adversarial Server-Side Identity & RBAC Tests", () => {
 
       const res = await handleDecideReviewItem(
         {
-          draftId: draft.draft_id,
+          draftId: draft!.draft_id,
           action: "approve",
           sessionToken: ownerSession.token,
           notes: "Approved Tier 1 copay guidance.",
@@ -473,7 +473,7 @@ describe("Phase 1: Adversarial Server-Side Identity & RBAC Tests", () => {
 
       const res = await handleDecideReviewItem(
         {
-          draftId: draft.draft_id,
+          draftId: draft!.draft_id,
           action: "reject",
           sessionToken: ownerSession.token,
           notes: "Rejected due to obsolete timeframe.",

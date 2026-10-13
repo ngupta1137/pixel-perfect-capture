@@ -271,8 +271,8 @@ describe("Verity Phase 6 — Supabase PostgreSQL & Storage Integration Suite", (
       },
     ]);
 
-    expect(draft.draft_id).toBe(testDraftId);
-    expect(draft.status).toBe("proposed");
+    expect(draft!.draft_id).toBe(testDraftId);
+    expect(draft!.status).toBe("proposed");
   });
 
   // 9. Approve a draft and verify atomic publication
@@ -563,12 +563,12 @@ describe("Verity Phase 6 — Supabase PostgreSQL & Storage Integration Suite", (
     expect(brokenClient).toBeDefined();
 
     // When getDatabasePath detects an explicitly set invalid non-placeholder URL, it must not return SQLite
-    const originalEnv = process.env.SUPABASE_DB_URL;
+    const originalEnv = process.env["SUPABASE_DB_URL"];
     try {
-      process.env.SUPABASE_DB_URL = "http://invalid-not-postgres";
+      process.env["SUPABASE_DB_URL"] = "http://invalid-not-postgres";
       expect(() => getDatabasePath()).toThrow(/Invalid SUPABASE_DB_URL format/);
     } finally {
-      process.env.SUPABASE_DB_URL = originalEnv;
+      process.env["SUPABASE_DB_URL"] = originalEnv;
     }
   });
 });

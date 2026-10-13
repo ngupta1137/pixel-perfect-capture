@@ -75,7 +75,8 @@ export interface SearchRequest {
  */
 export async function search(req: SearchRequest): Promise<SearchResponse> {
   // Fixtures are only used if explicitly requested via VITE_VERITY_ENGINE=mock. Default: real server-side engine.
-  if (import.meta.env["VITE_VERITY_ENGINE"] === "mock") {
+  const isMock = typeof import.meta !== "undefined" && (import.meta as any)?.env?.["VITE_VERITY_ENGINE"] === "mock";
+  if (isMock) {
     await new Promise((r) => setTimeout(r, 400));
     return mockSearch(req);
   }
@@ -335,7 +336,7 @@ export async function resolveConflictBySuperseding(
 const isBrowser =
   typeof window !== "undefined" &&
   typeof document !== "undefined" &&
-  !(typeof process !== "undefined" && (process.env?.VITEST || process.env?.NODE_ENV === "test"));
+  !(typeof process !== "undefined" && (process.env?.["VITEST"] || process.env?.["NODE_ENV"] === "test"));
 
 /**
  * Knowledge Ops action: opens conflict ticket -> applies S04 consolidating source.
@@ -496,7 +497,7 @@ export function giveFeedback(person: string, requestId: string, rating: "up" | "
   audit({ actor: person, action: `feedback:${rating}`, target: requestId, detail: note ?? "" });
 }
 
-export function markUnitStale(unitId: string, actor: string = "User"): void {
+export async function markUnitStale(unitId: string, actor: string = "User"): Promise<void> {
   updateDemoState((s) => ({
     ...s,
     units: s.units.map((u) => (u.unit_id === unitId ? { ...u, status: "stale" } : u)),
@@ -504,6 +505,18 @@ export function markUnitStale(unitId: string, actor: string = "User"): void {
   if (UNIT_META[unitId]) {
     UNIT_META[unitId].next_review_status = "Overdue";
   }
+
+  // Durable sync with database repository & server engine
+  try {
+    const { markUnitStaleFn } = await import("./review.functions");
+    await markUnitStaleFn({ data: { person: actor, unitId } });
+  } catch (err) {
+    if (!isBrowser) {
+      const { handleMarkUnitStale } = await import("./review.server");
+      await handleMarkUnitStale({ person: actor, unitId });
+    }
+  }
+
   audit({ actor, action: "mark_stale", target: unitId, detail: "Manually marked as stale; review overdue" });
 }
 
@@ -720,7 +733,7 @@ export function decideChainDraft(person: { name: string; capabilities: readonly 
   const subscriberChannels = ["Agent Assist", "Member Chat", "IVR Voice Bot", "Advocate Portal"];
   let prevVersion = 0;
   const supersedesStr = (d as any).supersedes || "";
-  const supIds = new Set(supersedesStr ? supersedesStr.split(/[,;\s]+/).map((x: string) => x.trim()).filter(Boolean) : []);
+  const supIds = new Set<string>(supersedesStr ? supersedesStr.split(/[,;\s]+/).map((x: string) => x.trim()).filter(Boolean) : []);
 
   updateDemoState((s) => {
     const existing = s.units.find((u) => u.unit_id === d.unit_id);
@@ -1059,7 +1072,7 @@ export async function changeKbAccess(
     return { ok: false, message: "Only an access administrator changes access" };
   }
   if (!reason || !reason.trim()) {
-    throw new Error("A mandatory reason is required");
+    return { ok: false, message: "A mandatory reason is required" };
   }
 
   // 1. Update demo store entitlements
@@ -1081,7 +1094,7 @@ export async function changeKbAccess(
 
   audit({
     actor: person.name,
-    action: grant ? "access_granted" : "access_revoked",
+    action: grant ? "grant_access" : "access_revoked",
     target: `${role}/${kb}`,
     detail: `${grant ? "Granted" : "Revoked"} ${kb} for ${role}: ${reason.trim()}`,
     reason: reason.trim(),

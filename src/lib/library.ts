@@ -74,9 +74,21 @@ export function normalizeStatus(status: string): KnowledgeStatus {
   if (s === "draft" || s === "proposed" || s === "new" || s === "changed" || s === "unchanged" || s === "duplicate_candidate") return "Draft";
   if (s === "stale") return "Stale";
   if (s === "conflict") return "Conflict";
-  if (s === "retired" || s === "archived") return "Retired";
-  if (s === "rejected") return "Draft";
+  if (s === "retired" || s === "archived" || s === "rejected") return "Retired";
   return "Draft";
+}
+
+function isReviewDatePast(dateStr: string | null | undefined, asOf: string = "2026-10-12"): boolean {
+  if (!dateStr || dateStr === "Retired" || dateStr === "—") return false;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return dateStr < asOf;
+  }
+  const parsed = Date.parse(dateStr);
+  const asOfParsed = Date.parse(asOf);
+  if (!isNaN(parsed) && !isNaN(asOfParsed)) {
+    return parsed < asOfParsed;
+  }
+  return false;
 }
 
 export function enrichUnit(u: DemoUnit): EnrichedKnowledgeUnit {
@@ -93,10 +105,8 @@ export function enrichUnit(u: DemoUnit): EnrichedKnowledgeUnit {
 
   const rawStatus = normalizeStatus(u.status);
   const isRetired = rawStatus === "Retired" || u.status === "retired";
-  const reviewDate = (u as any).review_date || meta?.next_review || meta?.review_date;
-  const isDateOverdue = Boolean(
-    meta?.next_review_status !== "Current" && reviewDate && reviewDate < "2026-10-06"
-  );
+  const reviewDate = (u as any).review_date || meta?.review_date || meta?.next_review;
+  const isDateOverdue = !isRetired && isReviewDatePast(reviewDate, "2026-10-12");
   const isOverdue =
     !isRetired &&
     (meta?.next_review_status === "Overdue" ||

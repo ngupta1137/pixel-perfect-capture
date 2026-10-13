@@ -6,8 +6,8 @@ import { setBreadcrumbs } from "@/lib/breadcrumbs";
 import { KnowledgeLibraryView } from "@/components/library/KnowledgeLibraryView";
 
 export const Route = createFileRoute("/library")({
-  validateSearch: (search: Record<string, unknown>): { unit?: string } => ({
-    unit: typeof search.unit === "string" ? search.unit : undefined,
+  validateSearch: (search: Record<string, unknown>): { unit?: string | undefined } => ({
+    unit: typeof search["unit"] === "string" ? search["unit"] : undefined,
   }),
   head: () =>
     pageHead(
@@ -22,7 +22,13 @@ export const Route = createFileRoute("/library")({
 });
 
 function LibraryPage() {
-  const { unit } = Route.useSearch();
+  let unit: string | undefined;
+  try {
+    const search = Route.useSearch();
+    unit = search?.unit;
+  } catch {
+    unit = undefined;
+  }
 
   useEffect(() => {
     setBreadcrumbs(["Workspace", "Knowledge library"]);

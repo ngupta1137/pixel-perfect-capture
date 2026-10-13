@@ -7,25 +7,39 @@ import { guide, useGuide } from "@/lib/guide";
 import { useSession } from "@/lib/session";
 import { PEOPLE } from "@/lib/rights";
 import { resetDemo } from "@/services/verity";
+import { getDemoState, type DemoRequest } from "@/services/demoStore";
 
 const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
 
 export function useRunGuideAction() {
   const navigate = useNavigate();
-  const { setPersona } = useSession();
+  const { persona, setPersona } = useSession();
   return (a: GuideAction) => {
-    const p = a.person ? PEOPLE.find((x) => x.name === a.person) : undefined;
-    if (p) setPersona(p.id);
+    const targetPersona = a.person ? PEOPLE.find((x) => x.name === a.person) : persona;
+    if (a.person && targetPersona) setPersona(targetPersona.id);
     if (a.to === "/audit") {
-      const id = a.replay ? guide.get().recorded[a.replay] : undefined;
+      let id = a.replay ? guide.get().recorded[a.replay] : undefined;
+      if (!id && a.replay) {
+        const reqs = getDemoState().requests;
+        const matching = reqs.find((r: DemoRequest) => r.outcome === "conflict" || r.query?.toLowerCase().includes("supply"));
+        if (matching) id = matching.id;
+      }
       void navigate({ to: "/audit", search: id ? { id } : {} });
     } else if (a.to === "/library") {
       void navigate({ to: "/library", search: a.unitId ? { unit: a.unitId } : {} });
     } else {
       void navigate({ to: a.to });
     }
-    if (a.query && p) guide.issue({ personId: p.id, query: a.query, context: a.context, thenPlanYear: a.thenPlanYear, record: a.record });
+    if (a.query && targetPersona) {
+      guide.issue({
+        personId: targetPersona.id,
+        query: a.query,
+        context: a.context,
+        thenPlanYear: a.thenPlanYear,
+        record: a.record,
+      });
+    }
   };
 }
 
@@ -84,7 +98,12 @@ export function GuideRail() {
                       </Button>
                     ))}
                   </div>
-                  {s.actions.filter((a) => a.hint).map((a) => <p key={a.hint} className="mt-2 text-xs text-ink-muted">{a.hint}</p>)}
+                  {s.actions.filter((a) => a.hint).map((a, k) => (
+                    <p key={k} className="mt-2 text-xs text-ink-muted">
+                      {a.label ? <strong className="text-ink font-medium">{a.label}: </strong> : null}
+                      {a.hint}
+                    </p>
+                  ))}
                 </>
               )}
             </li>

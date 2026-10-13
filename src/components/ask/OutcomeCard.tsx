@@ -32,17 +32,18 @@ function CitationLine({
         variant="ghost"
         type="button"
         onClick={() => onCite(c)}
-        className="mt-5 inline-flex h-auto max-w-full flex-wrap items-center justify-start gap-1 rounded-md border border-border bg-surface-alt px-3 py-2 text-left text-xs text-ink hover:border-brand-green-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="mt-4 inline-flex h-auto max-w-full flex-wrap items-center justify-start gap-1.5 rounded-md border border-border bg-surface-alt px-3 py-2 text-left text-xs text-ink hover:border-brand-green-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={`Open unit ${c.unit_id}: ${c.title}`}
       >
-        <span className="font-semibold">{c.title}</span> · v{c.version} · effective{" "}
-        {c.effective_date}
+        <span className="text-ink-muted font-normal">Source:</span>{" "}
+        <span className="font-semibold">{c.title}</span> {showOwner && `· ${c.owner}`} · v{c.version} · effective{" "}
+        {c.effective_date} · <span className="font-mono font-bold text-primary">{c.unit_id}</span>
       </Button>
     );
   return (
     <p className="mt-3 text-sm text-ink-muted">
-      {c.title} {showOwner && `· ${c.owner}`} · v{c.version} · effective {c.effective_date} ·{" "}
-      <span className="whitespace-nowrap">{c.unit_id}</span>
+      <span className="font-semibold text-ink">Source:</span> {c.title} {showOwner && `· ${c.owner}`} · v{c.version} · effective {c.effective_date} ·{" "}
+      <span className="whitespace-nowrap font-mono font-semibold">{c.unit_id}</span>
     </p>
   );
 }
@@ -234,7 +235,15 @@ function Body({
               <TypewriterResponse text={part.text ?? ""} />
             </div>
           )}
-          {c0 && <CitationLine c={c0} onCite={onCite} minimal={minimal} showOwner={showOwner} />}
+          {part.citations.map((c) => (
+            <CitationLine
+              key={c.unit_id}
+              c={c}
+              onCite={onCite}
+              minimal={minimal}
+              showOwner={showOwner}
+            />
+          ))}
         </>
       );
     case "needs_clarification":

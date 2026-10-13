@@ -55,35 +55,36 @@ export interface UnitMeta {
   review_date: string;
   applies_to: string;
   channels: string[];
-  read_before_benefits?: boolean;
-  content_type?: "Policy" | "Procedure" | "Legal" | "Guidance";
-  lob?: "MAPD" | "Commercial" | "Medicaid" | "Exchange" | "All";
-  state?: string;
-  section?: string;
-  last_updated?: string;
-  next_review?: string;
-  next_review_status?: "Current" | "Upcoming" | "Overdue";
-  approved_by?: string;
-  approved_on?: string;
-  summary?: string;
-  key_points?: string[];
-  verbatim?: boolean;
+  read_before_benefits?: boolean | undefined;
+  content_type?: ("Policy" | "Procedure" | "Legal" | "Guidance") | undefined;
+  lob?: ("MAPD" | "Commercial" | "Medicaid" | "Exchange" | "All") | undefined;
+  state?: string | undefined;
+  section?: string | undefined;
+  effective_date?: string | undefined;
+  last_updated?: string | undefined;
+  next_review?: string | undefined;
+  next_review_status?: ("Current" | "Upcoming" | "Overdue") | undefined;
+  approved_by?: string | undefined;
+  approved_on?: string | undefined;
+  summary?: string | undefined;
+  key_points?: string[] | undefined;
+  verbatim?: boolean | undefined;
   source_doc?: {
     title: string;
     doc_id: string;
     section: string;
     ingested_at: string;
     ingested_by: string;
-    snippet?: string;
-  };
-  related_unit_ids?: string[];
+    snippet?: string | undefined;
+  } | undefined;
+  related_unit_ids?: string[] | undefined;
 }
 
 export const UNIT_META: Record<string, UnitMeta> = {
   "U-PH-010": {
     kb: "KB-PHARM",
     verifier: "Owen (Knowledge owner)",
-    review_date: "2025-01-12",
+    review_date: "2027-03-01",
     applies_to: "MAPD, All states",
     channels: ["advocate_view", "member_chat", "voice"],
     content_type: "Policy",
@@ -91,7 +92,7 @@ export const UNIT_META: Record<string, UnitMeta> = {
     state: "All states",
     section: "Section 4.2",
     last_updated: "2024-01-12",
-    next_review: "12 Jan 2025",
+    next_review: "01 Mar 2027",
     next_review_status: "Current",
     approved_by: "Pharmacy Ops",
     approved_on: "14 Jan 2024",
@@ -116,15 +117,15 @@ export const UNIT_META: Record<string, UnitMeta> = {
   "U-PH-006": {
     kb: "KB-PHARM",
     verifier: "Owen (Knowledge owner)",
-    review_date: "2025-01-10",
-    applies_to: "Mail order, plan year 2024",
+    review_date: "2026-12-31",
+    applies_to: "Mail order, plan year 2026",
     channels: ["advocate_view", "member_chat", "voice"],
     content_type: "Procedure",
     lob: "MAPD",
     state: "All states",
     section: "Section 2.1",
     last_updated: "2024-01-10",
-    next_review: "10 Jan 2025",
+    next_review: "31 Dec 2026",
     next_review_status: "Current",
     approved_by: "Pharmacy Ops",
     approved_on: "12 Jan 2024",
@@ -250,7 +251,7 @@ export const UNIT_META: Record<string, UnitMeta> = {
     section: "Section 1.4",
     last_updated: "2023-12-18",
     next_review: "18 Dec 2024",
-    next_review_status: "Current",
+    next_review_status: "Overdue",
     approved_by: "Member Services Ops",
     approved_on: "18 Dec 2023",
     summary:
@@ -281,7 +282,7 @@ export const UNIT_META: Record<string, UnitMeta> = {
     section: "Section 2.3",
     last_updated: "2023-12-12",
     next_review: "12 Dec 2024",
-    next_review_status: "Current",
+    next_review_status: "Overdue",
     approved_by: "Provider Network Ops",
     approved_on: "12 Dec 2023",
     summary:
@@ -312,7 +313,7 @@ export const UNIT_META: Record<string, UnitMeta> = {
     section: "Section 4.1",
     last_updated: "2023-12-05",
     next_review: "05 Dec 2024",
-    next_review_status: "Current",
+    next_review_status: "Overdue",
     approved_by: "Pharmacy Ops",
     approved_on: "05 Dec 2023",
     summary:
@@ -343,7 +344,7 @@ export const UNIT_META: Record<string, UnitMeta> = {
     section: "Section 4.5",
     last_updated: "2023-12-02",
     next_review: "02 Dec 2024",
-    next_review_status: "Upcoming",
+    next_review_status: "Overdue",
     approved_by: "Clinical Governance Committee",
     approved_on: "02 Dec 2023",
     summary:
@@ -374,7 +375,7 @@ export const UNIT_META: Record<string, UnitMeta> = {
     section: "Section 4.3",
     last_updated: "2023-11-28",
     next_review: "28 Nov 2024",
-    next_review_status: "Current",
+    next_review_status: "Overdue",
     approved_by: "Pharmacy Ops",
     approved_on: "28 Nov 2023",
     summary:
@@ -405,7 +406,7 @@ export const UNIT_META: Record<string, UnitMeta> = {
     section: "Section 5.1",
     last_updated: "2023-11-24",
     next_review: "24 Nov 2024",
-    next_review_status: "Current",
+    next_review_status: "Overdue",
     approved_by: "Pharmacy Ops",
     approved_on: "24 Nov 2023",
     summary: "Standard and expedited turnaround timelines for medication prior authorization submissions.",
@@ -424,7 +425,7 @@ export const UNIT_META: Record<string, UnitMeta> = {
     section: "Section 6.2",
     last_updated: "2023-11-20",
     next_review: "20 Nov 2024",
-    next_review_status: "Current",
+    next_review_status: "Overdue",
     approved_by: "Specialty Pharmacy Ops",
     approved_on: "20 Nov 2023",
     summary: "Enrollment steps, clinical onboarding, and home injection training for specialty tier medications.",
@@ -443,7 +444,7 @@ export const UNIT_META: Record<string, UnitMeta> = {
     section: "Section 3.4",
     last_updated: "2023-11-15",
     next_review: "15 Nov 2024",
-    next_review_status: "Current",
+    next_review_status: "Overdue",
     approved_by: "Pharmacy Ops",
     approved_on: "15 Nov 2023",
     summary: "Emergency 72-hour transitional supply policy when prior authorization or formulary check is pending.",
@@ -462,7 +463,7 @@ export const UNIT_META: Record<string, UnitMeta> = {
     section: "Section 7.1",
     last_updated: "2023-11-10",
     next_review: "10 Nov 2024",
-    next_review_status: "Current",
+    next_review_status: "Overdue",
     approved_by: "Coordination of Benefits Unit",
     approved_on: "10 Nov 2023",
     summary: "Determines primary vs secondary payer hierarchy when a member holds commercial and Medicare dual coverage.",
@@ -481,7 +482,7 @@ export const UNIT_META: Record<string, UnitMeta> = {
     section: "Section 8.0",
     last_updated: "2023-11-05",
     next_review: "05 Nov 2024",
-    next_review_status: "Current",
+    next_review_status: "Overdue",
     approved_by: "Rita (Legal)",
     approved_on: "05 Nov 2023",
     summary: "CMS-mandated member grievance and appeal rights, submission windows, and escalation procedures.",
@@ -529,7 +530,7 @@ export const UNIT_META: Record<string, UnitMeta> = {
   "U-SH-001": {
     kb: "KB-SHARED",
     verifier: "Rita (Legal)",
-    review_date: "2026-01-15",
+    review_date: "2027-01-15",
     applies_to: "All calls, all states",
     channels: ["advocate_view", "voice"],
     content_type: "Legal",
@@ -537,7 +538,7 @@ export const UNIT_META: Record<string, UnitMeta> = {
     state: "All states",
     section: "Section 1.1",
     last_updated: "2023-10-25",
-    next_review: "15 Jan 2026",
+    next_review: "15 Jan 2027",
     next_review_status: "Current",
     approved_by: "Rita (Legal)",
     approved_on: "25 Oct 2023",
@@ -1263,17 +1264,17 @@ export interface Candidate {
   status: CandidateStatus;
   match?: { unit_id: string; version: number; text: string; exact?: boolean };
   duplicates?: { unit_id: string; title: string; similarity: number }[];
-  route?: "legal" | "owner";
-  owner_team?: string;
-  verbatim?: boolean;
-  tags?: string[];
-  banner?: string;
+  route?: "legal" | "owner" | undefined;
+  owner_team?: string | undefined;
+  verbatim?: boolean | undefined;
+  tags?: string[] | undefined;
+  banner?: string | undefined;
   note?: string | undefined;
-  suggestion?: string;
-  skip_reason?: string;
-  target_unit_id?: string;
-  effective_date?: string;
-  gate?: GateResult;
+  suggestion?: string | undefined;
+  skip_reason?: string | undefined;
+  target_unit_id?: string | undefined;
+  effective_date?: string | undefined;
+  gate?: GateResult | undefined;
   annotated_id?: string | undefined;
   version?: number | undefined;
   version_id?: string | undefined;

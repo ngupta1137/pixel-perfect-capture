@@ -104,7 +104,7 @@ export class KnowledgeIndex {
   search(query: string, knowledgeBases: string[]): Candidate[] {
     const { tokens: q, text } = prepare(query, this.lex);
     return this.items
-      .filter((it) => it.unit.status === 'approved' && knowledgeBases.includes(it.unit.knowledge_base))
+      .filter((it) => (it.unit.status === 'approved' || it.unit.status === 'stale') && knowledgeBases.includes(it.unit.knowledge_base))
       .map((it) => this.scoreOne(it, q, text, 'all'))
       .filter((c) => c.score > 0)
       .sort((a, b) => b.score - a.score || a.unit_id.localeCompare(b.unit_id));
@@ -114,7 +114,7 @@ export class KnowledgeIndex {
   route(query: string): { unit_id: string; title: string; knowledge_base: string; owner: string; coverage: number }[] {
     const { tokens: q, text } = prepare(query, this.lex);
     return this.items
-      .filter((it) => it.unit.status === 'approved')
+      .filter((it) => it.unit.status === 'approved' || it.unit.status === 'stale')
       .map((it) => ({ it, c: this.scoreOne(it, q, text, 'metadata') }))
       .filter((x) => (x.c.coverage >= MIN_COVERAGE && x.c.anchored) || x.c.phrase_match)
       .sort((a, b) => b.c.score - a.c.score || b.c.coverage - a.c.coverage)

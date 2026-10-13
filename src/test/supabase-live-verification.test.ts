@@ -14,12 +14,67 @@ try {
 describe("Verity Live Supabase Integration & Production Database Suite", () => {
   let liveDb: ReturnType<typeof createDatabaseClient>;
   let liveRepo: StorageRepository;
-  const isPostgresConfigured = isConfiguredPostgresUrl(process.env.SUPABASE_DB_URL);
+  const isPostgresConfigured = isConfiguredPostgresUrl(process.env["SUPABASE_DB_URL"]);
 
   beforeAll(async () => {
     if (isPostgresConfigured) {
-      liveDb = createDatabaseClient(process.env.SUPABASE_DB_URL!);
+      liveDb = createDatabaseClient(process.env["SUPABASE_DB_URL"]!);
       liveRepo = new StorageRepository(liveDb);
+
+      const existing = await liveRepo.listPublishedUnits();
+      if (existing.length < 2) {
+        const nowIso = new Date().toISOString();
+        await liveRepo.savePublishedUnit({
+          unit_id: "U-PH-003",
+          title: "Pricing disclaimer (Rx)",
+          type: "Policy",
+          body: "The prices I share today are estimates based on your current plan and may change. Your final cost will be confirmed when your prescription is processed.",
+          verbatim: 1,
+          spoken_version: null,
+          knowledge_base: "KB-PHARM",
+          audience_json: JSON.stringify(["advocate", "member"]),
+          channels_json: JSON.stringify(["advocate_view", "member_chat", "voice"]),
+          authority_level: "legal_disclaimer",
+          source_doc: "KB-PHARM-0140",
+          source_section: "[MANDATORY LANGUAGE]",
+          effective_date: "2026-01-15",
+          review_date: "2026-12-31",
+          version: 1,
+          status: "approved",
+          supersedes: null,
+          synonyms_json: JSON.stringify(["rx pricing disclaimer", "prescription pricing disclaimer"]),
+          owner: "Compliance",
+          approved_by: "Rita (Legal)",
+          applies_to_json: JSON.stringify({ lob: ["MAPD", "PDP"], states: "ALL", plan_year: 2026 }),
+          created_at: nowIso,
+          updated_at: nowIso,
+        });
+        await liveRepo.savePublishedUnit({
+          unit_id: "U-PH-004",
+          title: "Mail order benefits",
+          type: "fact",
+          body: "Mail order delivers medications to the member's home and offers a 90-day supply for most maintenance medications. It may cost less than retail; quote member-specific prices only from the pricing tool.",
+          verbatim: 0,
+          spoken_version: "Mail order brings your medications to your home, and you can get a ninety-day supply of most maintenance medications.",
+          knowledge_base: "KB-PHARM",
+          audience_json: JSON.stringify(["advocate", "member"]),
+          channels_json: JSON.stringify(["advocate_view", "member_chat", "voice"]),
+          authority_level: "knowledge_article",
+          source_doc: "KB-PHARM-0142",
+          source_section: "[EDUCATION]",
+          effective_date: "2026-01-15",
+          review_date: "2026-12-31",
+          version: 1,
+          status: "approved",
+          supersedes: null,
+          synonyms_json: JSON.stringify(["home delivery", "MO", "mail order benefits"]),
+          owner: "Pharmacy Ops",
+          approved_by: "Owen (Knowledge owner)",
+          applies_to_json: JSON.stringify({ lob: ["MAPD", "PDP"], states: "ALL", plan_year: 2026 }),
+          created_at: nowIso,
+          updated_at: nowIso,
+        });
+      }
     }
   });
 

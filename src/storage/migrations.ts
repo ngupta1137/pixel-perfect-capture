@@ -20,6 +20,8 @@ export async function runMigrations(db: Kysely<DatabaseSchema>): Promise<void> {
     .addColumn("description", "text")
     .addColumn("created_by", "text", (col) => col.notNull())
     .addColumn("created_at", "text", (col) => col.notNull())
+    .addColumn("review_date", "text")
+    .addColumn("status", "text")
     .execute();
 
   // Index on content_hash for instant duplicate detection
@@ -162,6 +164,12 @@ export async function runMigrations(db: Kysely<DatabaseSchema>): Promise<void> {
 
   try {
     await db.schema.alterTable("source_documents").addColumn("created_by_user_id", "text").execute();
+  } catch {}
+  try {
+    await db.schema.alterTable("source_documents").addColumn("review_date", "text").execute();
+  } catch {}
+  try {
+    await db.schema.alterTable("source_documents").addColumn("status", "text").execute();
   } catch {}
 
   // 6. published_units (authoritative persistent storage of approved & published knowledge)

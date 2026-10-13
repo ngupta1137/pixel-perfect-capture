@@ -65,7 +65,7 @@ export async function seedInitialDraftsIfEmpty(repo: StorageRepository = reposit
         current_text: currentText,
         candidate_type: it.type || "Policy",
         verbatim: (isLegal || it.verbatim) ? 1 : 0,
-        route_to: (isLegal || it.verbatim_drift) ? "legal" : "owner",
+        route_to: ((isLegal || it.verbatim_drift) ? "legal" : "owner") as "legal" | "owner",
         owner_team: isConflict ? "Knowledge Ops" : "Pharmacy Ops",
         knowledge_base: "KB-PHARM",
         effective_date: it.suggested_effective_date || "2026-01-01",
@@ -131,7 +131,7 @@ export function draftTableToReviewQueueItem(
   };
 
   const status: ReviewStatus = statusMap[draft.status] || "Pending review";
-  let annotations: Record<string, any> = {};
+  let annotations: any = {};
   try {
     annotations = JSON.parse(draft.annotations_json || "{}");
   } catch {}
@@ -250,9 +250,9 @@ export async function handleCreateConflictReport(
     person: string;
     unitIds: string[];
     query: string;
-    note?: string;
-    versions?: number[];
-    role?: string;
+    note?: string | undefined;
+    versions?: number[] | undefined;
+    role?: string | undefined;
   },
   repo: StorageRepository = repository
 ): Promise<{ ok: boolean; ticketId: string }> {
@@ -328,7 +328,7 @@ export async function handleCreateConflictReport(
 export async function handleApplyConsolidatingConflictResolution(
   req: {
     person: string;
-    supersedesIds?: string;
+    supersedesIds?: string | undefined;
   },
   repo: StorageRepository = repository
 ): Promise<{ ok: boolean; draftId: string; message: string }> {
@@ -417,10 +417,10 @@ export async function handleApplyConsolidatingConflictResolution(
 export async function handleResolveConflictBySuperseding(
   req: {
     person: string;
-    ticketId?: string;
+    ticketId?: string | undefined;
     winnerUnitId: string;
     loserUnitIds: string[];
-    reason?: string;
+    reason?: string | undefined;
   },
   repo: StorageRepository = repository
 ): Promise<{ ok: boolean; draftId: string; message: string }> {
@@ -513,7 +513,7 @@ export async function handleReverifyUnit(
   req: {
     person: string;
     unitId: string;
-    reviewDate?: string;
+    reviewDate?: string | undefined;
   },
   repo: StorageRepository = repository
 ): Promise<{ ok: boolean; reviewDate: string; message: string }> {
@@ -568,6 +568,40 @@ export async function handleReverifyUnit(
 }
 
 /**
+ * Owner/Author action: marks a unit as stale in persistent storage and engine.
+ */
+export async function handleMarkUnitStale(
+  req: {
+    person: string;
+    unitId: string;
+  },
+  repo: StorageRepository = repository
+): Promise<{ ok: boolean; message: string }> {
+  const { ensureStoreHydrated } = await import("../verity-engine/server");
+  const { Verity } = await import("../verity-engine/pipeline");
+  const { questionStore } = await import("../verity-engine/semantic");
+  const store = await ensureStoreHydrated();
+
+  // 1. Update SQLite / PostgreSQL published_units table
+  await repo.updatePublishedUnitStatus(req.unitId, "stale");
+
+  // 2. Update engine live units and rebuild engine cache
+  const live = store.units();
+  const target = live.find((u) => u.unit_id === req.unitId);
+  if (target) {
+    target.status = "stale";
+  }
+  (store as any).live = live;
+  (store as any).engineCache = new Verity({ ...(store as any).data, units: live });
+  questionStore.invalidate();
+
+  return {
+    ok: true,
+    message: `Unit ${req.unitId} marked as stale.`,
+  };
+}
+
+/**
  * Handle explicit revision of a published unit:
  * Increments or updates version, changes effective_date and review_date,
  * updates text/summary, resets status to approved, and invalidates cache.
@@ -576,12 +610,12 @@ export async function handleRevisePublishedUnit(
   req: {
     person: string;
     unitId: string;
-    version?: number;
-    effectiveDate?: string;
-    reviewDate?: string;
-    changeNote?: string;
-    summary?: string;
-    text?: string;
+    version?: number | undefined;
+    effectiveDate?: string | undefined;
+    reviewDate?: string | undefined;
+    changeNote?: string | undefined;
+    summary?: string | undefined;
+    text?: string | undefined;
   },
   repo: StorageRepository = repository
 ): Promise<{ ok: boolean; version: number; reviewDate: string; effectiveDate: string; message: string }> {
@@ -598,7 +632,7 @@ export async function handleRevisePublishedUnit(
   const newVersion = req.version && req.version > prevVersion ? req.version : prevVersion + 1;
   const newEffectiveDate = req.effectiveDate || new Date().toISOString().slice(0, 10);
   const newReviewDate = req.reviewDate || "2027-10-06";
-  const newText = req.text ?? existingPublished?.body ?? target?.text ?? "";
+  const newText = req.text ?? existingPublished?.body ?? (target ? ('body' in target ? (target as any).body : (target as any).text) : "") ?? "";
 
   // 1. Update SQLite published_units table
   if (existingPublished) {
@@ -618,7 +652,10 @@ export async function handleRevisePublishedUnit(
     (target as any).version = newVersion;
     target.effective_date = newEffectiveDate;
     target.review_date = newReviewDate;
-    if (newText) target.text = newText;
+    if (newText) {
+      if ('body' in target) (target as any).body = newText;
+      if ('text' in target) (target as any).text = newText;
+    }
     target.status = "approved";
   }
   (store as any).live = live;
@@ -732,7 +769,8 @@ export async function handleListReviewQueue(
  */
 export async function handleListMyDrafts(
   proposerName?: string,
-  repo: StorageRepository = repository
+  repo: StorageRepository = repository,
+  _sessionToken?: string
 ): Promise<DraftTable[]> {
   await seedInitialDraftsIfEmpty(repo);
   const allDrafts = await repo.listDrafts();
@@ -950,7 +988,7 @@ export async function handleDecideReviewItem(
       // Sync in-memory demoStore
       updateDemoState((s) => {
         let updated = s.units.map((u) => {
-          if (supersededIds.has(u.unit_id) || (u.source_doc && supersededIds.has(u.source_doc))) {
+          if (supersededIds.has(u.unit_id) || ((u as any).source_doc && supersededIds.has((u as any).source_doc))) {
             return { ...u, status: "superseded" };
           }
           return u;

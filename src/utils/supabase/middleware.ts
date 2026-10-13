@@ -2,14 +2,14 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 const supabaseUrl =
   (typeof process !== "undefined"
-    ? process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+    ? process.env["NEXT_PUBLIC_SUPABASE_URL"] || process.env["SUPABASE_URL"]
     : undefined) ||
   "https://ekdzbjkegokvgukypnvk.supabase.co";
 
 const supabaseKey =
   (typeof process !== "undefined"
-    ? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-      process.env.SUPABASE_ANON_KEY
+    ? process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] ||
+      process.env["SUPABASE_ANON_KEY"]
     : undefined) ||
   "sb_publishable_7XOtV6YYCbh4Uq9FInnNTA_di9qQZwu";
 

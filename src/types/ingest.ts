@@ -5,7 +5,8 @@ export interface RecentUpload {
   source_type: string;
   lob: string;
   uploaded_on: string;
-  status: "Extracted" | "Processing" | "Error" | "Pending";
+  status: "Extracted" | "Processing" | "Error" | "Pending" | "Stale";
+  review_date?: string | null | undefined;
   snippet?: string | undefined;
   description?: string | undefined;
 }

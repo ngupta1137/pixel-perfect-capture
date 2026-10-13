@@ -117,6 +117,9 @@ export async function ensureStoreHydrated(): Promise<KnowledgeStore> {
   const s = getStore();
   try {
     const { repository } = await import('../storage/repository.ts');
+    try {
+      await repository.markOverdueUnitsAndDocsAsStale(AS_OF);
+    } catch {}
     const dbUnits = await repository.listPublishedUnits();
     if (dbUnits && dbUnits.length > 0) {
       syncPublishedUnitsToStore(s, dbUnits);

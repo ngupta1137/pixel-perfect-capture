@@ -35,11 +35,11 @@ describe("Verity — Remaining Screens Implementation & Real Data Verification",
       expect(screen.getByRole("button", { name: /Outdated/i })).toBeInTheDocument();
 
       // Seeded gap items
-      expect(screen.getAllByText("Prior authorization for GLP-1 medications")[0]).toBeInTheDocument();
-      expect(screen.getByText("Home delivery for specialty medications")).toBeInTheDocument();
-      expect(screen.getByText("Coverage for weight management programs")).toBeInTheDocument();
-      expect(screen.getByText("Step therapy for asthma medications")).toBeInTheDocument();
-      expect(screen.getByText("Out-of-network reimbursement process")).toBeInTheDocument();
+      expect(screen.getAllByText("Specialty and oncology medication mail-order delivery")[0]).toBeInTheDocument();
+      expect(screen.getAllByText("Dental coverage and dental implant eligibility")[0]).toBeInTheDocument();
+      expect(screen.getAllByText("Formulary Exception Appeals Escalation Process")[0]).toBeInTheDocument();
+      expect(screen.getByText("Vision hardware allowance for 2026")).toBeInTheDocument();
+      expect(screen.getByText("Prior plan year mail-order rules (2025)")).toBeInTheDocument();
     });
 
     it("filters gaps by category tab and search query", () => {
@@ -52,18 +52,18 @@ describe("Verity — Remaining Screens Implementation & Real Data Verification",
         </DemoStoreProvider>,
       );
 
-      // Filter by Conflicting tab
-      fireEvent.click(screen.getByRole("button", { name: /Conflicting/i }));
-      expect(screen.getByText("Home delivery for specialty medications")).toBeInTheDocument();
-      expect(screen.queryByText("Coverage for weight management programs")).not.toBeInTheDocument();
+      // Filter by Outdated tab
+      fireEvent.click(screen.getByRole("button", { name: /Outdated/i }));
+      expect(screen.getByText("Prior plan year mail-order rules (2025)")).toBeInTheDocument();
+      expect(screen.queryByText("Dental coverage and dental implant eligibility")).not.toBeInTheDocument();
 
       // Return to All gaps and search
       fireEvent.click(screen.getByRole("button", { name: /All gaps/i }));
       const searchInput = screen.getByPlaceholderText(/Search gaps by topic, keyword/i);
-      fireEvent.change(searchInput, { target: { value: "asthma" } });
+      fireEvent.change(searchInput, { target: { value: "vision" } });
 
-      expect(screen.getByText("Step therapy for asthma medications")).toBeInTheDocument();
-      expect(screen.queryByText("Home delivery for specialty medications")).not.toBeInTheDocument();
+      expect(screen.getByText("Vision hardware allowance for 2026")).toBeInTheDocument();
+      expect(screen.queryByText("Dental coverage and dental implant eligibility")).not.toBeInTheDocument();
     });
 
     it("displays detailed panel on row selection with Overview, Search insights, and Related content tabs", () => {
@@ -76,23 +76,23 @@ describe("Verity — Remaining Screens Implementation & Real Data Verification",
         </DemoStoreProvider>,
       );
 
-      // Click on GLP-1 gap row
-      fireEvent.click(screen.getAllByText("Prior authorization for GLP-1 medications")[0]!);
+      // Click on Specialty gap row
+      fireEvent.click(screen.getAllByText("Specialty and oncology medication mail-order delivery")[0]!);
 
       // Detail panel content
       expect(screen.getByText("Gap summary")).toBeInTheDocument();
       expect(screen.getByText("Why this is a gap")).toBeInTheDocument();
-      expect(screen.getByText(/Insufficient or no approved content/i)).toBeInTheDocument();
+      expect(screen.getByText(/Insufficient or no approved specialty mail-order policy/i)).toBeInTheDocument();
 
       // Switch to Search insights
       fireEvent.click(screen.getByRole("button", { name: "Search insights" }));
       expect(screen.getByText(/Member search demand/i)).toBeInTheDocument();
-      expect(screen.getByText(/"Is Ozempic covered under MAPD 2024\?"/i)).toBeInTheDocument();
+      expect(screen.getByText(/"Can I get a 90-day supply of a specialty oncology drug by mail\?"/i)).toBeInTheDocument();
 
       // Switch to Related content
       fireEvent.click(screen.getByRole("button", { name: "Related content" }));
       expect(screen.getByText(/Potential nearby units/i)).toBeInTheDocument();
-      expect(screen.getByText(/Formulary exceptions & tiering reviews/i)).toBeInTheDocument();
+      expect(screen.getByText(/90-day mail-order supply eligibility/i)).toBeInTheDocument();
     });
   });
 
