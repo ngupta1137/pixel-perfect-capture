@@ -54,8 +54,11 @@ const browser = await chromium.launch({
   ...(executablePath ? { executablePath } : {}),
   args: ["--start-maximized", "--autoplay-policy=no-user-gesture-required", "--no-sandbox"],
 });
+// Full-screen exception: lay the app out in a larger viewport (no scrolling) and record it scaled into 1280x720.
+const VIEW_W = Number(process.env.VIEW_W || 2560), VIEW_H = Number(process.env.VIEW_H || 1440);
+const SC = VIEW_W / 1280;
 const context = await browser.newContext({
-  viewport: { width: 1280, height: 720 },
+  viewport: { width: VIEW_W, height: VIEW_H },
   recordVideo: { dir: VIDEO_DIR, size: { width: 1280, height: 720 } },
 });
 
@@ -67,12 +70,12 @@ await context.addInitScript(() => {
 });
 
 // Overlay: green cursor, spotlight ring, subtitle pill, and speech helper.
-await context.addInitScript(() => {
+await context.addInitScript((SC) => {
   const build = () => {
     if (document.getElementById("vty-layer") || !document.body) return;
     const st = document.createElement("style");
     st.textContent = `
-      #vty-layer{position:fixed;inset:0;z-index:2147483647;pointer-events:none;font-family:Inter,system-ui,sans-serif}
+      #vty-layer{position:fixed;left:0;top:0;width:${100/SC}vw;height:${100/SC}vh;transform:scale(${SC});transform-origin:0 0;z-index:2147483647;pointer-events:none;font-family:Inter,system-ui,sans-serif}
       #vty-cursor{position:fixed;left:0;top:0;width:30px;height:30px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
       #vty-ring{position:fixed;display:none;border:3px solid #22c55e;border-radius:12px;
         box-shadow:0 0 0 9999px rgba(8,20,12,.25),0 0 22px 6px rgba(34,197,94,.8);animation:vtyp 1s ease-in-out infinite}
@@ -95,9 +98,9 @@ await context.addInitScript(() => {
     const clk = l.querySelector("#vty-click");
     cur.style.transform = "translate(640px,360px)";
     window.addEventListener("mousemove", (e) => {
-      cur.style.transform = `translate(${e.clientX}px,${e.clientY}px)`;
-      clk.style.left = e.clientX + "px";
-      clk.style.top = e.clientY + "px";
+      cur.style.transform = `translate(${e.clientX / SC}px,${e.clientY / SC}px)`;
+      clk.style.left = e.clientX / SC + "px";
+      clk.style.top = e.clientY / SC + "px";
     }, true);
     window.addEventListener("mousedown", () => {
       clk.classList.remove("go"); void clk.offsetWidth; clk.classList.add("go");
@@ -133,7 +136,7 @@ await context.addInitScript(() => {
         setTimeout(() => { if (!synth.speaking && !done) finish("silent-fallback"); }, fallbackMs + 1500);
       } catch { setTimeout(() => finish("exception"), fallbackMs); }
     });
-});
+}, SC);
 
 // Audio-sync mode (used by make-scenario-1-video.mjs): pre-generated narration drives the pacing.
 const MANIFEST = process.env.VTY_AUDIO_MANIFEST ? JSON.parse(fs.readFileSync(process.env.VTY_AUDIO_MANIFEST, "utf8")) : null;
@@ -167,7 +170,6 @@ async function visible(loc, ms = 1500) {
 }
 async function centerOf(loc) {
   const el = loc.first();
-  await el.scrollIntoViewIfNeeded().catch(() => {});
   await sleep(250);
   const b = await el.boundingBox();
   if (!b) throw new Error("no bounding box");
@@ -187,8 +189,8 @@ async function spot(loc, { zoom = 1.05, pad = 6 } = {}) {
   if (b.width > 300) zoom = Math.min(zoom, 1.04); // large panels get only a subtle lift so text never blurs or crops
   await page.evaluate(([r, pad]) => {
     const ring = document.getElementById("vty-ring");
-    Object.assign(ring.style, { display: "block", left: r.x - pad + "px", top: r.y - pad + "px", width: r.width + pad * 2 + "px", height: r.height + pad * 2 + "px" });
-  }, [b, pad]);
+    Object.assign(ring.style, { display: "block", left: (r.x - pad) / r.SC + "px", top: (r.y - pad) / r.SC + "px", width: (r.width + pad * 2) / r.SC + "px", height: (r.height + pad * 2) / r.SC + "px" });
+  }, [{ ...b, SC }, pad]);
   await loc.first().evaluate((el, z) => {
     el.__vtyPrev = [el.style.transform, el.style.transition, el.style.position];
     el.style.transition = "transform .3s ease";
@@ -253,7 +255,6 @@ await Promise.all([
       deviations.push("Cue 1: first Recent uploads row is a fixture without extractable text; used Paste content > Load AEP Sample Policy instead of clicking Extract units.");
       await hover(item, { zoom: 1.12 }, 900);
       await page.keyboard.press("Escape");
-      await page.evaluate(() => window.scrollTo(0, 0));
       await clickWithSpot(page.getByText("Paste content").first(), { zoom: 1.08 }, 500);
       await clickWithSpot(page.getByText("Load AEP Sample Policy").first(), { zoom: 1.1 }, 500);
       await clickWithSpot(page.getByRole("button", { name: /Extract candidate units/ }).first(), { zoom: 1.06 }, 600);
