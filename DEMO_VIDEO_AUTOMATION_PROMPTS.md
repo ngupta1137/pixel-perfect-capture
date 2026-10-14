@@ -415,40 +415,51 @@ OUTPUT FILES REQUIRED:
 
 ### Claude Chat Prompt
 ```markdown
-Write a self-contained Playwright automation script `scenario-7-voice-demo.mjs` for Scenario 7 of the Verity demo.
+Write the production video automation scripts for Scenario 7 of the Verity demo: `scenario-7-voice-demo.mjs`, `scenario-7-tts.py`, and `make-scenario-7-video.mjs`.
 
-OBJECTIVE:
-Record a 45-second video demonstrating compliance auditor Casey inspecting the immutable audit ledger on `/audit`, followed by AI Product Owner Nitin reviewing the regression evaluation harness on `/evals`.
+SCENARIO OBJECTIVE:
+Record a crisp ~45-50s video demonstrating Verity's enterprise compliance observability. First, Compliance Auditor Casey (`vty_sess_demo_casey`) inspects the immutable audit ledger on `/audit`, verifying the complete maker-checker provenance chain (Dana's proposal → Rita's legal sign-off) and event timestamps. Then, switch to AI Product Owner Nitin (`vty_sess_demo_nitin`) on `/evals` to inspect the automated benchmark evaluation suite, reviewing the 26/27 passing golden regression tests and release gate status.
 
-CONFIGURATION:
-- App URL: http://localhost:8081 (fallback http://localhost:8080)
-- Initial Route: /audit as Casey, then /evals as Nitin.
-- Session Injections:
-  Step 1 (Casey): `verity_active_persona="casey"`, `verity_session_token="vty_sess_demo_casey"`
-  Step 2 (Nitin): `verity_active_persona="nitin"`, `verity_session_token="vty_sess_demo_nitin"`
-- Viewport: 1280x720, recordVideo into `scenario7-video/`
+PRODUCTION STANDARDS (Learned from Scenarios 1-6):
+- Voice: ElevenLabs custom voice ID `RfKtG66Co2EredaKMj6o` with `REUSE_AUDIO=1` caching.
+- Directing (Targeted Spotlight): Steady camera, smooth cursor gliding (`glideTo`), pulsing emerald spotlight ring (`#vty-ring`), subtle card elevation `scale(1.04)`, and teleprompter subtitles (`#vty-sub`).
+- Pacing: Trim lead-in silence before cue 0, accelerate un-narrated pauses 3× (`GAP_SPEED=3`), and auto-calibrate audio sync via subtitle luma detection.
+- Windows Resiliency: Auto-parse `.env`, auto-discover WinGet `ffmpeg`/`ffprobe` in `$env:LOCALAPPDATA\Microsoft\WinGet\Links`, and connect to `http://localhost:8081` (fallback `8080`).
 
-VISUAL DIRECTING & SPOTLIGHT OVERLAY:
-- Focus on the cryptographic hash column, event actors (`dana` → `rita`), and timestamps on `/audit`.
-- Transition smoothly to `/evals` and spotlight the 26/27 passing test suites and latency graphs.
+PERSONA & AUTHENTICATION:
+- Step 1 (Casey on `/audit`):
+  sessionStorage.setItem("verity_authenticated", "true");
+  sessionStorage.setItem("verity_active_persona", "casey");
+  sessionStorage.setItem("verity_session_token", "vty_sess_demo_casey");
+  localStorage.setItem("vty_session_token", "vty_sess_demo_casey");
+- Step 2 (Nitin on `/evals`):
+  sessionStorage.setItem("verity_authenticated", "true");
+  sessionStorage.setItem("verity_active_persona", "nitin");
+  sessionStorage.setItem("verity_session_token", "vty_sess_demo_nitin");
+  localStorage.setItem("vty_session_token", "vty_sess_demo_nitin");
 
-VOICEOVER SCRIPT & SYNCHRONIZED VISUAL CUES:
+VOICEOVER SCRIPT & SYNCHRONIZED VISUAL ACTIONS:
 
 [Cue 0 - Announcement]
-- Spoken Words: "Now we will see the Cryptographic Audit Trail and Automated Evaluation Harness."
-- Visual Action: Land on `/audit` with Casey. Glide cursor across the Audit Ledger table.
+- Subtitle: "Now we will see the Cryptographic Audit Trail and Automated Evaluation Harness."
+- Visual: Casey lands on `/audit`. Glide cursor across the Audit Ledger header and event filters.
 
 [Cue 1 - Immutable Compliance Ledger]
-- Spoken Words: "Auditor Casey reviews the immutable ledger, inspecting cryptographic hashes and full maker-checker provenance for every published unit."
-- Visual Action: Spotlight the top audit events: Dana's proposal event, followed by Rita's approval event. Zoom in on the SHA-256 hash pill and timestamp.
+- Subtitle: "Auditor Casey reviews the immutable ledger, inspecting cryptographic provenance for every published unit."
+- Visual: Spotlight the top audit rows showing the full maker-checker chain: Dana's proposal event, followed by Rita's legal sign-off. Spotlight the actor, action, and timestamp columns with scale 1.04.
 
-[Cue 2 - Regression Evals Harness]
-- Spoken Words: "Product Owner Nitin inspects the automated evaluation suite, where twenty-six of twenty-seven golden benchmark tests verify zero hallucination."
-- Visual Action: Switch session to Nitin and navigate to `/evals`. Spotlight the primary evaluation metrics card: "26 / 27 Passed (96.3%)", latency percentiles, and citation precision.
+[Cue 2 - Replay Verification]
+- Subtitle: "Every member interaction retains its exact policy path, enabling point-in-time answer replay for compliance reviews."
+- Visual: Glide to and spotlight the Answer Replay section or query log row on the audit page, demonstrating zero-drift repeatability.
 
-PACING & RUN INSTRUCTIONS:
-- Pacing must be governed by `window.speechSynthesis` utterance `onend` events.
-- Conclude gracefully, log summary, and exit.
+[Cue 3 - Regression Benchmark Suite]
+- Subtitle: "Product Owner Nitin inspects the automated evaluation harness, where twenty-six of twenty-seven golden benchmark tests pass."
+- Visual: Inject Nitin's session and navigate to `/evals`. Wait for dashboard to render. Spotlight the primary metric card showing "26 / 27 Passed (96.3%)", the release gate badge, and the test suite latency metrics.
+
+OUTPUT FILES REQUIRED:
+1. `scenario-7-tts.py` (with `.env` loader, ElevenLabs `RfKtG66Co2EredaKMj6o`, Edge-TTS fallback)
+2. `scenario-7-voice-demo.mjs` (Playwright script reading `scenario7-output/manifest.json`, directing `#vty-layer`)
+3. `make-scenario-7-video.mjs` (one-click orchestrator with WinGet PATH fix, lead-in trim, `GAP_SPEED=3`, subtitle luma detector, outputting `scenario7-output/scenario-7-with-voice.mp4`)
 ```
 
 ---
