@@ -292,7 +292,7 @@ const hasDana = await visible(danaRow, 1500);
 if (!hasRita) deviations.push("Cue 2: no Rita approval row on the audit page.");
 if (!hasDana) deviations.push("Cue 2: no Dana denied row on the audit page.");
 await Promise.all([
-  speak("It shows Rita's legal approval, and Dana's denied attempt to approve her own unit under maker-checker."),
+  speak("It shows Rita's legal approval, and Dana's denied approval, because under maker-checker the proposer cannot approve."),
   (async () => {
     if (hasRita) await hover(ritaRow, { zoom: 1.03, pad: 3 }, 1700);
     if (hasDana) await hover(danaRow, { zoom: 1.03, pad: 3 }, 1900);

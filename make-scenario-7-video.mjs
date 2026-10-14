@@ -53,7 +53,7 @@ const run = (cmd, args, opts = {}) => {
 const LINES = [
   { id: "a0", text: "Now we will see the audit log and the automated evaluation harness." },
   { id: "c1", text: "Casey, our compliance auditor, opens the read-only audit log of who did what, and when." },
-  { id: "c2", text: "It shows Rita's legal approval, and Dana's denied attempt to approve her own unit under maker-checker." },
+  { id: "c2", text: "It shows Rita's legal approval, and Dana's denied approval, because under maker-checker the proposer cannot approve." },
   { id: "c3", text: "The as-of lookup shows which version of a unit was live on a given date." },
   { id: "c4", text: "Nitin, the AI product owner, runs the golden evaluation suite." },
   { id: "c5", text: "Twenty-six of twenty-seven golden cases pass, with zero permission leaks. Release gates pass, with one open failure." },
