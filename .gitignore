@@ -36,3 +36,9 @@ dist-ssr
 # Local databases
 .data/
 *.db
+
+# Video recordings and outputs
+*-output/
+scenario*-video/
+*.webm
+*.mp4

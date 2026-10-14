@@ -6,6 +6,24 @@ auto tries elevenlabs first when ELEVENLABS_API_KEY is set, then edge, then koko
 The API key is read only from the environment and is never printed or written to disk."""
 import asyncio, json, os, sys
 
+def load_env():
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("$env:"):
+                    line = line[5:].strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    k, v = k.strip(), v.strip()
+                    if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+                        v = v[1:-1]
+                    if k not in os.environ:
+                        os.environ[k] = v
+
+load_env()
+
 lines = json.load(open(sys.argv[1]))
 out = sys.argv[2]
 engine = sys.argv[3] if len(sys.argv) > 3 else "auto"

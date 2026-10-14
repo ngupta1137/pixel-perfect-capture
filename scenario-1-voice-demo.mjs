@@ -347,14 +347,25 @@ await Promise.all([
   })(),
 ]);
 
-mark("cue 5 done");
 // [Cue 6] Maker-checker governance on My drafts
-await page.getByText(/My active draft proposals/).first().waitFor({ timeout: 30000 });
+const draftsIndicator = page.getByText(/My active draft proposals|Waiting on|A second person approves/i);
+let draftsVisible = await visible(draftsIndicator, 8000);
+if (!draftsVisible) {
+  const draftsTab = page.getByRole("tab", { name: "My drafts" });
+  if (await visible(draftsTab, 3000)) {
+    await draftsTab.click();
+  }
+  await draftsIndicator.first().waitFor({ timeout: 45000 }).catch(() => {});
+}
 await sleep(600);
 mark("drafts tab loaded");
 const needsLegal = page.getByText(/Needs Legal/i);
-const hasBadge = await visible(needsLegal, 800);
-const gate = hasBadge ? needsLegal : page.getByText(/A second person approves/i);
+const hasBadge = await visible(needsLegal, 1000);
+const gate = hasBadge
+  ? needsLegal
+  : (await visible(page.getByText(/A second person approves/i), 800))
+  ? page.getByText(/A second person approves/i)
+  : page.locator("li").first();
 if (!hasBadge) deviations.push('Cue 6: no "Needs Legal" badge on My drafts; spotlighted the lifecycle line "Waiting on: Unassigned, A second person approves" instead.');
 const lifecycle = page.locator('[aria-label="Lifecycle"]').first();
 await Promise.all([

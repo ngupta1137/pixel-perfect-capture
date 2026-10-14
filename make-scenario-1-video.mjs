@@ -5,6 +5,29 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
+// Auto-load .env
+if (fs.existsSync(".env")) {
+  for (const line of fs.readFileSync(".env", "utf8").split(/\r?\n/)) {
+    let clean = line.trim();
+    if (clean.startsWith("$env:")) clean = clean.slice(5).trim();
+    if (clean && !clean.startsWith("#") && clean.includes("=")) {
+      const idx = clean.indexOf("=");
+      const key = clean.slice(0, idx).trim();
+      let val = clean.slice(idx + 1).trim();
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1);
+      }
+      if (!process.env[key]) process.env[key] = val;
+    }
+  }
+}
+
+// Ensure ffmpeg/ffprobe installed via WinGet are discoverable
+const wingetLinks = path.join(process.env.LOCALAPPDATA || "", "Microsoft", "WinGet", "Links");
+if (fs.existsSync(wingetLinks) && !process.env.PATH.includes(wingetLinks)) {
+  process.env.PATH = `${wingetLinks};${process.env.PATH}`;
+}
+
 const OUT = path.resolve(process.env.OUT_DIR || "scenario1-output");
 // REUSE_AUDIO=1 keeps narration clips from the previous run (saves voice credits when only the video step failed).
 const REUSE = process.env.REUSE_AUDIO === "1" && fs.existsSync(path.join(OUT, "audio", "tts.json"));
@@ -38,7 +61,11 @@ const LINES = [
 
 // 1. narration audio
 fs.writeFileSync(path.join(OUT, "lines.json"), JSON.stringify(LINES.map((l) => ({ id: l.id, tts: l.tts || l.text }))));
-if (!REUSE) run(py, ["scenario-1-tts.py", path.join(OUT, "lines.json"), path.join(OUT, "audio"), process.env.TTS_ENGINE || "auto"]);
+if (!REUSE) {
+  run(py, ["scenario-1-tts.py", path.join(OUT, "lines.json"), path.join(OUT, "audio"), process.env.TTS_ENGINE || "auto"]);
+} else {
+  console.log("audio: reusing existing cached voice clips");
+}
 const tts = JSON.parse(fs.readFileSync(path.join(OUT, "audio", "tts.json"), "utf8"));
 const manifest = {};
 for (const l of LINES) {
