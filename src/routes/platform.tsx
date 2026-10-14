@@ -289,7 +289,7 @@ const BUILT_CAPABILITIES = [
   { name: "13-Step Serving Engine", desc: "Full deterministic-before-generative runtime kernel.", status: "Working" },
   { name: "Role-Based Persona RBAC", desc: "Centralized policy driving permissions, scoping, and UI views.", status: "Working" },
   { name: "Knowledge Drift Detection", desc: "Automated flagging for stale dates, conflicts, and gap tickets.", status: "Working" },
-  { name: "Golden Benchmark Evals (S11)", desc: "100-scenario regression evaluation gate with automated scoring.", status: "Working" },
+  { name: "Golden Benchmark Evals (S11)", desc: "27-case golden regression gate with automated scoring.", status: "Working" },
 ];
 
 const ROADMAP_CAPABILITIES = [
@@ -938,7 +938,7 @@ function PlatformPage() {
               <div>
                 <h3 className="text-lg font-bold text-ink">Platform Capabilities: Working vs Roadmap</h3>
                 <p className="text-xs text-ink-muted mt-0.5">
-                  Enterprise readiness matrix showing production-certified components and future-state infrastructure.
+                  What works in this prototype today versus the planned build.
                 </p>
               </div>
             </div>
