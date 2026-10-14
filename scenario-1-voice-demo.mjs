@@ -54,13 +54,13 @@ const browser = await chromium.launch({
   ...(executablePath ? { executablePath } : {}),
   args: ["--start-maximized", "--autoplay-policy=no-user-gesture-required", "--no-sandbox"],
 });
-// Full-page exception: lay the app out at 100% size in a tall 16:9 viewport (no scrolling) and record it at 1920x1080.
-// The whole Review page needs about 1300px of height, so the viewport is 2400x1350; the video scales it by 0.8.
-const VIEW_W = Number(process.env.VIEW_W || 2400), VIEW_H = Number(process.env.VIEW_H || 1350);
+// Scenario 1 records at 1440x810 (a little larger than the 1280x720 clips, so text is close to the others).
+// On the Review page the screen is scrolled once so the three working panels fill the frame, and scrolls again only to reach Propose.
+const VIEW_W = Number(process.env.VIEW_W || 1440), VIEW_H = Number(process.env.VIEW_H || 810);
 const SC = VIEW_W / 1280;
 const context = await browser.newContext({
   viewport: { width: VIEW_W, height: VIEW_H },
-  recordVideo: { dir: VIDEO_DIR, size: { width: 1920, height: 1080 } },
+  recordVideo: { dir: VIDEO_DIR, size: { width: VIEW_W, height: VIEW_H } },
 });
 
 // Session injection for Dana (Knowledge author), before any page script runs.
@@ -172,10 +172,22 @@ async function visible(loc, ms = 1500) {
 }
 async function centerOf(loc) {
   const el = loc.first();
+  await el.scrollIntoViewIfNeeded().catch(() => {});
   await sleep(250);
   const b = await el.boundingBox();
   if (!b) throw new Error("no bounding box");
   return { x: b.x + b.width / 2, y: b.y + Math.min(b.height / 2, 60), b };
+}
+// Scroll once so the three working panels (document preview, candidate units, unit details) fill the frame.
+async function alignPanels() {
+  await page.evaluate(() => {
+    const t = [...document.querySelectorAll("*")].find((e) => e.children.length === 0 && /^Document preview$/.test((e.textContent || "").trim()));
+    const card = t ? t.closest("div[class*='rounded']") || t.parentElement : null;
+    if (!card) return;
+    const top = card.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo({ top: Math.max(0, top - 150), behavior: "smooth" });
+  });
+  await sleep(900);
 }
 async function glideTo(x, y, steps = 38) {
   const sx = mx, sy = my;
@@ -271,6 +283,7 @@ const tWait = Date.now() - T0;
 await reviewReady.first().waitFor({ timeout: 90000 });
 { const tDone = Date.now() - T0; if (tDone - tWait > 4000) cuts.push({ startMs: tWait + 1500, endMs: tDone - 300 }); }
 await sleep(800);
+await alignPanels();
 const unitsCol = page.locator("div.overflow-y-auto").filter({ has: page.getByRole("checkbox") }).first();
 await Promise.all([
   speak("Verity lists the candidate knowledge units it extracted from the document."),
@@ -415,6 +428,7 @@ mark("cue 7 done");
   if (tD - tW > 4000) cuts.push({ startMs: tW + 1500, endMs: tD - 300 });
 }
 await sleep(800);
+await alignPanels();
 const col2 = page.locator("div.overflow-y-auto").filter({ has: page.getByRole("checkbox") }).first();
 const legalBadge = col2.getByText("Legal", { exact: true }).first();
 await Promise.all([

@@ -90,7 +90,7 @@ const { timeline, cuts = [], videoPath } = JSON.parse(fs.readFileSync(timelinePa
 // Calibrate: find when the first subtitle pill really appears in the video and shift every cue by the difference.
 {
   const fps = 10;
-  const r = spawnSync("ffmpeg", ["-v", "error", "-i", videoPath, "-vf", `fps=${fps},crop=4:4:2:1070,scale=1:1`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 26 });
+  const r = spawnSync("ffmpeg", ["-v", "error", "-i", videoPath, "-vf", `fps=${fps},crop=4:4:2:804,scale=1:1`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 26 });
   const px = r.stdout;
   let first = -1;
   for (let i = 0; i + 2 < px.length; i += 3) {
@@ -143,7 +143,7 @@ console.log(`edit: picture ${acc.toFixed(1)}s, last narration ends ${audioEnd.to
 const final = path.join(OUT, "scenario-1-with-voice.mp4");
 // Step A: video only
 const silent = path.join(OUT, "video-cut.mp4");
-const vgraph0 = `[0:v]fps=25,drawbox=x=0:y=1062:w=18:h=18:color=white:t=fill,split=${pieces.length}${pieces.map((_, i) => `[s${i}]`).join("")};` +
+const vgraph0 = `[0:v]fps=25,drawbox=x=0:y=796:w=14:h=14:color=white:t=fill,split=${pieces.length}${pieces.map((_, i) => `[s${i}]`).join("")};` +
   pieces.map((p, i) => `[s${i}]trim=start=${p.a.toFixed(3)}:end=${p.b.toFixed(3)},setpts=(PTS-STARTPTS)/${p.speed}[c${i}]`).join(";") +
   `;${pieces.map((_, i) => `[c${i}]`).join("")}concat=n=${pieces.length}:v=1:a=0[vc]` + (holdLast > 0 ? `;[vc]tpad=stop_mode=clone:stop_duration=${holdLast.toFixed(3)}[v]` : `;[vc]null[v]`);
 const textById = Object.fromEntries(LINES.map((l) => [l.id, l.text]));
