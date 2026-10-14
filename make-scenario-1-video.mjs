@@ -74,21 +74,40 @@ const { timeline, cuts = [], videoPath } = JSON.parse(fs.readFileSync(timelinePa
   } else console.log("sync: subtitle not detected, using raw timeline");
 }
 
-// 3. cut idle waits from the video, move later cues earlier by the same amount, then merge
-const cutBefore = (ms) => cuts.reduce((sum, c) => sum + Math.max(0, Math.min(c.endMs, ms) - c.startMs), 0);
-for (const t of timeline) t.startMs -= cutBefore(t.startMs);
+// 3. Edit list: drop idle waits and the silent lead-in, play long un-narrated stretches faster, then merge with the audio
+const SPEED = Number(process.env.GAP_SPEED || 3);
+const PAD = 0.4;
+const firstCue = timeline[0].startMs / 1000;
+if (firstCue - 0.8 > 1.5) cuts.push({ startMs: 0, endMs: (firstCue - 0.8) * 1000 });
+const windows = timeline.map((t) => [t.startMs / 1000 - 0.1, (t.startMs + t.durationMs) / 1000 + PAD]);
+const endT = Math.max(...windows.map((w) => w[1]), ...cuts.map((c) => c.endMs / 1000)) + 1.8;
+const pts = [...new Set([0, endT, ...cuts.flatMap((c) => [c.startMs / 1000, c.endMs / 1000]), ...windows.flat()].map((x) => +x.toFixed(3)))]
+  .filter((x) => x >= 0 && x <= endT)
+  .sort((x, y) => x - y);
+const inCut = (m) => cuts.some((c) => m >= c.startMs / 1000 && m < c.endMs / 1000);
+const inWin = (m) => windows.some((w) => m >= w[0] && m < w[1]);
+const pieces = [];
+for (let i = 0; i + 1 < pts.length; i++) {
+  const a = pts[i], b = pts[i + 1], m = (a + b) / 2;
+  if (b - a < 0.04 || inCut(m)) continue;
+  pieces.push({ a, b, speed: !inWin(m) && b - a > 3 ? SPEED : 1 });
+}
+let acc = 0;
+for (const p of pieces) { p.o = acc; acc += (p.b - p.a) / p.speed; }
+const mapT = (t) => { for (const p of pieces) if (t >= p.a && t < p.b) return p.o + (t - p.a) / p.speed; return acc; };
+for (const t of timeline) t.startMs = mapT(t.startMs / 1000) * 1000;
 const final = path.join(OUT, "scenario-1-with-voice.mp4");
-// Step A: video only (cuts applied, constant 25 fps)
+// Step A: video only
 const silent = path.join(OUT, "video-cut.mp4");
-const vf = cuts.length
-  ? `fps=25,select='${cuts.map((c) => `not(between(t,${(c.startMs / 1000).toFixed(3)},${(c.endMs / 1000).toFixed(3)}))`).join("*")}',setpts=N/(25*TB)`
-  : "fps=25";
-run("ffmpeg", ["-v", "error", "-y", "-i", videoPath, "-vf", vf, "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", silent]);
+const vgraph = `[0:v]fps=25,split=${pieces.length}${pieces.map((_, i) => `[s${i}]`).join("")};` +
+  pieces.map((p, i) => `[s${i}]trim=start=${p.a.toFixed(3)}:end=${p.b.toFixed(3)},setpts=(PTS-STARTPTS)/${p.speed}[c${i}]`).join(";") +
+  `;${pieces.map((_, i) => `[c${i}]`).join("")}concat=n=${pieces.length}:v=1:a=0[v]`;
+run("ffmpeg", ["-v", "error", "-y", "-i", videoPath, "-filter_complex", vgraph, "-map", "[v]", "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", silent]);
 const vdur = parseFloat(run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", silent], { capture: true }));
 // Step B: place each clip at its cue start, mix, and mux with the video
 const inputs = ["-i", silent, ...timeline.flatMap((t) => ["-i", t.file])];
 const delays = timeline.map((t, i) => `[${i + 1}:a]aresample=48000,adelay=${Math.max(0, Math.round(t.startMs))}|${Math.max(0, Math.round(t.startMs))}[d${i}]`);
 const mix = `${delays.join(";")};${timeline.map((_, i) => `[d${i}]`).join("")}amix=inputs=${timeline.length}:normalize=0:duration=longest,apad=whole_dur=${vdur.toFixed(3)}[a]`;
 run("ffmpeg", ["-v", "error", "-y", ...inputs, "-filter_complex", mix, "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", vdur.toFixed(3), "-movflags", "+faststart", final]);
-console.log("cuts removed:", cuts.map((c) => ((c.endMs - c.startMs) / 1000).toFixed(1) + "s").join(", ") || "none");
+console.log("removed:", cuts.map((c) => ((c.endMs - c.startMs) / 1000).toFixed(1) + "s").join(", ") || "none", "| sped up", SPEED + "x:", pieces.filter((p) => p.speed > 1).map((p) => ((p.b - p.a)).toFixed(1) + "s").join(", ") || "none");
 console.log("DONE:", final);
