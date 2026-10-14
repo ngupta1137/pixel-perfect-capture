@@ -1,8 +1,9 @@
 """Generate narration clips for Scenario 1.
 Usage: python3 scenario-1-tts.py lines.json out_dir [auto|edge|kokoro]
 lines.json: [{"id": "c1", "tts": "text to speak"}]
-Engines: edge (edge-tts, en-US-GuyNeural, male, needs internet) or kokoro (local ONNX voice, am_michael, male).
-auto tries edge first and falls back to kokoro."""
+Engines: elevenlabs (your cloned voice; needs ELEVENLABS_API_KEY and ELEVEN_VOICE_ID env vars), edge (edge-tts, en-US-GuyNeural, male, needs internet) or kokoro (local ONNX voice, am_michael, male).
+auto tries elevenlabs first when ELEVENLABS_API_KEY is set, then edge, then kokoro.
+The API key is read only from the environment and is never printed or written to disk."""
 import asyncio, json, os, sys
 
 lines = json.load(open(sys.argv[1]))
@@ -12,6 +13,33 @@ os.makedirs(out, exist_ok=True)
 EDGE_VOICE = os.environ.get("EDGE_VOICE", "en-US-GuyNeural")
 KOKORO_VOICE = os.environ.get("KOKORO_VOICE", "am_michael")
 KDIR = os.environ.get("KOKORO_DIR", "/home/claude/tts-models")
+
+def elevenlabs():
+    import urllib.request, urllib.error
+    key = os.environ.get("ELEVENLABS_API_KEY")
+    voice = os.environ.get("ELEVEN_VOICE_ID")
+    if not key or not voice:
+        raise RuntimeError("Set ELEVENLABS_API_KEY and ELEVEN_VOICE_ID")
+    base = os.environ.get("ELEVEN_BASE", "https://api.elevenlabs.io")
+    model = os.environ.get("ELEVEN_MODEL", "eleven_multilingual_v2")
+    for l in lines:
+        body = json.dumps({
+            "text": l["tts"],
+            "model_id": model,
+            "voice_settings": {"stability": 0.5, "similarity_boost": 0.8, "style": 0.0, "use_speaker_boost": True},
+        }).encode()
+        req = urllib.request.Request(
+            f"{base}/v1/text-to-speech/{voice}?output_format=mp3_44100_128",
+            data=body, method="POST",
+            headers={"xi-api-key": key, "Content-Type": "application/json", "Accept": "audio/mpeg"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                data = r.read()
+        except urllib.error.HTTPError as e:
+            raise RuntimeError(f"ElevenLabs HTTP {e.code} on line {l['id']}: {e.read()[:200].decode(errors='replace')}")
+        open(os.path.join(out, l["id"] + ".mp3"), "wb").write(data)
+        l["file"] = l["id"] + ".mp3"
 
 async def edge():
     import edge_tts
@@ -29,7 +57,14 @@ def kokoro():
         l["file"] = l["id"] + ".wav"
 
 used = None
-if engine in ("auto", "edge"):
+if engine == "elevenlabs" or (engine == "auto" and os.environ.get("ELEVENLABS_API_KEY") and os.environ.get("ELEVEN_VOICE_ID")):
+    try:
+        elevenlabs(); used = "elevenlabs voice " + os.environ.get("ELEVEN_VOICE_ID", "")[:6] + "..."
+    except Exception as e:
+        print("elevenlabs failed:", e, file=sys.stderr)
+        if engine == "elevenlabs":
+            sys.exit(2)
+if used is None and engine in ("auto", "edge"):
     try:
         asyncio.run(edge()); used = "edge-tts " + EDGE_VOICE
     except Exception as e:
