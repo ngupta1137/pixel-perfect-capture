@@ -57,7 +57,7 @@ const LINES = [
   { id: "c2", text: "The thirteen-step pipeline is grouped into phases, each step marked deterministic or model-assisted." },
   { id: "c3", text: "On the Change Propagation tab, the mesh shows how a change would reach four subscriber channels: Agent Assist, Member Chat, IVR Voice Bot and Advocate Portal." },
   { id: "c4", text: "The log illustrates the flow: U-PH-003 approved by Rita, with all four channels notified and the cache refreshed.", tts: "The log illustrates the flow: U P H zero zero three approved by Rita, with all four channels notified and the cache refreshed." },
-  { id: "c5", text: "Below, the capability list names the engine, REST API, MCP, access control, drift detection and golden evals. Access control and drift detection are in this prototype. The REST API and MCP are the next build." },
+  { id: "c5", text: "Below, the capability list marks the engine, access control, drift detection and golden evals as working in this prototype. The REST API and MCP are listed as the next build." },
 ];
 
 // 1. narration audio

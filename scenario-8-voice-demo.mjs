@@ -333,7 +333,7 @@ mark("cue 4 done");
 const certHead = page.getByText(/^(Built & Certified in Production|Working in this prototype)$/).first();
 const certList = certHead.locator("xpath=ancestor::div[2]");
 await Promise.all([
-  speak("Below, the capability list names the engine, REST API, MCP, access control, drift detection and golden evals. Access control and drift detection are in this prototype. The REST API and MCP are the next build."),
+  speak("Below, the capability list marks the engine, access control, drift detection and golden evals as working in this prototype. The REST API and MCP are listed as the next build."),
   (async () => {
     const a = await centerOf(certHead);
     await glideTo(a.x, a.y);
