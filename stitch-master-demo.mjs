@@ -88,17 +88,43 @@ for (const [n, d] of Object.entries(SLATES)) {
 await browser.close();
 if (arg === "--slates-only") { console.log("slates in", path.join(OUT, "slates")); process.exit(0); }
 
+// 1b. voice the slates: "Scenario N. Title." (kept outside master-output so a re-stitch does not re-pay for the voice)
+const SLATE_AUDIO = path.resolve("slate-audio");
+const slateLines = Object.entries(SLATES).map(([n, d]) => ({ id: "slate" + n, tts: `${d.num[0]}${d.num.slice(1).toLowerCase()}. ${d.title}.` }));
+let slateVoice = {};
+try {
+  let reuse = false;
+  try {
+    const old = JSON.parse(fs.readFileSync(path.join(SLATE_AUDIO, "tts.json"), "utf8")).lines;
+    reuse = slateLines.every((l) => { const o = old.find((x) => x.id === l.id); return o && o.tts === l.tts && fs.existsSync(path.join(SLATE_AUDIO, o.file)); });
+  } catch {}
+  if (reuse) console.log("slate voice: reusing cached clips in", SLATE_AUDIO);
+  else {
+    fs.mkdirSync(SLATE_AUDIO, { recursive: true });
+    fs.writeFileSync(path.join(SLATE_AUDIO, "lines.json"), JSON.stringify(slateLines));
+    run(process.platform === "win32" ? "python" : "python3", ["scenario-8-tts.py", path.join(SLATE_AUDIO, "lines.json"), SLATE_AUDIO, process.env.TTS_ENGINE || "auto"]);
+  }
+  const tts = JSON.parse(fs.readFileSync(path.join(SLATE_AUDIO, "tts.json"), "utf8"));
+  for (const l of slateLines) slateVoice[l.id] = path.join(SLATE_AUDIO, tts.lines.find((t) => t.id === l.id).file);
+  console.log("slate voice:", tts.engine);
+} catch (e) {
+  console.log("slate voice unavailable, slates will be silent:", e.message);
+  slateVoice = {};
+}
+
 // 2. normalise everything to 1920x1080, 25 fps, AAC 48 kHz stereo
 const parts = [];
 for (const o of ORDER) {
-  if (o.slate) parts.push({ file: slateFiles[o.slate], silent: true, chapter: null });
+  if (o.slate) parts.push({ file: slateFiles[o.slate], silent: true, voice: slateVoice["slate" + o.slate], chapter: null });
   if (!fs.existsSync(o.file)) throw new Error("Missing clip: " + o.file + " (run --check)");
   parts.push({ file: o.file, silent: false, chapter: o.chapter, slateBefore: !!o.slate });
 }
 parts.forEach((p, i) => {
   const out = path.join(OUT, "norm", String(i).padStart(2, "0") + ".mp4");
   const vf = "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x111827,fps=25,format=yuv420p";
-  const args = p.silent
+  const args = p.silent && p.voice
+    ? ["-v", "error", "-y", "-i", p.file, "-i", p.voice, "-filter_complex", "[1:a]aformat=channel_layouts=stereo,adelay=900|900,apad[a]", "-map", "0:v", "-map", "[a]", "-shortest", "-vf", vf, "-c:v", "libx264", "-crf", "18", "-c:a", "aac", "-ar", "48000", "-ac", "2", out]
+    : p.silent
     ? ["-v", "error", "-y", "-i", p.file, "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-shortest", "-vf", vf, "-c:v", "libx264", "-crf", "18", "-c:a", "aac", "-ar", "48000", "-ac", "2", out]
     : ["-v", "error", "-y", "-i", p.file, "-vf", vf, "-c:v", "libx264", "-crf", "18", "-c:a", "aac", "-ar", "48000", "-ac", "2", out];
   run("ffmpeg", args);
