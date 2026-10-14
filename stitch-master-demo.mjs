@@ -39,7 +39,6 @@ const ORDER = [
   { chapter: "How Verity works", file: scene("lifecycle") },
   { slate: 1, chapter: "Scenario 1: AI ingest and author review", file: clip(1) },
   { slate: 2, chapter: "Scenario 2: Legal impact gate and approval", file: clip(2) },
-  { chapter: "The decision principle", file: scene("checks") },
   { slate: 3, chapter: "Scenario 3: Advocate search and governed answer", file: clip(3) },
   { slate: 4, chapter: "Scenario 4: Role-scoped access", file: clip(4) },
   { slate: 5, chapter: "Scenario 5: Safe fallbacks and the gap queue", file: clip(5) },

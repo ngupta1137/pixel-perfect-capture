@@ -1,34 +1,48 @@
 <!doctype html><html><head><meta charset="utf-8"><title>Closing</title>
 <link rel="stylesheet" href="_base.css"><script src="_base.js"></script>
 <style>
-.tile{position:absolute;top:96px;width:200px;height:160px;padding:14px 16px;transition:border-color .5s,box-shadow .5s,background .5s}
-.tile .n{font-size:17px;font-weight:700}
-.tile .doc{margin-top:12px;font-size:12px;line-height:1.5;color:var(--muted);transition:color .4s}
-.tile .doc i{display:block;height:6px;border-radius:3px;background:#34425a;margin:7px 0}
-.tile.bad{border-color:var(--danger-2);background:#2a1618}
-.tile.bad .doc{color:var(--danger-2)}
-.tile.live{border-color:var(--leaf-2);box-shadow:0 0 22px rgba(94,169,8,.28)}
-.tile.ghost{border-style:dashed;background:transparent;color:var(--muted)}
-.tile.ghost.solid{border-style:solid;background:var(--ink-2);color:var(--text)}
+.uc{position:absolute;width:320px;height:116px;padding:10px 16px;transition:border-color .5s,box-shadow .5s,background .5s}
+.uc .tg{display:flex;gap:8px;align-items:center;margin-bottom:5px}
+.uc .ph{font-size:10px;font-weight:800;letter-spacing:.08em;padding:3px 8px;border-radius:6px;background:var(--brand-dark);color:#fff}
+.uc.p3 .ph{background:#4a5568}
+.uc .pr{font-size:11px;color:var(--muted)}
+.uc .own{margin-left:auto;font-size:10px;font-weight:800;letter-spacing:.08em;color:#fff;background:var(--danger);padding:3px 8px;border-radius:6px}
+.uc .n{font-size:16px;font-weight:700}
+.uc .d{font-size:11.5px;color:#c4ccd8;margin-top:3px;line-height:1.35}
+.uc .i{font-size:10.5px;color:var(--muted);font-style:italic;margin-top:2px}
+.uc.bad{border-color:var(--danger-2);background:#2a1618}
+.uc.live{border-color:var(--leaf-2);box-shadow:0 0 18px rgba(94,169,8,.22)}
+.uc.p1.live{box-shadow:0 0 26px rgba(94,169,8,.5);border-width:2px}
+.uc.p3.live{border-style:dashed}
 #wires{position:absolute;inset:0;width:1280px;height:720px;pointer-events:none}
-#wires line{stroke:#3b4960;stroke-width:2.5;stroke-dasharray:900;stroke-dashoffset:900;transition:stroke-dashoffset 1.2s var(--ease),stroke .5s}
-#wires.go line{stroke-dashoffset:0;stroke:var(--leaf-2)}
-#wires.pulse line{stroke:#a6e063}
-#hub{left:575px;top:330px;width:130px;height:130px}
-#ripple{position:absolute;left:575px;top:330px;width:130px;height:130px;border-radius:50%;border:3px solid var(--leaf-2);opacity:0}
-#ripple.go{animation:rp 2.2s ease-out 2}
-@keyframes rp{0%{transform:scale(.6);opacity:.9}100%{transform:scale(5);opacity:0}}
-#ten{top:330px}
+#wires path{fill:none;stroke:#3b4960;stroke-width:3;stroke-dasharray:700;stroke-dashoffset:700;transition:stroke-dashoffset 1.3s var(--ease),stroke .5s}
+#wires path.d{stroke-width:2.5}
+#wires.go path{stroke-dashoffset:0;stroke:var(--leaf-2)}
+#wires.go path.d{stroke-dasharray:7 7;stroke:#7d8b9e}
+#wires.pulse path{stroke:#b9f06a}
+#wires.pulse path.d{stroke:#d3dce8}
+#hubw{position:absolute;left:505px;top:155px;width:270px;height:270px;border-radius:50%;border:3px solid var(--leaf-2);background:radial-gradient(circle,#162b1b 0%,#111827 80%);text-align:center;box-shadow:0 0 40px rgba(94,169,8,.22)}
+#hubw svg{position:absolute;left:105px;top:26px;width:60px;height:60px}
+#hubw .v{position:absolute;left:0;right:0;top:98px;font-size:34px;font-weight:800;letter-spacing:-.02em}
+#hubw .g{position:absolute;left:0;right:0;top:140px;font-size:13px;color:#c4ccd8;font-weight:600}
+#hubw .a{position:absolute;left:14px;right:14px;top:166px;font-size:13px;color:var(--muted);line-height:1.5}
+#hubw .a b{font-weight:600;transition:color .5s,text-shadow .5s}
+#hubw.rules .a b{color:#d6f7a3;text-shadow:0 0 10px rgba(166,224,99,.7)}
+#ripple{position:absolute;left:505px;top:155px;width:270px;height:270px;border-radius:50%;border:3px solid var(--leaf-2);opacity:0}
+#ripple.go{animation:rp 2.4s ease-out 2}
+@keyframes rp{0%{transform:scale(1);opacity:.8}100%{transform:scale(2.6);opacity:0}}
+#ten{left:400px;right:400px;top:250px;font-size:30px;line-height:1.35}
 #ten b{color:var(--danger-2)}
-#plug{top:490px;font-size:24px;color:var(--muted)}
-#plug b{color:var(--text)}
-.chip{position:absolute;padding:9px 16px;border-radius:999px;font-size:15px;font-weight:600;border:1px solid #3b4960;background:var(--ink-2)}
-.chip.ch2{top:500px}
-#ch1{left:300px}#ch2{left:520px}#ch3{left:700px}
-.rule{top:500px;border-color:var(--leaf-2);color:#cdeea0}
-#r1{left:270px}#r2{left:530px}#r3{left:760px}
-.oc{position:absolute;top:500px;width:340px;text-align:center;font-size:20px;font-weight:600;line-height:1.35}
-#o1{left:70px}#o2{left:470px}#o3{left:870px}
+.cap{top:566px;font-size:22px;color:var(--muted)}
+.cap b{color:var(--text)}
+#stm{top:566px;font-size:22px;font-weight:700;color:var(--leaf-2)}
+.chip{position:absolute;top:500px;padding:8px 16px;border-radius:999px;font-size:15px;font-weight:600;border:1px solid #3b4960;background:var(--ink-2)}
+#ch1{left:420px}#ch2{left:600px}#ch3{left:700px}
+#chm{left:470px;top:540px;border-style:dashed;color:var(--muted)}
+.rule{border-color:var(--leaf-2);color:#cdeea0}
+#ru1{left:380px}#ru2{left:540px}#ru3{left:780px}
+.oc{position:absolute;top:502px;width:360px;text-align:center;font-size:20px;font-weight:600;line-height:1.35}
+#o1{left:70px}#o2{left:460px}#o3{left:850px}
 #proof,#road,#fin{position:absolute;inset:0;display:none}
 #ring{position:absolute;left:460px;top:120px;width:360px;height:360px}
 #ring circle{fill:none;stroke-width:14;stroke-linecap:round}
@@ -38,72 +52,80 @@
 #num small{font-size:44px;color:var(--muted);font-weight:600}
 #plab{top:500px;font-size:26px;font-weight:600}
 #pnote{top:552px;font-size:17px;color:var(--amber-2)}
-.ph{position:absolute;top:210px;width:330px;height:240px}
-.ph .h{font-size:13px;font-weight:800;letter-spacing:.14em;color:var(--leaf-2)}
-.ph .t{margin-top:12px;font-size:28px;font-weight:700;line-height:1.2}
-.ph .g{margin-top:18px;font-size:15px;color:var(--muted)}
-#p1{left:70px}#p2{left:475px}#p3{left:880px}
+.phs{position:absolute;top:210px;width:330px;height:240px}
+.phs .h{font-size:13px;font-weight:800;letter-spacing:.14em;color:var(--leaf-2)}
+.phs .t{margin-top:12px;font-size:28px;font-weight:700;line-height:1.2}
+.phs .g{margin-top:18px;font-size:15px;color:var(--muted)}
+#p1c{left:70px}#p2c{left:475px}#p3c{left:880px}
 .gate{position:absolute;top:312px;width:60px;height:46px;display:flex;align-items:center;justify-content:center}
-.gate svg{width:30px;height:30px;stroke:var(--amber-2);fill:none;stroke-width:2.2;transition:all .4s}
-#g1{left:405px}#g2{left:810px}
+.gate svg{width:30px;height:30px;stroke:var(--amber-2);fill:none;stroke-width:2.2}
 .gate.open svg{stroke:var(--leaf-2)}
-.ph.on{border-color:var(--leaf-2);box-shadow:0 0 26px rgba(94,169,8,.28)}
-#flogo{left:520px;top:150px;width:240px;height:240px}
+#g1{left:405px}#g2{left:810px}
+.phs.on{border-color:var(--leaf-2);box-shadow:0 0 26px rgba(94,169,8,.28)}
+#flogo{left:520px;top:140px;width:240px;height:240px}
 #flogo line{stroke-dasharray:100;stroke-dashoffset:100;transition:stroke-dashoffset 1.6s var(--ease)}
 #flogo.go line{stroke-dashoffset:0}
 #flogo g:nth-of-type(2){opacity:0;transition:opacity .8s 1s}
 #flogo.go g:nth-of-type(2){opacity:1}
-#fname{top:420px;font-size:64px;font-weight:800;letter-spacing:-.02em}
-#ftag{top:510px;font-size:26px;color:var(--leaf-2);font-weight:600}
+.lay{position:absolute;font-size:12px;font-weight:800;letter-spacing:.16em;text-align:center;left:0;right:0}
+#lt{top:104px;color:var(--leaf-2)}
+#lb{top:392px;color:var(--muted)}
+#fname{top:440px;font-size:60px;font-weight:800;letter-spacing:-.02em}
+#ftag{top:524px;font-size:26px;color:var(--leaf-2);font-weight:600}
 </style></head><body><div class="stage"></div>
-<svg id="wires" viewBox="0 0 1280 720"></svg>
-<div id="t1" class="tile card hid" style="left:84px"><div class="n">Agent Assist</div><div class="doc">“…estimates… <u>may</u> change.”<i></i><i></i></div></div>
-<div id="t2" class="tile card hid" style="left:312px"><div class="n">Member chat</div><div class="doc">“…estimates… <u>might</u> change.”<i></i><i></i></div></div>
-<div id="t3" class="tile card hid" style="left:540px"><div class="n">Prior authorization</div><div class="doc">“…estimates… <u>can</u> change.”<i></i><i></i></div></div>
-<div id="t4" class="tile card hid" style="left:768px"><div class="n">Payment integrity</div><div class="doc">“…estimates… <u>could</u> change.”<i></i><i></i></div></div>
-<div id="t5" class="tile card ghost hid" style="left:996px"><div class="n">Next product</div></div>
-<div id="ten" class="center mid hid"><b>10</b> versions of the truth. <b>10</b> places to fix.</div>
+<svg id="wires" viewBox="0 0 1280 720">
+<path d="M390 166 C450 166 440 290 505 290"/><path d="M390 298 C450 298 450 290 505 290" style="stroke-width:5"/><path d="M390 430 C450 430 440 290 505 290"/>
+<path class="d" d="M890 166 C830 166 840 290 775 290"/><path class="d" d="M890 298 C830 298 830 290 775 290"/><path class="d" d="M890 430 C830 430 840 290 775 290"/>
+</svg>
+<div id="l1" class="uc card p2 hid" style="left:70px;top:108px"><div class="tg"><span class="ph">PHASE 2</span><span class="pr">MCP</span><span class="own hid">OWN COPY</span></div><div class="n">UC1 Prior Authorization</div><div class="d">Medical policy: NCD &gt; LCD &gt; plan policy &gt; MCG</div><div class="i">Must cite which guideline drove the decision</div></div>
+<div id="l2" class="uc card p1 hid" style="left:70px;top:240px"><div class="tg"><span class="ph">PHASE 1</span><span class="pr">REST + MCP</span><span class="own hid">OWN COPY</span></div><div class="n">UC2 Agent Assist for Advocates</div><div class="d">Legal verbatim, call scripts, knowledge articles</div><div class="i">First: Legal owns verbatim; every call is graded</div></div>
+<div id="l3" class="uc card p2 hid" style="left:70px;top:372px"><div class="tg"><span class="ph">PHASE 2</span><span class="pr">MCP</span><span class="own hid">OWN COPY</span></div><div class="n">UC6 Provider Payment Integrity</div><div class="d">Payment and coding policy, version on date of service</div><div class="i">Shows auditors the exact policy relied on</div></div>
+<div id="r1" class="uc card p3 hid" style="left:890px;top:108px"><div class="tg"><span class="ph">PHASE 3</span><span class="pr">MCP</span><span class="own hid">OWN COPY</span></div><div class="n">UC4 HEDIS Gap Closure</div><div class="d">Measure specs and exclusions, by measurement year</div><div class="i">Specs change yearly: drift alerts matter</div></div>
+<div id="r2" class="uc card p3 hid" style="left:890px;top:240px"><div class="tg"><span class="ph">PHASE 3</span><span class="pr">MCP</span><span class="own hid">OWN COPY</span></div><div class="n">UC5 Medicare Risk Adjustment</div><div class="d">Coding guidelines and documentation criteria</div><div class="i">Verity serves the rules; coding stays in UC5</div></div>
+<div id="r3" class="uc card p3 hid" style="left:890px;top:372px"><div class="tg"><span class="ph">PHASE 3</span><span class="pr">MCP</span><span class="own hid">OWN COPY</span></div><div class="n">UC7 Clinical Signal</div><div class="d">Intervention playbooks, outreach scripts</div><div class="i">Same verbatim-in-every-channel problem</div></div>
+<div id="ten" class="center big hid"><b>10</b> versions of the truth.<br><b>10</b> places to fix.</div>
 <div id="ripple"></div>
-<svg id="hub" class="abs hid" viewBox="0 0 120 120"><g stroke="#4E8416" stroke-width="9" stroke-linecap="round"><line x1="60" y1="100" x2="22" y2="22"/><line x1="60" y1="100" x2="60" y2="16"/><line x1="60" y1="100" x2="98" y2="22"/></g><g fill="#4E8416"><circle cx="22" cy="22" r="8"/><circle cx="60" cy="16" r="8"/><circle cx="98" cy="22" r="8"/></g><circle cx="60" cy="100" r="13" fill="#5EA908"/></svg>
-<div id="plug" class="center hid"><b>Plug in.</b> Don’t rebuild.</div>
-<div id="ch1" class="chip ch2 hid">The phone line</div><div id="ch2" class="chip ch2 hid">The chat</div><div id="ch3" class="chip ch2 hid">The advocate’s screen</div>
-<div id="r1" class="chip rule hid">Who may see it</div><div id="r2" class="chip rule hid">Whether it is still current</div><div id="r3" class="chip rule hid">Who signed it off</div>
+<div id="hubw" class="hid"><svg id="hubsvg" viewBox="0 0 120 120"><g stroke="#4E8416" stroke-width="9" stroke-linecap="round"><line x1="60" y1="100" x2="22" y2="22"/><line x1="60" y1="100" x2="60" y2="16"/><line x1="60" y1="100" x2="98" y2="22"/></g><g fill="#4E8416"><circle cx="22" cy="22" r="8"/><circle cx="60" cy="16" r="8"/><circle cx="98" cy="22" r="8"/></g><circle cx="60" cy="100" r="13" fill="#5EA908"/></svg><div class="v">Verity</div><div class="g">governed knowledge units</div><div class="a"><b>approved</b> · <b>current</b> · <b>applicable</b><br><b>cited</b> · <b>versioned</b> · <b>owned</b></div></div>
+<div id="plug" class="cap center hid"><b>Plug in.</b> Don’t rebuild.</div>
+<div id="ch1" class="chip hid">The phone line</div><div id="ch2" class="chip hid">The chat</div><div id="ch3" class="chip hid">The advocate’s screen</div><div id="chm" class="chip hid">Phase 3: any agent via MCP</div>
+<div id="ru1" class="chip rule hid">Who may see it</div><div id="ru2" class="chip rule hid">Whether it is still current</div><div id="ru3" class="chip rule hid">Who signed it off</div>
 <div id="o1" class="oc hid">The advocate stops guessing.</div><div id="o2" class="oc hid">The member hears the same answer everywhere.</div><div id="o3" class="oc hid">The next product starts with the hard part done.</div>
-<div id="proof"><svg id="ring" viewBox="0 0 360 360"><circle class="bg" cx="180" cy="180" r="160"/><circle class="fg" cx="180" cy="180" r="160"/></svg><div id="num" class="abs">0<small> / 27</small></div><div id="plab" class="center hid">golden cases passed</div><div id="pnote" class="center hid">Blind questions: coverage is limited, and Verity declines without evidence.</div></div>
-<div id="road"><div id="p1" class="ph card hid"><div class="h">PHASE 1</div><div class="t">One advocate team</div><div class="g">Gate: zero critical</div></div><div id="g1" class="gate hid"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><div id="p2" class="ph card hid"><div class="h">PHASE 2</div><div class="t">More teams, regulated domains</div><div class="g">Gate: a golden set per domain</div></div><div id="g2" class="gate hid"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><div id="p3" class="ph card hid"><div class="h">PHASE 3</div><div class="t">Other products subscribe</div><div class="g">Gate: same entitlement, same eval gate</div></div></div>
-<div id="fin"><svg id="flogo" class="abs" viewBox="0 0 120 120"><g stroke="#4E8416" stroke-width="9" stroke-linecap="round"><line x1="60" y1="100" x2="22" y2="22"/><line x1="60" y1="100" x2="60" y2="16"/><line x1="60" y1="100" x2="98" y2="22"/></g><g fill="#4E8416"><circle cx="22" cy="22" r="8"/><circle cx="60" cy="16" r="8"/><circle cx="98" cy="22" r="8"/></g><circle cx="60" cy="100" r="13" fill="#5EA908"/></svg><div id="fname" class="center hid">Verity</div><div id="ftag" class="center hid">One approved truth, in every channel.</div></div>
+<div id="stm" class="center hid">Verity decides what is true and applicable. Each product decides what to do with it.</div>
+<div id="proof"><svg id="ring" viewBox="0 0 360 360"><circle class="bg" cx="180" cy="180" r="160"/><circle class="fg" cx="180" cy="180" r="160"/></svg><div id="num" class="abs">0<small> / 27</small></div><div id="plab" class="center mid hid">golden cases passed</div><div id="pnote" class="center hid">Blind questions: coverage is limited, and Verity declines without evidence.</div></div>
+<div id="road"><div id="p1c" class="phs card hid"><div class="h">PHASE 1</div><div class="t">One advocate team</div><div class="g">Gate: zero critical</div></div><div id="g1" class="gate hid"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><div id="p2c" class="phs card hid"><div class="h">PHASE 2</div><div class="t">More teams, regulated domains</div><div class="g">Gate: a golden set per domain</div></div><div id="g2" class="gate hid"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><div id="p3c" class="phs card hid"><div class="h">PHASE 3</div><div class="t">Other products subscribe</div><div class="g">Gate: same entitlement, same eval gate</div></div></div>
+<div id="fin"><div id="lt" class="lay hid">CONSUMPTION LAYER: PRODUCTS AND CHANNELS</div><svg id="flogo" class="abs" viewBox="0 0 120 120"><g stroke="#4E8416" stroke-width="9" stroke-linecap="round"><line x1="60" y1="100" x2="22" y2="22"/><line x1="60" y1="100" x2="60" y2="16"/><line x1="60" y1="100" x2="98" y2="22"/></g><g fill="#4E8416"><circle cx="22" cy="22" r="8"/><circle cx="60" cy="16" r="8"/><circle cx="98" cy="22" r="8"/></g><circle cx="60" cy="100" r="13" fill="#5EA908"/></svg><div id="lb" class="lay hid">FOUNDATION: GOVERNED KNOWLEDGE</div><div id="fname" class="center hid">Verity</div><div id="ftag" class="center hid">One approved truth, in every channel.</div></div>
 <script>
-// wires from the hub (640,460) to each tile bottom
-const W = $("#wires"); [0, 1, 2, 3, 4].forEach((i) => { const l = document.createElementNS("http://www.w3.org/2000/svg", "line"); l.setAttribute("x1", 640); l.setAttribute("y1", 410); l.setAttribute("x2", 184 + 228 * i); l.setAttribute("y2", 258); l.id = "w" + i; W.appendChild(l); });
-const tiles = () => $$(".tile");
-beats[0] = (d) => { [1, 2, 3, 4].forEach((i) => show("#t" + i, (i - 1) * d / 4.5)); };
+const U = ["l1", "l2", "l3", "r1", "r2", "r3"];
+beats[0] = (d) => { U.forEach((id, k) => show("#" + id, k * d / 7.5)); };
 beats[1] = (d) => {
-  tiles().forEach((t) => { $$("i", t); });
-  show("#ten", d * 0.55);
-  at(d * 0.8, () => [1, 2, 3, 4].forEach((i) => $("#t" + i).classList.add("bad")));
+  $$(".uc .own").forEach((e) => show(e, d * 0.25));
+  at(d * 0.3, () => U.forEach((id) => $("#" + id).classList.add("bad")));
+  show("#ten", d * 0.5);
 };
 beats[2] = (d) => {
-  hide("#ten"); [1, 2, 3, 4].forEach((i) => { $("#t" + i).classList.remove("bad"); $("#t" + i + " .doc").style.opacity = 0; });
-  show("#t5", 300); show("#hub", 500); show("#plug", d * 0.5);
-  at(900, () => $("#wires").classList.add("go")); at(900, () => $("#wires").classList.add("go"));
-  at(1600, () => tiles().forEach((t) => t.classList.add("live")));
+  hide("#ten"); $$(".uc .own").forEach((e) => hide(e));
+  U.forEach((id) => $("#" + id).classList.remove("bad"));
+  show("#hubw", 400); at(900, () => flowLogo($("#hubsvg")));
+  at(1000, () => $("#wires").classList.add("go"));
+  at(1800, () => U.forEach((id) => $("#" + id).classList.add("live")));
+  show("#plug", d * 0.5);
 };
 beats[3] = (d) => {
-  hide("#plug");
-  $("#ripple").classList.add("go"); at(300, () => $("#wires").classList.add("pulse"));
-  show("#ch1", d * 0.3); show("#ch2", d * 0.42); show("#ch3", d * 0.54);
+  hide("#plug"); $("#ripple").classList.add("go"); at(300, () => $("#wires").classList.add("pulse"));
+  show("#ch1", d * 0.3); show("#ch2", d * 0.42); show("#ch3", d * 0.54); show("#chm", d * 0.8);
 };
 beats[4] = (d) => {
-  ["#ch1", "#ch2", "#ch3"].forEach((s) => hide(s));
-  show("#r1", d * 0.22); show("#r2", d * 0.38); show("#r3", d * 0.55);
+  ["#ch1", "#ch2", "#ch3", "#chm"].forEach((s) => hide(s));
+  show("#ru1", d * 0.2); show("#ru2", d * 0.34); show("#ru3", d * 0.58);
+  at(d * 0.2, () => $("#hubw").classList.add("rules"));
 };
 beats[5] = (d) => {
-  ["#r1", "#r2", "#r3"].forEach((s) => hide(s));
+  ["#ru1", "#ru2", "#ru3"].forEach((s) => hide(s)); $("#hubw").classList.remove("rules");
   show("#o1", d * 0.08); show("#o2", d * 0.38); show("#o3", d * 0.7);
-  at(d * 0.7, () => $("#t5").classList.add("solid"));
+  show("#stm", d * 0.78);
 };
 beats[6] = (d) => {
-  ["#o1", "#o2", "#o3", "#hub", "#wires", ".tile"].forEach((s) => $$(s).forEach((e) => hide(e)));
+  ["#o1", "#o2", "#o3", "#stm", "#hubw", "#wires", "#ripple", ".uc"].forEach((s) => $$(s).forEach((e) => hide(e)));
   at(800, () => { $("#proof").style.display = "block"; });
   at(1000, () => { $("#ring .fg").style.strokeDashoffset = 1005 * (1 - 26 / 27); });
   const N = 26, t0 = 1000, dur = 2400; for (let k = 0; k <= N; k++) at(t0 + dur * (k / N), () => { $("#num").childNodes[0].textContent = k; });
@@ -111,12 +133,13 @@ beats[6] = (d) => {
 };
 beats[7] = (d) => {
   hide("#proof"); at(700, () => { $("#proof").style.display = "none"; $("#road").style.display = "block"; });
-  show("#p1", 800); at(1000, () => $("#p1").classList.add("on"));
+  show("#p1c", 800); at(1000, () => $("#p1c").classList.add("on"));
   show("#g1", d * 0.35); at(d * 0.45, () => $("#g1").classList.add("open"));
-  show("#p2", d * 0.5); show("#g2", d * 0.65); at(d * 0.75, () => $("#g2").classList.add("open")); show("#p3", d * 0.78);
+  show("#p2c", d * 0.5); show("#g2", d * 0.65); at(d * 0.75, () => $("#g2").classList.add("open")); show("#p3c", d * 0.78);
 };
 beats[8] = (d) => {
   hide("#road"); at(700, () => { $("#road").style.display = "none"; $("#fin").style.display = "block"; $("#flogo").classList.add("go"); });
-  show("#fname", 2300); show("#ftag", d * 0.55);
+  at(2600, () => flowLogo($("#flogo"), { speed: 0.5 }));
+  show("#lt", 2300); show("#lb", 2500); show("#fname", 3000); show("#ftag", d * 0.6);
 };
 </script></body></html>
