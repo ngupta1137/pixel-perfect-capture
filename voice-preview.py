@@ -9,7 +9,6 @@ for ln in open(".env") if os.path.exists(".env") else []:
     if "=" in ln and not ln.strip().startswith("#"):
         k, v = ln.strip().split("=", 1); os.environ.setdefault(k, v.strip().strip('"\''))
 key, voice = os.environ["ELEVENLABS_API_KEY"], os.environ["ELEVEN_VOICE_ID"]
-model = os.environ.get("ELEVEN_MODEL", "eleven_multilingual_v2")
 lines = [{"tts": t} for t in [
     "Verity is one governed source of approved knowledge, used by AI and by people.",
     "Ask a question the wrong role should not see, and the answer is not a guess. It is blocked, with the owning team named.",
@@ -17,7 +16,9 @@ lines = [{"tts": t} for t in [
     "Author once, approve once, retrieve everywhere, stay current.",
 ]]
 os.makedirs("voice-preview", exist_ok=True)
-for preset in ["flat", "natural", "expressive", "dramatic"]:
+RUNS = [("v2_flat", "flat", "eleven_multilingual_v2"), ("v2_extreme", "extreme", "eleven_multilingual_v2"),
+        ("v3_expressive", "expressive", "eleven_v3"), ("v3_dramatic", "dramatic", "eleven_v3")]
+for label, preset, model in RUNS:
     os.environ["ELEVEN_PRESET"] = preset
     segs = []
     for i in range(len(lines)):
@@ -26,5 +27,5 @@ for preset in ["flat", "natural", "expressive", "dramatic"]:
         req = urllib.request.Request(f"https://api.elevenlabs.io/v1/text-to-speech/{voice}?output_format=mp3_44100_128",
             data=body, headers={"xi-api-key": key, "Content-Type": "application/json", "Accept": "audio/mpeg"})
         segs.append(urllib.request.urlopen(req, timeout=120).read())
-    open(f"voice-preview/{preset}.mp3", "wb").write(b"".join(segs))
-    print("wrote", preset)
+    open(f"voice-preview/{label}.mp3", "wb").write(b"".join(segs))
+    print("wrote", label)
