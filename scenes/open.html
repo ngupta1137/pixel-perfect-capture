@@ -1,64 +1,45 @@
 <!doctype html><html><head><meta charset="utf-8"><title>Opening</title>
 <link rel="stylesheet" href="_base.css"><script src="_base.js"></script>
 <style>
-#q{top:262px;font-size:54px}
-#q .caret{display:inline-block;width:4px;height:52px;background:var(--leaf-2);margin-left:6px;vertical-align:-8px;animation:bl 1s steps(1) infinite}
-@keyframes bl{50%{opacity:0}}
-#q.up{transition:top .9s var(--ease),font-size .9s var(--ease),opacity .9s;top:96px;font-size:30px;opacity:.75}
-.ch{position:absolute;top:250px;width:340px;height:230px;display:flex;flex-direction:column;justify-content:space-between}
-.ch svg{width:34px;height:34px;stroke:var(--leaf-2);fill:none;stroke-width:1.8}
-.ch .n{font-size:15px;color:var(--muted);margin-top:8px}
-.ch .a{font-size:34px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
-#c1{left:100px}#c2{left:470px}#c3{left:840px}
-.shake{animation:sh .5s ease 2}
-@keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
-#same{top:546px}
-#same b{color:var(--danger-2)}
-#dis{position:absolute;inset:0}
-.pr{top:56px;left:0;right:0;text-align:center;font-size:16px;color:var(--muted)}
-.pr b{color:var(--text);font-weight:600}
-.q{position:absolute;left:170px;width:940px}
-.q .lab{font-size:13px;color:var(--muted);letter-spacing:.04em;margin-bottom:8px}
-.q .lab em{font-style:normal;color:var(--leaf-2);font-weight:700;margin-left:8px}
-.q .t{font-size:26px;line-height:1.3;font-weight:500}
-.q .d{background:transparent;border-radius:4px;padding:0 3px;transition:background .5s,color .5s}
-.q.hl .d{background:rgba(239,106,98,.22);color:var(--danger-2);box-shadow:0 0 0 2px rgba(239,106,98,.45)}
-#qa{position:absolute;right:30px;top:-18px;background:var(--danger);color:#fff;font-size:13px;font-weight:700;padding:6px 12px;border-radius:8px;letter-spacing:.04em}
-#logo{left:540px;top:230px;width:200px;height:200px}
-#logo line{stroke-dasharray:100;stroke-dashoffset:100;transition:stroke-dashoffset 1.2s var(--ease)}
-#logo.go line{stroke-dashoffset:0}
-#logo g:nth-of-type(2){opacity:0;transition:opacity .8s .9s}
-#logo.go g:nth-of-type(2){opacity:1}
-#logo circle:last-child{fill:transparent;stroke:#5EA908;stroke-width:4;stroke-dasharray:5 5;transition:fill .8s,stroke-dasharray .4s}
-#logo.fill circle:last-child{fill:#5EA908;stroke-dasharray:0}
+#logo{left:560px;top:52px;width:160px;height:160px}
+#eb{top:236px}
+#sent{top:272px;left:140px;right:140px;font-size:40px;line-height:1.28;font-weight:700;letter-spacing:-.02em}
+#sent .k{color:var(--leaf-2)}
+#sent .u{transition:color .5s,box-shadow .5s;border-radius:4px;padding:0 4px}
+#sent.who .u{color:var(--blue-2);box-shadow:0 0 0 2px rgba(31,111,178,.45);background:rgba(31,111,178,.14)}
+.pl{position:absolute;top:446px;width:260px;height:150px;display:flex;flex-direction:column;justify-content:space-between}
+.pl svg{width:34px;height:34px;stroke:var(--leaf-2);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.pl .a{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.pl .n{font-size:14px;color:var(--muted);line-height:1.4}
+#p1{left:76px}#p2{left:358px}#p3{left:640px}#p4{left:922px}
+.pl.lit{border-color:var(--leaf-2);box-shadow:0 0 0 6px rgba(94,169,8,.14),0 0 26px rgba(94,169,8,.28);transition:all .5s var(--ease)}
+#tag{top:632px;font-size:17px;color:var(--muted);letter-spacing:.01em}
+#tag b{color:var(--text);font-weight:600}
 </style></head><body><div class="stage"></div>
-<div id="q" class="center hid"><span id="qt"></span><span class="caret"></span></div>
-<div id="c1" class="ch card hid"><div><svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg><div class="n">Phone</div></div><div class="a">5 to 7 days</div></div>
-<div id="c2" class="ch card hid"><div><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><div class="n">Web chat</div></div><div class="a">Up to 2 weeks</div></div>
-<div id="c3" class="ch card hid"><div><svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2M4 14h3v5H4zM17 14h3v5h-3zM17 19c0 1.5-2 2-5 2"/></svg><div class="n">Advocate cheat sheet</div></div><div class="a">7 to 10 business days</div></div>
-<div id="same" class="center mid hid">Same question. <b>Three answers.</b></div>
-<div id="dis" class="hid" style="display:none">
-  <div class="pr abs">Priya searches <b>“Rx pricing disclaimer”</b></div>
-  <div id="qa1" class="q hid" style="top:130px"><div class="lab">PRICING DISCLAIMER (RX) · COMPLIANCE<em>Current, Legal approved</em></div><div class="t">“The prices I <span class="d">share</span> today are estimates based on your current plan and <span class="d">may</span> change.”</div></div>
-  <div id="qa2" class="q hid" style="top:272px"><div class="lab">RX EDUCATION SCRIPT A · TRAINING SCRIPT<em style="color:var(--amber-2)">Same text, pasted into a script</em></div><div class="t">“The prices I <span class="d">share</span> today are estimates based on your current plan and <span class="d">may</span> change.”</div></div>
-  <div id="qa3" class="q hid" style="top:414px"><div class="lab">PHARMACY OUTREACH SCRIPT V3 · OUTREACH SCRIPT<em style="color:var(--danger-2)">Older wording, still live</em></div><div class="t">“The prices I <span class="d">give</span> you today are estimates based on your current plan and <span class="d">might</span> change.”<span id="qa" class="hid">QA finding</span></div></div>
-  <div id="wk" class="center mid hid" style="top:524px;font-size:22px;color:var(--muted)">Weeks later, call QA flags it as a finding.</div>
-</div>
-<svg id="logo" class="abs hid" viewBox="0 0 120 120"><g stroke="#4E8416" stroke-width="9" stroke-linecap="round"><line x1="60" y1="100" x2="22" y2="22"/><line x1="60" y1="100" x2="60" y2="16"/><line x1="60" y1="100" x2="98" y2="22"/></g><g fill="#4E8416"><circle cx="22" cy="22" r="8"/><circle cx="60" cy="16" r="8"/><circle cx="98" cy="22" r="8"/></g><circle cx="60" cy="100" r="13"/></svg>
+<div id="logoWrap"></div>
+<div id="eb" class="center hid"><div class="eyebrow">The one-sentence pitch</div></div>
+<div id="sent" class="center hid">Verity is one <span class="k">governed</span> source of <span class="k">approved</span> knowledge, used by <span class="u">AI</span> and by <span class="u">people</span>.</div>
+<div id="p1" class="pl card hid"><div><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z M14 3v4h4"/></svg></div><div><div class="a">Author once</div><div class="n">One source becomes governed units.</div></div></div>
+<div id="p2" class="pl card hid"><div><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></div><div><div class="a">Approve once</div><div class="n">A named human reviewer signs off.</div></div></div>
+<div id="p3" class="pl card hid"><div><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l5 5"/></svg></div><div><div class="a">Retrieve everywhere</div><div class="n">The same unit in every channel.</div></div></div>
+<div id="p4" class="pl card hid"><div><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9M12 3l-3 3M12 3l3 3"/></svg></div><div><div class="a">Stay current</div><div class="n">Review dates and drift flags keep it fresh.</div></div></div>
+<div id="tag" class="center hid"><b>One approved truth, in every channel.</b></div>
 <script>
-beats[0] = (d) => { show("#q"); type("#qt", "How long does mail order take?", 300, Math.max(900, d * 0.7)); };
-beats[1] = (d) => { $("#q").classList.add("up"); $(".caret").style.display = "none"; show("#c1", d * 0.12); show("#c2", d * 0.45); show("#c3", d * 0.78); };
-beats[2] = (d) => { show("#same", 150); at(900, () => $$(".ch").forEach((c) => c.classList.add("shake"))); };
-beats[3] = (d) => {
-  $$(".ch,#same,#q").forEach((e) => hide(e));
-  at(700, () => { $("#dis").style.display = "block"; show("#dis"); });
-  show("#qa1", 900); show("#qa2", 1500); show("#qa3", 2100);
-  at(d * 0.5, () => $("#qa3").classList.add("hl"));
-  show("#qa", d * 0.78); show("#wk", d * 0.82);
+$("#logoWrap").innerHTML = LOGO("abs hid").replace("<svg ", '<svg id="logo" ');
+beats[0] = (d) => {
+  show("#logo"); at(500, () => flowLogo($("#logo"), { speed: 0.5 }));
+  show("#eb", 500);
 };
-beats[4] = (d) => {
-  hide("#dis");
-  at(800, () => { show("#logo"); $("#logo").classList.add("go"); });
-  at(d * 0.85, () => $("#logo").classList.add("fill"));
+beats[1] = (d) => {
+  show("#sent", 200);
+  at(d * 0.62, () => $("#sent").classList.add("who"));
+};
+beats[2] = (d) => {
+  [0.04, 0.28, 0.52, 0.78].forEach((f, i) => {
+    show("#p" + (i + 1), f * d);
+    at(f * d + 150, () => $("#p" + (i + 1)).classList.add("lit"));
+    at(f * d + 1500, () => $("#p" + (i + 1)).classList.remove("lit"));
+  });
+  show("#tag", d * 0.9);
 };
 </script></body></html>

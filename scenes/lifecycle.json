@@ -1,6 +1,6 @@
 { "title": "Lifecycle map", "tail": 1800,
   "lines": [
-    { "text": "Here is how Verity works, in six steps." },
+    { "text": "Here is what Verity does, in six steps." },
     { "text": "Source. Extract. Review. Publish. Find. Learn." },
-    { "text": "A model suggests. People approve. Only approved knowledge is ever returned, and every question it cannot answer becomes a gap for an author to fill." }
+    { "text": "Rules extract candidate units today, and a model extractor is designed. People approve. Only approved knowledge is ever returned, and every question it cannot answer becomes a gap for an author to fill." }
   ] }

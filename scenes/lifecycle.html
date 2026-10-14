@@ -17,17 +17,19 @@
 #loop{position:absolute;left:120px;top:430px;width:1040px;height:140px;overflow:visible}
 #loop path{fill:none;stroke:var(--amber-2);stroke-width:2.5;stroke-dasharray:1200;stroke-dashoffset:1200;transition:stroke-dashoffset 3s var(--ease)}
 #loop.go path{stroke-dashoffset:0}
+#loop path.ah{stroke-dasharray:none;stroke-dashoffset:0;opacity:0;transition:opacity .35s ease 2.7s}
+#loop.go path.ah{opacity:1}
 #lt{top:556px;font-size:17px;color:var(--amber-2)}
 </style></head><body><div class="stage"></div>
 <div id="ttl" class="center hid"><div class="eyebrow">What Verity does</div><div class="mid">Turn source documents into approved, reusable knowledge</div></div>
 <div id="rail0"></div><div id="rail"></div>
 <div id="n1" class="nd hid" style="left:20px"><div class="c"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z M14 3v4h4"/></svg></div><div class="t">1 Source</div><div class="s hid">Ingest policies, scripts and guidelines.</div></div>
-<div id="n2" class="nd hid" style="left:224px"><div class="c"><svg viewBox="0 0 24 24"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/></svg></div><div class="t">2 Extract</div><div class="s hid">AI suggests structured knowledge units.</div><span class="b ai hid">MODEL SUGGESTS</span></div>
+<div id="n2" class="nd hid" style="left:224px"><div class="c"><svg viewBox="0 0 24 24"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/></svg></div><div class="t">2 Extract</div><div class="s hid">Rules extract candidate units; a model is designed.</div><span class="b ai hid">RULES TODAY</span></div>
 <div id="n3" class="nd hid" style="left:428px"><div class="c"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-5 4-7 8-7s8 2 8 7"/></svg></div><div class="t">3 Review</div><div class="s hid">Experts review, edit and approve.</div><span class="b hu hid">PEOPLE APPROVE</span></div>
 <div id="n4" class="nd hid" style="left:632px"><div class="c"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></div><div class="t">4 Publish</div><div class="s hid">Approved units go to a governed base.</div></div>
 <div id="n5" class="nd hid" style="left:836px"><div class="c"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l5 5"/></svg></div><div class="t">5 Find</div><div class="s hid">Cited answers from approved knowledge only.</div></div>
 <div id="n6" class="nd hid" style="left:1040px"><div class="c"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9M12 3l-3 3M12 3l3 3"/></svg></div><div class="t">6 Learn</div><div class="s hid">Unanswered questions become knowledge gaps.</div></div>
-<svg id="loop" viewBox="0 0 1040 140"><path d="M1000 0 C1000 130 40 130 40 10"/><path d="M30 24 L40 6 L52 22" style="stroke-dasharray:none;stroke-dashoffset:0"/></svg>
+<svg id="loop" viewBox="0 0 1040 140"><path d="M1000 0 C1000 130 40 130 40 10"/><path class="ah" d="M30 24 L40 6 L52 22"/></svg>
 <div id="lt" class="center hid">Feedback loop: gaps and search patterns inform updates</div>
 <script>
 beats[0] = (d) => { show("#ttl"); };

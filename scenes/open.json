@@ -1,21 +1,15 @@
 {
- "title": "Opening: same question, three answers",
+ "title": "Opening: the one-sentence pitch",
  "tail": 1500,
  "lines": [
   {
-   "text": "How long does mail order take?"
+   "text": "The one-sentence pitch."
   },
   {
-   "text": "On the phone: five to seven days. In chat: up to two weeks. From the advocate's cheat sheet: seven to ten business days."
+   "text": "Verity is one governed source of approved knowledge, used by AI and by people."
   },
   {
-   "text": "Same question. Three answers."
-  },
-  {
-   "text": "Now make it a sentence Legal requires word for word. Three versions, a word or two apart. Priya reads the older one. A quality review catches it weeks later."
-  },
-  {
-   "text": "Nobody was careless. The truth just had no single place to live."
+   "text": "Author once, approve once, retrieve everywhere, stay current."
   }
  ]
 }

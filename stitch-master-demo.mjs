@@ -35,7 +35,7 @@ const SLATES = {
 
 // ---- Running order ----
 const ORDER = [
-  { chapter: "Why this exists", file: scene("open") },
+  { chapter: "What Verity is", file: scene("open") },
   { chapter: "The product, live", file: clip(0) },
   { chapter: "How Verity works", file: scene("lifecycle") },
   { slate: 1, chapter: "Scenario 1: AI ingest and author review", file: clip(1) },
