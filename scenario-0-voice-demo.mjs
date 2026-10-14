@@ -74,7 +74,7 @@ await context.addInitScript(() => {
       #vty-sub{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:920px;padding:12px 24px;border-radius:999px;
         background:rgba(12,24,17,.93);color:#fff;font-size:18px;line-height:1.35;text-align:center;border:1px solid #22c55e;
         box-shadow:0 6px 22px rgba(0,0,0,.4);opacity:0;transition:opacity .25s}
-      #vty-sub.on{opacity:1}
+      #vty-sub.on{opacity:0}
       #vty-click{position:fixed;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:3px solid #22c55e;opacity:0}
       #vty-click.go{animation:vtyc .5s ease-out}
       @keyframes vtyc{0%{opacity:1;transform:scale(.3)}100%{opacity:0;transform:scale(2.4)}}`;
@@ -241,7 +241,7 @@ await sleep(700);
 // [Cue 2] the three red callouts
 const facts = ["Annual Election Period opens Oct 15, 2026", "2027 content differs from 2026 content", "Legal wording must be read exactly"];
 await Promise.all([
-  speak("The Annual Election Period opens October fifteenth, 2026. The 2027 content differs from 2026 content, and legal wording must be read exactly."),
+  speak("The Annual Election Period opens October fifteenth, 2026, and legal wording must be read exactly."),
   (async () => {
     for (const f of facts) {
       const el = page.getByText(f, { exact: true }).first();

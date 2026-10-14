@@ -85,7 +85,7 @@ await context.addInitScript(() => {
       #vty-sub{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:920px;padding:12px 24px;border-radius:999px;
         background:rgba(12,24,17,.93);color:#fff;font-size:18px;line-height:1.35;text-align:center;border:1px solid #22c55e;
         box-shadow:0 6px 22px rgba(0,0,0,.4);opacity:0;transition:opacity .25s}
-      #vty-sub.on{opacity:1}
+      #vty-sub.on{opacity:0}
       #vty-click{position:fixed;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:3px solid #22c55e;opacity:0}
       #vty-click.go{animation:vtyc .5s ease-out}
       @keyframes vtyc{0%{opacity:1;transform:scale(.3)}100%{opacity:0;transform:scale(2.4)}}`;
@@ -295,7 +295,7 @@ mark("cue 1 done");
 // [Cue 2] Side-by-side comparison (Current approved | Proposed, with the word diff)
 const diffGrid = card.locator("div.grid").first();
 await Promise.all([
-  speak("The side-by-side view shows the current approved wording next to the proposal, with additions in green and removals struck through in red."),
+  speak("The side-by-side view shows the approved wording against the proposal, additions in green and removals in red."),
   (async () => {
     const c = await centerOf(diffGrid);
     await glideTo(c.x, c.y);
@@ -317,8 +317,8 @@ if (!ranNow) deviations.push('Cue 3: the draft already shows its impact result, 
 await Promise.all([
   speak(
     ranNow
-      ? "Before approving, Rita runs the automated impact check, which tests the change against downstream cases and blocks publication if anything would break."
-      : "The automated impact check has already run on this draft. It tested the change against downstream cases, and none are blocking."
+      ? "Before approving, Rita runs the impact check, which blocks publication if any downstream case would break."
+      : "The impact check tested the change against downstream cases, and none are blocking."
   ),
   (async () => {
     if (ranNow) {
@@ -359,7 +359,7 @@ if (enabled) {
   if (!gotBanner) deviations.push("Cue 5: the published confirmation banner did not appear.");
   const decidedTab = page.getByRole("tab", { name: /Decided/ });
   await Promise.all([
-    speak("The unit is published, the channels are told to refresh, and the decision now sits under Decided with its full lifecycle."),
+    speak("The unit is published, the channels are told to refresh, and the decision moves to Decided."),
     (async () => {
       if (gotBanner) { await page.evaluate(() => window.scrollTo(0, 0)); await hover(banner, { zoom: 1.03, pad: 4 }, 1800); }
       await clickWithSpot(decidedTab, { zoom: 1.08 }, 600);

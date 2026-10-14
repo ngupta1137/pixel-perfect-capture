@@ -1,9 +1,21 @@
-{ "title": "Opening: same question, three answers",
-  "tail": 1500,
-  "lines": [
-    { "text": "How long does mail order take?" },
-    { "text": "On the phone: five to seven days. In chat: up to two weeks. From the advocate's cheat sheet: seven to ten business days." },
-    { "text": "Same question. Three answers." },
-    { "text": "Now make it a sentence Legal requires word for word. Three versions, a word or two apart. Priya reads the older one. Weeks later, a quality review catches it." },
-    { "text": "Nobody was careless. The truth just had no single place to live." }
-  ] }
+{
+ "title": "Opening: same question, three answers",
+ "tail": 1500,
+ "lines": [
+  {
+   "text": "How long does mail order take?"
+  },
+  {
+   "text": "On the phone: five to seven days. In chat: up to two weeks. From the advocate's cheat sheet: seven to ten business days."
+  },
+  {
+   "text": "Same question. Three answers."
+  },
+  {
+   "text": "Now make it a sentence Legal requires word for word. Three versions, a word or two apart. Priya reads the older one. A quality review catches it weeks later."
+  },
+  {
+   "text": "Nobody was careless. The truth just had no single place to live."
+  }
+ ]
+}

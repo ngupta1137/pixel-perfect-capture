@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { captionGraph } from "./captions.mjs";
 
 // Auto-load .env
 if (fs.existsSync(".env")) {
@@ -53,12 +54,12 @@ const run = (cmd, args, opts = {}) => {
 const LINES = [
   { id: "a0", text: "Now we will see the Legal Review and Impact Analysis scenario." },
   { id: "c1", text: "Rita, our legal approver, opens the Legal queue and finds the pending pricing disclaimer draft." },
-  { id: "c2", text: "The side-by-side view shows the current approved wording next to the proposal, with additions in green and removals struck through in red." },
-  { id: "c3r", text: "Before approving, Rita runs the automated impact check, which tests the change against downstream cases and blocks publication if anything would break." },
-  { id: "c3a", text: "The automated impact check has already run on this draft. It tested the change against downstream cases, and none are blocking." },
+  { id: "c2", text: "The side-by-side view shows the approved wording against the proposal, additions in green and removals in red." },
+  { id: "c3r", text: "Before approving, Rita runs the impact check, which blocks publication if any downstream case would break." },
+  { id: "c3a", text: "The impact check tested the change against downstream cases, and none are blocking." },
   { id: "c4", text: "With zero blocking cases, Rita approves and publishes the unit, and Verity notifies the downstream channels." },
   { id: "c4b", text: "The gate reports a blocking case, so Approve and publish stays disabled until the wording is fixed." },
-  { id: "c5", text: "The unit is published, the channels are told to refresh, and the decision now sits under Decided with its full lifecycle." },
+  { id: "c5", text: "The unit is published, the channels are told to refresh, and the decision moves to Decided." },
 ];
 
 // 1. narration audio
@@ -150,7 +151,7 @@ const pieces = [];
 for (let i = 0; i + 1 < pts.length; i++) {
   const a = pts[i], b = pts[i + 1], m = (a + b) / 2;
   if (b - a < 0.04 || inCut(m)) continue;
-  pieces.push({ a, b, speed: !inWin(m) && b - a > 3 ? SPEED : 1 });
+  pieces.push({ a, b, speed: !inWin(m) && b - a > 1.6 ? SPEED : 1 });
 }
 let acc = 0;
 for (const p of pieces) { p.o = acc; acc += (p.b - p.a) / p.speed; }
@@ -163,10 +164,12 @@ console.log(`edit: picture ${acc.toFixed(1)}s, last narration ends ${audioEnd.to
 const final = path.join(OUT, "scenario-2-with-voice.mp4");
 // Step A: video only
 const silent = path.join(OUT, "video-cut.mp4");
-const vgraph = `[0:v]fps=25,drawbox=x=0:y=712:w=8:h=8:color=white:t=fill,split=${pieces.length}${pieces.map((_, i) => `[s${i}]`).join("")};` +
+const vgraph0 = `[0:v]fps=25,drawbox=x=0:y=712:w=8:h=8:color=white:t=fill,split=${pieces.length}${pieces.map((_, i) => `[s${i}]`).join("")};` +
   pieces.map((p, i) => `[s${i}]trim=start=${p.a.toFixed(3)}:end=${p.b.toFixed(3)},setpts=(PTS-STARTPTS)/${p.speed}[c${i}]`).join(";") +
   `;${pieces.map((_, i) => `[c${i}]`).join("")}concat=n=${pieces.length}:v=1:a=0[vc]` + (holdLast > 0 ? `;[vc]tpad=stop_mode=clone:stop_duration=${holdLast.toFixed(3)}[v]` : `;[vc]null[v]`);
-run("ffmpeg", ["-v", "error", "-y", "-i", videoPath, "-filter_complex", vgraph, "-map", "[v]", "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", silent]);
+const textById = Object.fromEntries(LINES.map((l) => [l.id, l.text]));
+const vgraph = vgraph0 + captionGraph({ timeline, textById, outDir: OUT });
+run("ffmpeg", ["-v", "error", "-y", "-i", videoPath, "-filter_complex", vgraph, "-map", "[vf]", "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", silent]);
 const vdur = parseFloat(run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", silent], { capture: true }));
 // Step B: place each clip at its cue start, mix, and mux with the video
 const inputs = ["-i", silent, ...timeline.flatMap((t) => ["-i", t.file])];

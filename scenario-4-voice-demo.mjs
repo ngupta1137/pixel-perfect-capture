@@ -85,7 +85,7 @@ await context.addInitScript(() => {
       #vty-sub{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:920px;padding:12px 24px;border-radius:999px;
         background:rgba(12,24,17,.93);color:#fff;font-size:18px;line-height:1.35;text-align:center;border:1px solid #22c55e;
         box-shadow:0 6px 22px rgba(0,0,0,.4);opacity:0;transition:opacity .25s}
-      #vty-sub.on{opacity:1}
+      #vty-sub.on{opacity:0}
       #vty-click{position:fixed;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:3px solid #22c55e;opacity:0}
       #vty-click.go{animation:vtyc .5s ease-out}
       @keyframes vtyc{0%{opacity:1;transform:scale(.3)}100%{opacity:0;transform:scale(2.4)}}`;
@@ -354,7 +354,7 @@ const card = outside.locator("xpath=ancestor::div[3]");
 const owner = page.getByText(/Owned by Pharmacy Ops/).first();
 const nextStep = page.getByText(/^Next step:/).first();
 await Promise.all([
-  speak("Verity shows Outside your access. There is no answer text, only the owning team, Pharmacy Ops, and a warm transfer step."),
+  speak("Verity shows Outside your access: no answer text, only the owning team, Pharmacy Ops, and a warm transfer."),
   (async () => {
     const a = await centerOf(card);
     await glideTo(a.x, a.y);

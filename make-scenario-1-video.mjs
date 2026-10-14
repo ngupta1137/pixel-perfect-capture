@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { captionGraph } from "./captions.mjs";
 
 // Auto-load .env
 if (fs.existsSync(".env")) {
@@ -52,11 +53,11 @@ const LINES = [
   { id: "c1", text: "In the author workspace, Dana loads the AEP sample policy and clicks Extract candidate units." },
   { id: "c2", text: "Verity lists the candidate knowledge units it extracted from the document." },
   { id: "c3x", text: "Dana inspects the pricing disclaimer candidate. The prototype links directly to the source passage in Section 1.0." },
-  { id: "c3t", text: "Dana opens the pricing disclaimer candidate. Its unit details show a source reference to the AEP contact-center script." },
+  { id: "c3t", text: "Dana opens the pricing disclaimer candidate. Its unit details show the source reference." },
   { id: "c4x", text: "It flags a near-duplicate match against existing unit U-PH-003 with a sixty-seven percent similarity score.", tts: "It flags a near-duplicate match against existing unit U P H zero zero three, with a sixty-seven percent similarity score." },
-  { id: "c4t", text: "The unit details list the type, the content, the key points and a suggested effective date." },
+  { id: "c4t", text: "The details list the type, content, key points and a suggested effective date." },
   { id: "c5", text: "Dana proposes the selected unit. It appears under My drafts as Proposed." },
-  { id: "c6", text: "Dana cannot approve her own draft. The lifecycle line says it is waiting on a second person to approve." },
+  { id: "c6", text: "Dana cannot approve her own draft. It waits on a second person." },
   { id: "c7", text: "Next, Dana uploads a second document, the retail refill rules, with Choose file." },
   { id: "c8", text: "Verity extracts four units. Three are tagged Policy. The vaccine fee is tagged Legal, because it is verbatim wording." },
   { id: "c9", text: "Dana proposes all four. On My drafts, the policy units wait on Pharmacy Ops, and the vaccine fee waits on Legal." },
@@ -89,7 +90,7 @@ const { timeline, cuts = [], videoPath } = JSON.parse(fs.readFileSync(timelinePa
 // Calibrate: find when the first subtitle pill really appears in the video and shift every cue by the difference.
 {
   const fps = 10;
-  const r = spawnSync("ffmpeg", ["-v", "error", "-i", videoPath, "-vf", `fps=${fps},crop=60:15:930:982,scale=1:1`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 26 });
+  const r = spawnSync("ffmpeg", ["-v", "error", "-i", videoPath, "-vf", `fps=${fps},crop=4:4:2:1070,scale=1:1`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 26 });
   const px = r.stdout;
   let first = -1;
   for (let i = 0; i + 2 < px.length; i += 3) {
@@ -120,7 +121,7 @@ const pieces = [];
 for (let i = 0; i + 1 < pts.length; i++) {
   const a = pts[i], b = pts[i + 1], m = (a + b) / 2;
   if (b - a < 0.04 || inCut(m)) continue;
-  pieces.push({ a, b, speed: !inWin(m) && b - a > 3 ? SPEED : 1 });
+  pieces.push({ a, b, speed: !inWin(m) && b - a > 1.6 ? SPEED : 1 });
 }
 let acc = 0;
 for (const p of pieces) { p.o = acc; acc += (p.b - p.a) / p.speed; }
@@ -133,10 +134,12 @@ console.log(`edit: picture ${acc.toFixed(1)}s, last narration ends ${audioEnd.to
 const final = path.join(OUT, "scenario-1-with-voice.mp4");
 // Step A: video only
 const silent = path.join(OUT, "video-cut.mp4");
-const vgraph = `[0:v]fps=25,split=${pieces.length}${pieces.map((_, i) => `[s${i}]`).join("")};` +
+const vgraph0 = `[0:v]fps=25,drawbox=x=0:y=1062:w=18:h=18:color=white:t=fill,split=${pieces.length}${pieces.map((_, i) => `[s${i}]`).join("")};` +
   pieces.map((p, i) => `[s${i}]trim=start=${p.a.toFixed(3)}:end=${p.b.toFixed(3)},setpts=(PTS-STARTPTS)/${p.speed}[c${i}]`).join(";") +
   `;${pieces.map((_, i) => `[c${i}]`).join("")}concat=n=${pieces.length}:v=1:a=0[vc]` + (holdLast > 0 ? `;[vc]tpad=stop_mode=clone:stop_duration=${holdLast.toFixed(3)}[v]` : `;[vc]null[v]`);
-run("ffmpeg", ["-v", "error", "-y", "-i", videoPath, "-filter_complex", vgraph, "-map", "[v]", "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", silent]);
+const textById = Object.fromEntries(LINES.map((l) => [l.id, l.text]));
+const vgraph = vgraph0 + captionGraph({ timeline, textById, outDir: OUT });
+run("ffmpeg", ["-v", "error", "-y", "-i", videoPath, "-filter_complex", vgraph, "-map", "[vf]", "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", silent]);
 const vdur = parseFloat(run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", silent], { capture: true }));
 // Step B: place each clip at its cue start, mix, and mux with the video
 const inputs = ["-i", silent, ...timeline.flatMap((t) => ["-i", t.file])];

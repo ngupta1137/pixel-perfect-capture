@@ -85,6 +85,7 @@ await context.addInitScript((SC) => {
         background:rgba(12,24,17,.93);color:#fff;font-size:18px;line-height:1.35;text-align:center;border:1px solid #22c55e;
         box-shadow:0 6px 22px rgba(0,0,0,.4);opacity:0;transition:opacity .25s}
       #vty-sub.on{opacity:1}
+      #vty-sub{left:0 !important;bottom:0 !important;transform:none !important;width:8px;height:8px;max-width:8px !important;padding:0 !important;font-size:0 !important;border:0 !important;border-radius:0 !important;box-shadow:none !important;overflow:hidden;background:#0c1811 !important}
       #vty-click{position:fixed;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:3px solid #22c55e;opacity:0}
       #vty-click.go{animation:vtyc .5s ease-out}
       @keyframes vtyc{0%{opacity:1;transform:scale(.3)}100%{opacity:0;transform:scale(2.4)}}`;
@@ -293,7 +294,7 @@ await Promise.all([
     ? "Dana inspects the pricing disclaimer candidate. The prototype links directly to the source passage in Section 1.0."
     : sectionLabel
     ? `Dana inspects the pricing disclaimer candidate. The prototype links directly to the source passage in ${sectionLabel}.`
-    : "Dana opens the pricing disclaimer candidate. Its unit details show a source reference to the AEP contact-center script."),
+    : "Dana opens the pricing disclaimer candidate. Its unit details show the source reference."),
   (async () => {
     await glideTo(...Object.values((({ x, y }) => ({ x, y }))(await centerOf(candidate))));
     await spot(candidate, { zoom: 1.04 });
@@ -312,7 +313,7 @@ if (!hasDup) deviations.push("Cue 4: this screen does not render a near-duplicat
 await Promise.all([
   speak(EXACT || hasDup
     ? "It flags a near-duplicate match against existing unit U-PH-003 with a sixty-seven percent similarity score."
-    : "The unit details list the type, the content, the key points and a suggested effective date."),
+    : "The details list the type, content, key points and a suggested effective date."),
   hover(hasDup ? dup : page.getByText("Unit details").first().locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]"), { zoom: 1.03, pad: 4 }, 2200),
 ]);
 
@@ -372,7 +373,7 @@ const gate = hasBadge
 if (!hasBadge) deviations.push('Cue 6: no "Needs Legal" badge on My drafts; spotlighted the lifecycle line "Waiting on: Unassigned, A second person approves" instead.');
 const lifecycle = page.locator('[aria-label="Lifecycle"]').first();
 await Promise.all([
-  speak("Dana cannot approve her own draft. The lifecycle line says it is waiting on a second person to approve."),
+  speak("Dana cannot approve her own draft. It waits on a second person."),
   (async () => {
     await hover(gate, { zoom: 1.08 }, 1500);
     const approveBtns = await page.getByRole("button", { name: /approve|publish/i }).count();

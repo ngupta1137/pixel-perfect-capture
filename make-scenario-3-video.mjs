@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { captionGraph } from "./captions.mjs";
 
 // Auto-load .env
 if (fs.existsSync(".env")) {
@@ -54,7 +55,7 @@ const LINES = [
   { id: "a0", text: "Now we will see the Advocate Search and Governed Answer scenario." },
   { id: "c1", text: "Priya, our pharmacy advocate, gets a member question and searches for the prescription pricing disclaimer." },
   { id: "c2", text: "Verity answers only from approved knowledge. The banner shows the approved answer, grounded in unit U-PH-003 and marked verified.", tts: "Verity answers only from approved knowledge. The banner shows the approved answer, grounded in unit U P H zero zero three and marked verified." },
-  { id: "c3", text: "The disclaimer appears under a Read Exactly As Written label and is marked Verbatim Required, so Priya reads the approved wording and nothing else." },
+  { id: "c3", text: "It is labeled Read Exactly As Written and Verbatim Required, so Priya reads the approved wording and nothing else." },
   { id: "c4", text: "Priya opens the source unit and sees its ID, its version, the Legal verifier and the approved status." },
 ];
 
@@ -147,7 +148,7 @@ const pieces = [];
 for (let i = 0; i + 1 < pts.length; i++) {
   const a = pts[i], b = pts[i + 1], m = (a + b) / 2;
   if (b - a < 0.04 || inCut(m)) continue;
-  pieces.push({ a, b, speed: !inWin(m) && b - a > 3 ? SPEED : 1 });
+  pieces.push({ a, b, speed: !inWin(m) && b - a > 1.6 ? SPEED : 1 });
 }
 let acc = 0;
 for (const p of pieces) { p.o = acc; acc += (p.b - p.a) / p.speed; }
@@ -160,10 +161,12 @@ console.log(`edit: picture ${acc.toFixed(1)}s, last narration ends ${audioEnd.to
 const final = path.join(OUT, "scenario-3-with-voice.mp4");
 // Step A: video only
 const silent = path.join(OUT, "video-cut.mp4");
-const vgraph = `[0:v]fps=25,drawbox=x=0:y=712:w=8:h=8:color=white:t=fill,split=${pieces.length}${pieces.map((_, i) => `[s${i}]`).join("")};` +
+const vgraph0 = `[0:v]fps=25,drawbox=x=0:y=712:w=8:h=8:color=white:t=fill,split=${pieces.length}${pieces.map((_, i) => `[s${i}]`).join("")};` +
   pieces.map((p, i) => `[s${i}]trim=start=${p.a.toFixed(3)}:end=${p.b.toFixed(3)},setpts=(PTS-STARTPTS)/${p.speed}[c${i}]`).join(";") +
   `;${pieces.map((_, i) => `[c${i}]`).join("")}concat=n=${pieces.length}:v=1:a=0[vc]` + (holdLast > 0 ? `;[vc]tpad=stop_mode=clone:stop_duration=${holdLast.toFixed(3)}[v]` : `;[vc]null[v]`);
-run("ffmpeg", ["-v", "error", "-y", "-i", videoPath, "-filter_complex", vgraph, "-map", "[v]", "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", silent]);
+const textById = Object.fromEntries(LINES.map((l) => [l.id, l.text]));
+const vgraph = vgraph0 + captionGraph({ timeline, textById, outDir: OUT });
+run("ffmpeg", ["-v", "error", "-y", "-i", videoPath, "-filter_complex", vgraph, "-map", "[vf]", "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", silent]);
 const vdur = parseFloat(run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", silent], { capture: true }));
 // Step B: place each clip at its cue start, mix, and mux with the video
 const inputs = ["-i", silent, ...timeline.flatMap((t) => ["-i", t.file])];

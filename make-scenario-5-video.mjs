@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { captionGraph } from "./captions.mjs";
 
 // Auto-load .env
 if (fs.existsSync(".env")) {
@@ -53,7 +54,7 @@ const run = (cmd, args, opts = {}) => {
 const LINES = [
   { id: "a0", text: "Now we will see safe fallbacks and the author knowledge gap queue." },
   { id: "c1", text: "Priya asks a benefit question that no approved unit covers: the dental allowance for implants." },
-  { id: "c2", text: "Verity does not guess. It says no approved answer was found, and that it does not answer from general knowledge." },
+  { id: "c2", text: "Verity does not guess. It says no approved answer was found, and it does not use general knowledge." },
   { id: "c3", text: "Instead it gives Priya a script: tell the member you will confirm, then ask a supervisor or warm-transfer to the help desk." },
   { id: "c4", text: "The card also notes that a knowledge gap is logged for the Insurance team." },
   { id: "c5", text: "In the author workspace, Dana's gap queue lists the dental coverage gap, open and assigned to Olivia, ready for a new knowledge unit." },
@@ -148,7 +149,7 @@ const pieces = [];
 for (let i = 0; i + 1 < pts.length; i++) {
   const a = pts[i], b = pts[i + 1], m = (a + b) / 2;
   if (b - a < 0.04 || inCut(m)) continue;
-  pieces.push({ a, b, speed: !inWin(m) && b - a > 3 ? SPEED : 1 });
+  pieces.push({ a, b, speed: !inWin(m) && b - a > 1.6 ? SPEED : 1 });
 }
 let acc = 0;
 for (const p of pieces) { p.o = acc; acc += (p.b - p.a) / p.speed; }
@@ -161,10 +162,12 @@ console.log(`edit: picture ${acc.toFixed(1)}s, last narration ends ${audioEnd.to
 const final = path.join(OUT, "scenario-5-with-voice.mp4");
 // Step A: video only
 const silent = path.join(OUT, "video-cut.mp4");
-const vgraph = `[0:v]fps=25,drawbox=x=0:y=712:w=8:h=8:color=white:t=fill,split=${pieces.length}${pieces.map((_, i) => `[s${i}]`).join("")};` +
+const vgraph0 = `[0:v]fps=25,drawbox=x=0:y=712:w=8:h=8:color=white:t=fill,split=${pieces.length}${pieces.map((_, i) => `[s${i}]`).join("")};` +
   pieces.map((p, i) => `[s${i}]trim=start=${p.a.toFixed(3)}:end=${p.b.toFixed(3)},setpts=(PTS-STARTPTS)/${p.speed}[c${i}]`).join(";") +
   `;${pieces.map((_, i) => `[c${i}]`).join("")}concat=n=${pieces.length}:v=1:a=0[vc]` + (holdLast > 0 ? `;[vc]tpad=stop_mode=clone:stop_duration=${holdLast.toFixed(3)}[v]` : `;[vc]null[v]`);
-run("ffmpeg", ["-v", "error", "-y", "-i", videoPath, "-filter_complex", vgraph, "-map", "[v]", "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", silent]);
+const textById = Object.fromEntries(LINES.map((l) => [l.id, l.text]));
+const vgraph = vgraph0 + captionGraph({ timeline, textById, outDir: OUT });
+run("ffmpeg", ["-v", "error", "-y", "-i", videoPath, "-filter_complex", vgraph, "-map", "[vf]", "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", silent]);
 const vdur = parseFloat(run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", silent], { capture: true }));
 // Step B: place each clip at its cue start, mix, and mux with the video
 const inputs = ["-i", silent, ...timeline.flatMap((t) => ["-i", t.file])];
