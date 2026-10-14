@@ -64,6 +64,11 @@ await context.addInitScript(() => {
   sessionStorage.setItem("verity_authenticated", "true");
   sessionStorage.setItem("verity_active_persona", "rita");
   sessionStorage.setItem("verity_session_token", "vty_sess_demo_rita");
+  try {
+    localStorage.setItem("verity_authenticated", "true");
+    localStorage.setItem("verity_active_persona", "rita");
+    localStorage.setItem("verity_session_token", "vty_sess_demo_rita");
+  } catch {}
 });
 
 // Overlay: green cursor, spotlight ring, subtitle pill, and speech helper.
