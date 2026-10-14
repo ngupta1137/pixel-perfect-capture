@@ -239,7 +239,7 @@ await Promise.all([
 const firstRow = page.locator("tbody tr").first();
 const actionsBtn = firstRow.getByRole("button", { name: "Actions" });
 await Promise.all([
-  speak("In the author workspace, Dana selects our synthetic AEP outreach script and runs extraction."),
+  speak("In the author workspace, Dana loads the AEP sample policy and clicks Extract candidate units."),
   (async () => {
     await hover(actionsBtn, { zoom: 1.25, pad: 4 }, 500);
     await actionsBtn.click();
@@ -270,7 +270,7 @@ await reviewReady.first().waitFor({ timeout: 90000 });
 await sleep(800);
 const unitsCol = page.locator("div.overflow-y-auto").filter({ has: page.getByRole("checkbox") }).first();
 await Promise.all([
-  speak("Verity segments the text into candidate knowledge units rather than raw chunks."),
+  speak("Verity lists the candidate knowledge units it extracted from the document."),
   hover(unitsCol, { zoom: 1.02, pad: 4 }, 2200),
 ]);
 
@@ -291,7 +291,7 @@ await Promise.all([
     ? "Dana inspects the pricing disclaimer candidate. The prototype links directly to the source passage in Section 1.0."
     : sectionLabel
     ? `Dana inspects the pricing disclaimer candidate. The prototype links directly to the source passage in ${sectionLabel}.`
-    : "Dana inspects the pricing disclaimer candidate. The prototype records its provenance back to the source document."),
+    : "Dana opens the pricing disclaimer candidate. Its unit details show a source reference to the AEP contact-center script."),
   (async () => {
     await glideTo(...Object.values((({ x, y }) => ({ x, y }))(await centerOf(candidate))));
     await spot(candidate, { zoom: 1.04 });
@@ -310,7 +310,7 @@ if (!hasDup) deviations.push("Cue 4: this screen does not render a near-duplicat
 await Promise.all([
   speak(EXACT || hasDup
     ? "It flags a near-duplicate match against existing unit U-PH-003 with a sixty-seven percent similarity score."
-    : "On this screen the near-duplicate score is not displayed. The match data is returned by the engine but is not yet shown in the unit panel."),
+    : "The unit details list the type, the content, the key points and a suggested effective date."),
   hover(hasDup ? dup : page.getByText("Unit details").first().locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]"), { zoom: 1.03, pad: 4 }, 2200),
 ]);
 
@@ -319,7 +319,7 @@ mark("cue 4 done");
 const others = ["Fragment a", "Fragment b", "For plan year 2027, maintenance supply", "Mail order packages can be delivered"];
 const propose = page.getByRole("button", { name: /Propose selected/ });
 await Promise.all([
-  speak("Dana reviews the proposed update and submits it into the review queue."),
+  speak("Dana proposes the selected unit. It appears under My drafts as Proposed."),
   (async () => {
     mark("cue 5 actions start");
     for (const name of others) {
@@ -370,7 +370,7 @@ const gate = hasBadge
 if (!hasBadge) deviations.push('Cue 6: no "Needs Legal" badge on My drafts; spotlighted the lifecycle line "Waiting on: Unassigned, A second person approves" instead.');
 const lifecycle = page.locator('[aria-label="Lifecycle"]').first();
 await Promise.all([
-  speak("Dana cannot approve her own draft; our synthetic policy matrix enforces maker-checker separation of duties."),
+  speak("Dana cannot approve her own draft. The lifecycle line says it is waiting on a second person to approve."),
   (async () => {
     await hover(gate, { zoom: 1.08 }, 1500);
     const approveBtns = await page.getByRole("button", { name: /approve|publish/i }).count();

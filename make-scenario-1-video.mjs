@@ -49,14 +49,14 @@ const run = (cmd, args, opts = {}) => {
 // Every line the demo can speak. "tts" is what the voice reads; "text" is the subtitle and the lookup key.
 const LINES = [
   { id: "a0", text: "Now we will see the AI Extraction and Author Review scenario." },
-  { id: "c1", text: "In the author workspace, Dana selects our synthetic AEP outreach script and runs extraction." },
-  { id: "c2", text: "Verity segments the text into candidate knowledge units rather than raw chunks." },
+  { id: "c1", text: "In the author workspace, Dana loads the AEP sample policy and clicks Extract candidate units." },
+  { id: "c2", text: "Verity lists the candidate knowledge units it extracted from the document." },
   { id: "c3x", text: "Dana inspects the pricing disclaimer candidate. The prototype links directly to the source passage in Section 1.0." },
-  { id: "c3t", text: "Dana inspects the pricing disclaimer candidate. The prototype records its provenance back to the source document." },
+  { id: "c3t", text: "Dana opens the pricing disclaimer candidate. Its unit details show a source reference to the AEP contact-center script." },
   { id: "c4x", text: "It flags a near-duplicate match against existing unit U-PH-003 with a sixty-seven percent similarity score.", tts: "It flags a near-duplicate match against existing unit U P H zero zero three, with a sixty-seven percent similarity score." },
-  { id: "c4t", text: "On this screen the near-duplicate score is not displayed. The match data is returned by the engine but is not yet shown in the unit panel." },
-  { id: "c5", text: "Dana reviews the proposed update and submits it into the review queue." },
-  { id: "c6", text: "Dana cannot approve her own draft; our synthetic policy matrix enforces maker-checker separation of duties." },
+  { id: "c4t", text: "The unit details list the type, the content, the key points and a suggested effective date." },
+  { id: "c5", text: "Dana proposes the selected unit. It appears under My drafts as Proposed." },
+  { id: "c6", text: "Dana cannot approve her own draft. The lifecycle line says it is waiting on a second person to approve." },
 ];
 
 // 1. narration audio
