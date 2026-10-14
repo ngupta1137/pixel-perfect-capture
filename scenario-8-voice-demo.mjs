@@ -330,7 +330,7 @@ if (!/Rita/.test(rowText) || !/Invalidated/.test(rowText)) deviations.push(`Cue 
 mark("cue 4 done");
 
 // [Cue 5] the certified list
-const certHead = page.getByText("Built & Certified in Production", { exact: true }).first();
+const certHead = page.getByText(/^(Built & Certified in Production|Working in this prototype)$/).first();
 const certList = certHead.locator("xpath=ancestor::div[2]");
 await Promise.all([
   speak("Below, the capability list names the engine, REST API, MCP, access control, drift detection and golden evals. Access control and drift detection are in this prototype. The REST API and MCP are the next build."),
