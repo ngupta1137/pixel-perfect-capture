@@ -209,10 +209,10 @@ const RUNTIME_STEPS: StepDefinition[] = [
     phase: "Synthesis & Audit",
     phaseIndex: 4,
     latencyMs: 5,
-    desc: "Writes immutable audit event with trace ID, input hash, active unit version, and decision rationale for 6-year regulatory replay.",
+    desc: "Designed: writes an immutable audit event with trace ID, input hash, active unit version, and decision rationale for regulatory replay.",
     input: "Execution trace req-9081 + decision telemetry",
-    output: "Audit record committed with SHA-256 integrity hash",
-    guarantee: "CMS 6-year historical replayability guaranteed.",
+    output: "Audit record committed with an integrity hash",
+    guarantee: "Retention period is set by Compliance.",
   },
 ];
 
@@ -486,8 +486,11 @@ function PlatformPage() {
         </div>
         <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
           <p className="text-xs font-semibold text-ink-muted">Audit Provenance</p>
-          <p className="mt-1 text-xl font-bold text-ink">6-Year Replay</p>
-          <p className="mt-0.5 text-[11px] text-ink-muted font-medium">SHA-256 cryptographic audit logs</p>
+          <div className="mt-1 flex items-center gap-2">
+            <p className="text-xl font-bold text-ink">Replayable</p>
+            <span className="text-[10px] font-medium text-ink-muted px-1.5 py-0.5 rounded bg-surface-alt border border-border">Designed</span>
+          </div>
+          <p className="mt-0.5 text-[11px] text-ink-muted font-medium">Retention set by Compliance</p>
         </div>
       </div>
 
