@@ -320,7 +320,7 @@ const row = page.locator("tr").filter({ hasText: /U-PH-003/ }).first();
 const rowText = ((await row.innerText().catch(() => "")) || "").replace(/\s+/g, " ");
 log("log row reads:", rowText);
 await Promise.all([
-  speak("The log illustrates the flow: U-PH-003 approved by Rita, with all four channels notified and the cache refreshed."),
+  speak("The log illustrates the flow: U-PH-003 approved by Rita, with all four proposed channels shown as notified and the cache invalidated. None of these channels is connected yet."),
   (async () => {
     if (await visible(row, 1500)) await hover(row, { zoom: 1.02, pad: 3 }, 4200);
     else deviations.push("Cue 4: no U-PH-003 row in the invalidation log.");

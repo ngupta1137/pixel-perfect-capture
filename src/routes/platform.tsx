@@ -220,9 +220,9 @@ const SPOKES = [
   {
     id: "spoke-1",
     label: "Agent Assist",
-    phase: "Phase 1: Production",
-    phaseBadge: "Active Production",
-    badgeClass: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20",
+    phase: "Proposed first wave",
+    phaseBadge: "Proposed",
+    badgeClass: "bg-surface-alt text-ink-muted border-border",
     volume: "High Throughput",
     sla: "< 140ms",
     useCase: "Contact center advocates handling member calls during Annual Election Period (AEP).",
@@ -231,9 +231,9 @@ const SPOKES = [
   {
     id: "spoke-2",
     label: "Member Web & Mobile",
-    phase: "Phase 1: Production",
-    phaseBadge: "Active Production",
-    badgeClass: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20",
+    phase: "Proposed first wave",
+    phaseBadge: "Proposed",
+    badgeClass: "bg-surface-alt text-ink-muted border-border",
     volume: "High Concurrency",
     sla: "< 180ms",
     useCase: "Member-facing self-service chatbots and portal search experiences.",
@@ -242,9 +242,9 @@ const SPOKES = [
   {
     id: "spoke-3",
     label: "Prior Authorization",
-    phase: "Phase 2: Expansion",
-    phaseBadge: "In Flight",
-    badgeClass: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20",
+    phase: "Proposed second wave",
+    phaseBadge: "Proposed",
+    badgeClass: "bg-surface-alt text-ink-muted border-border",
     volume: "Critical Accuracy",
     sla: "< 250ms",
     useCase: "Clinical reviewers and automated intake agents evaluating medical necessity criteria.",
@@ -253,9 +253,9 @@ const SPOKES = [
   {
     id: "spoke-4",
     label: "Payment Integrity",
-    phase: "Phase 2: Expansion",
-    phaseBadge: "In Flight",
-    badgeClass: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20",
+    phase: "Proposed second wave",
+    phaseBadge: "Proposed",
+    badgeClass: "bg-surface-alt text-ink-muted border-border",
     volume: "Batch & Real-time",
     sla: "< 200ms",
     useCase: "Post-adjudication claims auditing and policy consistency validation.",
@@ -264,9 +264,9 @@ const SPOKES = [
   {
     id: "spoke-5",
     label: "HEDIS Quality Measures",
-    phase: "Phase 3: Scale",
-    phaseBadge: "Enterprise Roadmap",
-    badgeClass: "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20",
+    phase: "Proposed third wave",
+    phaseBadge: "Proposed",
+    badgeClass: "bg-surface-alt text-ink-muted border-border",
     volume: "Enterprise Scale",
     sla: "< 350ms",
     useCase: "Quality measurement reporting and regulatory documentation validation.",
@@ -275,9 +275,9 @@ const SPOKES = [
   {
     id: "spoke-6",
     label: "Risk Adjustment & Clinical",
-    phase: "Phase 3: Scale",
-    phaseBadge: "Enterprise Roadmap",
-    badgeClass: "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20",
+    phase: "Proposed third wave",
+    phaseBadge: "Proposed",
+    badgeClass: "bg-surface-alt text-ink-muted border-border",
     volume: "High Concurrency",
     sla: "< 300ms",
     useCase: "Clinical outreach and proactive gap-in-care guidance for care managers.",
@@ -326,16 +326,16 @@ function SubscriberChangePanel() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <Radio className="h-4 w-4 text-emerald-600 animate-pulse" />
-            <h3 className="font-semibold text-lg text-ink">Real-time Change Propagation & Invalidation Mesh</h3>
+            <Radio className="h-4 w-4 text-ink-muted" />
+            <h3 className="font-semibold text-lg text-ink">Change Propagation & Invalidation Mesh (illustrative)</h3>
           </div>
           <p className="mt-1 text-xs text-ink-muted">
             When Legal or Knowledge Owners publish an approved unit, cache invalidation signals would notify all subscriber channels.
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold self-start sm:self-auto">
-          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-          Active Invalidation Stream
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-alt border border-border text-ink-muted text-xs font-semibold self-start sm:self-auto">
+          <span className="h-2 w-2 rounded-full bg-ink-muted/50" />
+          Illustrative · no live channels
         </span>
       </div>
 
@@ -344,9 +344,9 @@ function SubscriberChangePanel() {
           <div key={ch} className="rounded-lg border border-border bg-surface-alt/60 p-3.5 space-y-1.5 transition-all hover:border-ink/20">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-xs text-ink">{ch}</span>
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="h-2 w-2 rounded-full bg-ink-muted/50" />
             </div>
-            <p className="text-[11px] text-ink-muted">Direct subscriber • Response cache auto-invalidated</p>
+            <p className="text-[11px] text-ink-muted">Proposed subscriber • Response cache would be invalidated</p>
           </div>
         ))}
       </div>
@@ -372,9 +372,9 @@ function SubscriberChangePanel() {
                 </td>
                 <td className="p-3 font-sans font-medium text-ink">{sig.title}</td>
                 <td className="p-3 font-sans text-ink-muted">{sig.by}</td>
-                <td className="p-3 font-sans text-emerald-800 font-medium">{sig.channels.join(", ")}</td>
-                <td className="p-3 font-sans text-emerald-700 font-semibold flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5" /> Invalidated & Refreshed
+                <td className="p-3 font-sans text-ink-muted font-medium">{sig.channels.join(", ")}</td>
+                <td className="p-3 font-sans text-ink-muted font-semibold flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5" /> Invalidated (illustrative)
                 </td>
               </tr>
             ))}
@@ -766,7 +766,7 @@ function PlatformPage() {
 
                   <div className="border-t border-border/80 pt-3 space-y-2 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-ink-muted">Throughput & SLA:</span>
+                      <span className="text-ink-muted">Target throughput & SLA:</span>
                       <span className="font-mono font-semibold text-ink">
                         {spoke.volume} · {spoke.sla}
                       </span>
@@ -790,12 +790,12 @@ function PlatformPage() {
                   <h4 className="font-bold text-sm text-ink">Centralized Truth, Decentralized Action</h4>
                   <p className="text-xs text-ink-muted">
                     No downstream product implements its own knowledge base or policy rules. Any policy update made by
-                    Knowledge Owners or Legal instantly harmonizes across all spokes.
+                    Knowledge Owners or Legal would harmonize across all spokes.
                   </p>
                 </div>
               </div>
               <Badge variant="outline" className="shrink-0 font-mono text-xs font-semibold">
-                6 Active Spokes Connected
+                6 Proposed Spokes · None Connected
               </Badge>
             </div>
           </div>
