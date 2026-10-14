@@ -61,7 +61,7 @@ const LINES = [
 
 // 1. narration audio
 let REUSE_OK = REUSE;
-try { if (REUSE) { const old = JSON.parse(fs.readFileSync(path.join(OUT, "lines.json"), "utf8")); const nw = LINES.map((l) => ({ id: l.id, tts: l.tts || l.text })); if (JSON.stringify(old) !== JSON.stringify(nw)) { console.log("narration text changed since the last render: regenerating voice clips for this clip"); REUSE_OK = false; } } } catch { REUSE_OK = false; }
+try { if (REUSE) { const old = JSON.parse(fs.readFileSync(path.join(OUT, "audio", "tts.json"), "utf8")).lines; const same = LINES.every((l) => { const o = old.find((x) => x.id === l.id); return o && o.tts === (l.tts || l.text) && fs.existsSync(path.join(OUT, "audio", o.file)); }); if (!same) { console.log("narration text changed since the last render: regenerating voice clips for this clip"); REUSE_OK = false; } } } catch { REUSE_OK = false; }
 fs.writeFileSync(path.join(OUT, "lines.json"), JSON.stringify(LINES.map((l) => ({ id: l.id, tts: l.tts || l.text }))));
 if (!REUSE_OK) {
   run(py, ["scenario-3-tts.py", path.join(OUT, "lines.json"), path.join(OUT, "audio"), process.env.TTS_ENGINE || "auto"]);
