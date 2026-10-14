@@ -82,7 +82,7 @@ console.log("voice:", tts.engine);
 
 // 2. record the visuals, paced to the audio durations
 const timelinePath = path.join(OUT, "timeline.json");
-run(process.execPath, ["scenario-1-voice-demo.mjs"], {
+if (process.env.VTY_SKIP_DEMO !== "1") run(process.execPath, ["scenario-1-voice-demo.mjs"], {
   env: { VTY_AUDIO_MANIFEST: path.join(OUT, "manifest.json"), VTY_TIMELINE: timelinePath, VIDEO_DIR: path.join(OUT, "video") },
 });
 const { timeline, cuts = [], videoPath } = JSON.parse(fs.readFileSync(timelinePath, "utf8"));
@@ -104,6 +104,15 @@ const { timeline, cuts = [], videoPath } = JSON.parse(fs.readFileSync(timelinePa
     for (const c of cuts) { c.startMs += shift * 1000; c.endMs += shift * 1000; }
   } else console.log("sync: subtitle not detected, using raw timeline");
 }
+
+// Never cut away while a narration line is still playing: start each cut after the line that overlaps it has finished.
+for (const c of cuts) {
+  for (const t of timeline) {
+    const end = t.startMs + t.durationMs + 300;
+    if (c.startMs >= t.startMs && c.startMs < end) c.startMs = end;
+  }
+}
+for (let i = cuts.length - 1; i >= 0; i--) if (cuts[i].endMs - cuts[i].startMs < 800) cuts.splice(i, 1);
 
 // 3. Edit list: drop idle waits and the silent lead-in, play long un-narrated stretches faster, then merge with the audio
 const SPEED = Number(process.env.GAP_SPEED || 3);
