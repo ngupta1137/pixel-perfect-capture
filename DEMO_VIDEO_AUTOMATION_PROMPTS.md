@@ -474,38 +474,59 @@ OUTPUT FILES REQUIRED:
 
 ---
 
-## Clip 8: Executive Summary & ROI (Conclusion)
+## Clip 8: Scenario 8 (Platform Architecture & Change Propagation Mesh)
 
 ### Claude Chat Prompt
 ```markdown
-Write a self-contained Playwright automation script `scenario-8-voice-demo.mjs` for the Verity demo conclusion.
+Write the production video automation scripts for Scenario 8 of the Verity demo: `scenario-8-voice-demo.mjs`, `scenario-8-tts.py`, and `make-scenario-8-video.mjs`.
 
-OBJECTIVE:
-Record a 30-second concluding executive summary video showcasing the complete governed intelligence lifecycle and business ROI.
+SCENARIO OBJECTIVE:
+Record a crisp ~45-50s concluding video on `/platform` demonstrating Verity's enterprise platform architecture. Show the real-time Change Propagation & Invalidation Mesh broadcasting published units across all 4 channels (Agent Assist, Member Chat, IVR Voice Bot, Advocate Portal), review the 13-step deterministic runtime pipeline, and inspect the certified production capabilities.
 
-CONFIGURATION:
-- App URL: http://localhost:8081 (fallback http://localhost:8080)
-- Route: /platform (or /welcome)
-- Viewport: 1280x720, recordVideo into `scenario8-video/`
-- Persona: Any authenticated persona or executive view.
+CRITICAL DIRECTIVE — STRICT ON-SCREEN GROUNDING:
+- Every word spoken must be directly visible on the screen.
+- NEVER invent or hallucinate metrics, percentages, or phantom KPI cards.
+- Ground all narration in the literal UI rendered on `/platform`:
+  - Panel: "Real-time Change Propagation & Invalidation Mesh"
+  - Channels: "Agent Assist", "Member Chat", "IVR Voice Bot", "Advocate Portal"
+  - Tab 1: "13-Step Runtime Pipeline" (Ingress & Security, Intent & Retrieval, Policy Gate, Synthesis & Audit)
+  - Tab 2: "Production Readiness" (13-Step Serving Engine, REST API v1, MCP, RBAC, Drift Detection, Golden Evals)
 
-VISUAL DIRECTING & SPOTLIGHT OVERLAY:
-- Spotlight the key summary KPI metric cards: 100% Citation Rate, Zero Hallucinations, 42% Reduction in Review Cycle Time.
-- Smooth pan across the end-to-end architecture flow.
+PRODUCTION STANDARDS (Learned from Scenarios 1-7):
+- Voice: ElevenLabs custom voice ID `RfKtG66Co2EredaKMj6o` with `REUSE_AUDIO=1` caching.
+- Directing (Targeted Spotlight): Steady camera, smooth cursor gliding (`glideTo`), pulsing emerald spotlight ring (`#vty-ring`), subtle card elevation `scale(1.04)`, and teleprompter subtitles (`#vty-sub`).
+- Pacing: Trim lead-in silence before cue 0, accelerate un-narrated pauses 3× (`GAP_SPEED=3`), and auto-calibrate audio sync via subtitle luma detection.
+- Windows Resiliency: Auto-parse `.env`, auto-discover WinGet `ffmpeg`/`ffprobe` in `$env:LOCALAPPDATA\Microsoft\WinGet\Links`, and connect to `http://localhost:8081` (fallback `8080`).
 
-VOICEOVER SCRIPT & SYNCHRONIZED VISUAL CUES:
+PERSONA & AUTHENTICATION:
+- Route: `http://localhost:8081/platform`
+- Inject into `sessionStorage` & `localStorage`:
+  - `verity_authenticated`: `"true"`
+  - `verity_active_persona`: `"nitin"`
+  - `verity_session_token`: `"vty_sess_demo_nitin"`
 
-[Cue 0 - Core Architecture Recap]
-- Spoken Words: "Verity transforms healthcare knowledge management from static documentation into a continuously governed, verifiable intelligence engine."
-- Visual Action: Glide cursor across the platform architecture diagram showing Source Document → Extraction → Review → Approval → Governed Retrieval.
+VOICEOVER SCRIPT & SYNCHRONIZED VISUAL ACTIONS:
 
-[Cue 1 - Business Impact & Compliance Guarantee]
-- Spoken Words: "By unifying AI extraction, strict maker-checker approval gates, and deterministic citations, we eliminate hallucinations and ensure compliance across all member touchpoints. Thank you."
-- Visual Action: Spotlight the executive KPI cards in the dashboard, center the camera, slowly fade out the subtitle pill, and finish the recording.
+[Cue 0 - Announcement & Architecture Overview]
+- Subtitle: "Now we will see the Platform Architecture and Real-Time Change Propagation Mesh."
+- Visual: Nitin lands on `/platform`. Glide cursor across the Platform Architecture header.
 
-PACING & RUN INSTRUCTIONS:
-- Pacing must be governed by `window.speechSynthesis` utterance `onend` events.
-- Conclude gracefully, log summary, and exit.
+[Cue 1 - Real-time Change Propagation Mesh]
+- Subtitle: "When Legal publishes an approved unit, the active invalidation stream instantly notifies all four subscriber channels."
+- Visual: Spotlight the "Real-time Change Propagation & Invalidation Mesh" card. Spotlight the four channel subscriber cards: Agent Assist, Member Chat, IVR Voice Bot, and Advocate Portal with scale 1.04.
+
+[Cue 2 - 13-Step Runtime Pipeline]
+- Subtitle: "Verity processes queries through a thirteen-step runtime pipeline, enforcing deterministic policy gates before synthesis."
+- Visual: Click the "13-Step Runtime Pipeline" tab trigger (`TabsTrigger[value="pipeline"]`). Spotlight the interactive pipeline phase badges: Ingress & Security, Intent & Retrieval, Deterministic Policy Gate, and Synthesis & Audit.
+
+[Cue 3 - Certified Production Capabilities]
+- Subtitle: "From centralized role scoping to golden evaluation gates, Verity delivers verifiable healthcare truth across the enterprise."
+- Visual: Click the "Production Readiness" tab trigger (`TabsTrigger[value="readiness"]`). Spotlight the certified capabilities grid: 13-Step Serving Engine, REST API v1, Model Context Protocol, and Drift Detection. Fade out gracefully.
+
+OUTPUT FILES REQUIRED:
+1. `scenario-8-tts.py` (with `.env` loader, ElevenLabs `RfKtG66Co2EredaKMj6o`, Edge-TTS fallback)
+2. `scenario-8-voice-demo.mjs` (Playwright script reading `scenario8-output/manifest.json`, directing `#vty-layer`)
+3. `make-scenario-8-video.mjs` (one-click orchestrator with WinGet PATH fix, lead-in trim, `GAP_SPEED=3`, subtitle luma detector, outputting `scenario8-output/scenario-8-with-voice.mp4`)
 ```
 
 ---
