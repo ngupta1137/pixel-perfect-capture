@@ -36,7 +36,7 @@ const SLATES = {
 // ---- Running order ----
 const ORDER = [
   { chapter: "What Verity is", file: scene("open") },
-  { chapter: "The product, live", file: clip(0) },
+  { chapter: "The product, live", file: clip(0), xfadeNext: Number(process.env.XFADE_SECONDS || 0.7) },
   { chapter: "How Verity works", file: scene("lifecycle") },
   { slate: 1, chapter: "Scenario 1: AI ingest and author review", file: clip(1) },
   { slate: 2, chapter: "Scenario 2: Legal impact gate and approval", file: clip(2) },
@@ -117,7 +117,7 @@ const parts = [];
 for (const o of ORDER) {
   if (o.slate) parts.push({ file: slateFiles[o.slate], silent: true, voice: slateVoice["slate" + o.slate], chapter: null });
   if (!fs.existsSync(o.file)) throw new Error("Missing clip: " + o.file + " (run --check)");
-  parts.push({ file: o.file, silent: false, chapter: o.chapter, slateBefore: !!o.slate });
+  parts.push({ file: o.file, silent: false, chapter: o.chapter, slateBefore: !!o.slate, xfadeNext: o.xfadeNext });
 }
 parts.forEach((p, i) => {
   const out = path.join(OUT, "norm", String(i).padStart(2, "0") + ".mp4");
@@ -132,6 +132,24 @@ parts.forEach((p, i) => {
   p.dur = parseFloat(run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", out], true));
 });
 
+// 2b. smooth crossfade between a clip and the one after it (picture and sound)
+for (let i = 0; i < parts.length - 1; i++) {
+  const f = parts[i].xfadeNext;
+  if (!f) continue;
+  const a = parts[i], b = parts[i + 1];
+  const out = path.join(OUT, "norm", "xf" + String(i).padStart(2, "0") + ".mp4");
+  const off = Math.max(0, a.dur - f).toFixed(3);
+  run("ffmpeg", ["-v", "error", "-y", "-i", a.norm, "-i", b.norm, "-filter_complex",
+    `[0:v][1:v]xfade=transition=fade:duration=${f}:offset=${off}[v];[0:a][1:a]acrossfade=d=${f}[a]`,
+    "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-c:a", "aac", "-ar", "48000", "-ac", "2", out]);
+  const dur = parseFloat(run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", out], true));
+  const merged = { norm: out, dur, chapters: [
+    { title: a.chapter, start: 0, end: a.dur - f },
+    { title: b.chapter, start: a.dur - f, end: dur },
+  ] };
+  parts.splice(i, 2, merged);
+}
+
 // 3. concat + chapter markers (a slate belongs to the chapter that follows it)
 const list = path.join(OUT, "list.txt");
 fs.writeFileSync(list, parts.map((p) => `file '${p.norm.replace(/\\/g, "/")}'`).join("\n"));
@@ -139,7 +157,10 @@ let t = 0, meta = ";FFMETADATA1\ntitle=Verity demo\n";
 for (let i = 0; i < parts.length; i++) {
   const p = parts[i];
   let start = t;
-  if (p.chapter) {
+  if (p.chapters) {
+    const ms = (x) => Math.round(x * 1000);
+    for (const c of p.chapters) meta += `[CHAPTER]\nTIMEBASE=1/1000\nSTART=${ms(t + c.start)}\nEND=${ms(t + c.end)}\ntitle=${c.title}\n`;
+  } else if (p.chapter) {
     if (p.slateBefore) start = t - parts[i - 1].dur;
     const ms = (x) => Math.round(x * 1000);
     meta += `[CHAPTER]\nTIMEBASE=1/1000\nSTART=${ms(start)}\nEND=${ms(t + p.dur)}\ntitle=${p.chapter}\n`;

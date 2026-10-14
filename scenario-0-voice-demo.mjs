@@ -261,6 +261,16 @@ await Promise.all([
     await glideTo(a.x, a.y);
     await spot(btn, { zoom: 1.08, pad: 4 });
     await sleep(900);
+    // Press the button for the viewer, but do not let the app navigate to the signed-in screen: the master video
+    // crossfades straight into the "How Verity works" scene instead.
+    await page.evaluate(() => {
+      window.addEventListener("click", (e) => {
+        if (e.target instanceof Element && e.target.closest("button, a") && /See what Verity does/i.test(e.target.closest("button, a").textContent || "")) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      }, true);
+    });
     await btn.click().catch(() => deviations.push("Cue 3: click failed."));
     await unspot(btn);
     await sleep(1200);
