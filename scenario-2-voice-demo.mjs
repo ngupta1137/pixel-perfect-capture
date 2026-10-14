@@ -247,6 +247,13 @@ await page.getByRole("heading", { name: "Approval workspace" }).waitFor({ timeou
 // The queue is filled by a client-side sync after load; wait for the pricing draft (or an empty queue) before narrating.
 const card = page.locator("article").filter({ hasText: /pricing disclaimer/i }).first();
 if (!(await visible(card, 20000))) {
+  try {
+    fs.mkdirSync("scenario2-output", { recursive: true });
+    await page.screenshot({ path: "scenario2-output/DEBUG-no-draft.png", fullPage: true });
+    const arts = await page.locator("article").allInnerTexts();
+    fs.writeFileSync("scenario2-output/DEBUG-no-draft.txt", "url: " + page.url() + "\n\nCards in queue: " + arts.length + "\n\n" + arts.map((t, i) => "[" + i + "] " + t.replace(/\s+/g, " ").slice(0, 300)).join("\n"));
+    console.log("DEBUG saved: scenario2-output/DEBUG-no-draft.png and DEBUG-no-draft.txt (" + arts.length + " cards in queue)");
+  } catch (e) { console.log("debug capture failed:", e.message); }
   throw new Error('No pending pricing disclaimer draft in "To decide". The draft is consumed by approving it: stop the dev server, delete the .data folder, start it again, then re-run.');
 }
 await page.mouse.click(640, 4).catch(() => {});
