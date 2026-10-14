@@ -43,7 +43,32 @@
 #ru1{left:380px}#ru2{left:540px}#ru3{left:780px}
 .oc{position:absolute;top:502px;width:360px;text-align:center;font-size:20px;font-weight:600;line-height:1.35}
 #o1{left:70px}#o2{left:460px}#o3{left:850px}
-#proof,#road,#fin{position:absolute;inset:0;display:none}
+#fin{position:absolute;inset:0;display:none}
+.cb{position:absolute;top:200px;width:340px;height:250px;padding:18px 20px;transition:all 1.1s var(--ease)}
+.cb .ch{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted);font-weight:600}
+.cb .ch svg{width:26px;height:26px;stroke:var(--leaf-2);fill:none;stroke-width:1.8}
+.cb .old{margin-top:16px;font-size:30px;font-weight:700;transition:all .6s}
+.cb.struck .old{color:var(--danger-2);text-decoration:line-through;opacity:.55;font-size:18px}
+.cb .nw{margin-top:8px;font-size:15.5px;line-height:1.45;opacity:0;max-height:0;transition:opacity .7s,max-height .7s}
+.cb.ok .nw{opacity:1;max-height:200px}
+.cb .ct{position:absolute;left:20px;bottom:16px;font-size:12px;font-weight:700;color:var(--leaf-2);opacity:0;transition:opacity .6s}
+.cb.ok .ct{opacity:1}
+.cb.ok{border-color:var(--leaf-2);box-shadow:0 0 26px rgba(94,169,8,.25)}
+.cb .mn{display:none;font-size:18px;font-weight:700;text-align:center}
+.cb.mini{padding:0;display:flex;align-items:center;justify-content:center}
+.cb.mini>*{display:none}.cb.mini .mn{display:block}
+.cb.ghost{color:var(--muted)}.cb.dash{border-style:dashed;background:transparent}
+.cb.on{border-color:var(--leaf-2);color:var(--text);box-shadow:0 0 20px rgba(94,169,8,.3)}
+#fw{position:absolute;inset:0;width:1280px;height:720px;pointer-events:none}
+#fw line{stroke:#3b4960;stroke-width:2.5;stroke-dasharray:300;stroke-dashoffset:300;transition:stroke-dashoffset 1s var(--ease),stroke .5s}
+#fw.go line{stroke-dashoffset:0;stroke:var(--leaf)}
+#slab{position:absolute;left:90px;width:1120px;top:420px;height:110px;border-radius:16px;border:2px solid var(--leaf-2);background:linear-gradient(180deg,#183a1f,#10241a);box-shadow:0 0 50px rgba(94,169,8,.3);text-align:center}
+#slab.hid{transform:translateY(60px)}
+#slab .sv{margin-top:18px;font-size:36px;font-weight:800;letter-spacing:-.02em}
+#slab .sg{margin-top:6px;font-size:14px;color:#c4ccd8}
+.lay2{position:absolute;left:90px;font-size:12px;font-weight:800;letter-spacing:.16em;color:var(--muted)}
+#lf{color:var(--leaf-2)}
+
 #ring{position:absolute;left:460px;top:120px;width:360px;height:360px}
 #ring circle{fill:none;stroke-width:14;stroke-linecap:round}
 #ring .bg{stroke:#2f3b50}
@@ -91,8 +116,17 @@
 <div id="ru1" class="chip rule hid">Who may see it</div><div id="ru2" class="chip rule hid">Whether it is still current</div><div id="ru3" class="chip rule hid">Who signed it off</div>
 <div id="o1" class="oc hid">The advocate stops guessing.</div><div id="o2" class="oc hid">The member hears the same answer everywhere.</div><div id="o3" class="oc hid">The next product starts with the hard part done.</div>
 <div id="stm" class="center hid">Verity decides what is true and applicable. Each product decides what to do with it.</div>
-<div id="proof"><svg id="ring" viewBox="0 0 360 360"><circle class="bg" cx="180" cy="180" r="160"/><circle class="fg" cx="180" cy="180" r="160"/></svg><div id="num" class="abs">0<small> / 27</small></div><div id="plab" class="center mid hid">golden cases passed</div><div id="pnote" class="center hid">Blind questions: coverage is limited, and Verity declines without evidence.</div></div>
-<div id="road"><div id="p1c" class="phs card hid"><div class="h">PHASE 1</div><div class="t">One advocate team</div><div class="g">Gate: zero critical</div></div><div id="g1" class="gate hid"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><div id="p2c" class="phs card hid"><div class="h">PHASE 2</div><div class="t">More teams, regulated domains</div><div class="g">Gate: a golden set per domain</div></div><div id="g2" class="gate hid"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><div id="p3c" class="phs card hid"><div class="h">PHASE 3</div><div class="t">Other products subscribe</div><div class="g">Gate: same entitlement, same eval gate</div></div></div>
+<div id="cq" class="center hid" style="top:78px;font-size:44px;font-weight:700;letter-spacing:-.02em"><span id="cqt"></span></div>
+<div id="k1" class="cb card hid" style="left:100px"><div class="ch"><svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Phone · voice</div><div class="old">5 to 7 days</div><div class="nw">“Your medication usually arrives within seven to ten business days after we receive your prescription from your doctor.”</div><div class="ct">U-PH-006 · v1 · Pharmacy Ops · Approved</div><div class="mn">The phone line</div></div>
+<div id="k2" class="cb card hid" style="left:470px"><div class="ch"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>Member chat</div><div class="old">Up to 2 weeks</div><div class="nw">“Mail order prescriptions typically arrive within 7 to 10 business days after the prescription is received from the doctor.”</div><div class="ct">U-PH-006 · v1 · Pharmacy Ops · Approved</div><div class="mn">The chat</div></div>
+<div id="k3" class="cb card hid" style="left:840px"><div class="ch"><svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2M4 14h3v5H4zM17 14h3v5h-3zM17 19c0 1.5-2 2-5 2"/></svg>Advocate’s screen</div><div class="old" style="font-size:20px;color:var(--amber-2)">Cheat sheet: review date passed</div><div class="nw">“Mail order prescriptions typically arrive within 7 to 10 business days after the prescription is received from the doctor.”</div><div class="ct">U-PH-006 · v1 · Pharmacy Ops · Approved</div><div class="mn">The advocate’s screen</div></div>
+<div id="k4" class="cb card mini ghost hid" style="left:780px;top:150px;width:200px;height:84px"><div class="mn">Agent Assist</div></div>
+<div id="k5" class="cb card mini ghost dash hid" style="left:1010px;top:150px;width:200px;height:84px"><div class="mn">Next product</div></div>
+<svg id="fw" viewBox="0 0 1280 720"></svg>
+<div id="slab" class="hid"><div class="sv">Verity</div><div class="sg">governed knowledge units · approved · current · applicable · cited · versioned · owned</div></div>
+<div id="lc" class="lay2 hid" style="top:118px">CONSUMPTION · EVERY CHANNEL, EVERY PRODUCT</div>
+<div id="lf" class="lay2 hid" style="top:548px">FOUNDATION · BUILT ONCE</div>
+<div id="bo" class="center hid" style="top:592px;font-size:24px;font-weight:600">Built once. Everything we build next stands on it.</div>
 <div id="fin"><div id="lt" class="lay hid">CONSUMPTION LAYER: PRODUCTS AND CHANNELS</div><svg id="flogo" class="abs" viewBox="0 0 120 120"><g stroke="#4E8416" stroke-width="9" stroke-linecap="round"><line x1="60" y1="100" x2="22" y2="22"/><line x1="60" y1="100" x2="60" y2="16"/><line x1="60" y1="100" x2="98" y2="22"/></g><g fill="#4E8416"><circle cx="22" cy="22" r="8"/><circle cx="60" cy="16" r="8"/><circle cx="98" cy="22" r="8"/></g><circle cx="60" cy="100" r="13" fill="#5EA908"/></svg><div id="lb" class="lay hid">FOUNDATION: GOVERNED KNOWLEDGE</div><div id="fname" class="center hid">Verity</div><div id="ftag" class="center hid">One approved truth, in every channel.</div></div>
 <script>
 const U = ["l1", "l2", "l3", "r1", "r2", "r3"];
@@ -125,21 +159,37 @@ beats[5] = (d) => {
   show("#stm", d * 0.78);
 };
 beats[6] = (d) => {
-  ["#o1", "#o2", "#o3", "#stm", "#hubw", "#wires", "#ripple", ".uc"].forEach((s) => $$(s).forEach((e) => hide(e)));
-  at(800, () => { $("#proof").style.display = "block"; });
-  at(1000, () => { $("#ring .fg").style.strokeDashoffset = 1005 * (1 - 26 / 27); });
-  const N = 26, t0 = 1000, dur = 2400; for (let k = 0; k <= N; k++) at(t0 + dur * (k / N), () => { $("#num").childNodes[0].textContent = k; });
-  show("#plab", 2800); show("#pnote", d * 0.6);
+  ["#o1", "#o2", "#o3", "#stm", "#hubw", "#wires", "#ripple", ".uc"].forEach((sel) => $$(sel).forEach((e) => hide(e)));
+  at(700, () => { show("#cq"); type("#cqt", "So, how long does mail order take?", 0, Math.max(900, d * 0.6)); });
+  show("#k1", d * 0.55); show("#k2", d * 0.65); show("#k3", d * 0.75);
 };
 beats[7] = (d) => {
-  hide("#proof"); at(700, () => { $("#proof").style.display = "none"; $("#road").style.display = "block"; });
-  show("#p1c", 800); at(1000, () => $("#p1c").classList.add("on"));
-  show("#g1", d * 0.35); at(d * 0.45, () => $("#g1").classList.add("open"));
-  show("#p2c", d * 0.5); show("#g2", d * 0.65); at(d * 0.75, () => $("#g2").classList.add("open")); show("#p3c", d * 0.78);
+  ["#k1", "#k2", "#k3"].forEach((id, i) => { at(200 + i * 250, () => $(id).classList.add("struck")); at(900 + i * 350, () => $(id).classList.add("ok")); });
 };
+const SLOT = [90, 320, 550, 780, 1010];
+let stopFlow = null;
+function upflow() {
+  const W = $("#fw"), NS = "http://www.w3.org/2000/svg", dots = [];
+  SLOT.forEach((x, i) => { const l = document.createElementNS(NS, "line"); l.setAttribute("x1", x + 100); l.setAttribute("x2", x + 100); l.setAttribute("y1", 420); l.setAttribute("y2", 234); W.appendChild(l);
+    [0, 1, 2].forEach((k) => { const c = document.createElementNS(NS, "circle"); c.setAttribute("r", 4); c.setAttribute("fill", "#d6f7a3"); c.setAttribute("cx", x + 100); W.appendChild(c); dots.push({ c, i, k }); }); });
+  at(50, () => W.classList.add("go"));
+  let run = true; const t0 = performance.now();
+  const f = (now) => { if (!run) return; const s = (now - t0) / 1000 * 0.6; dots.forEach(({ c, i, k }) => { const t = (s + k / 3 + i * 0.13) % 1; c.setAttribute("cy", 420 - 186 * t); c.setAttribute("opacity", Math.sin(Math.PI * t)); }); requestAnimationFrame(f); };
+  at(900, () => requestAnimationFrame(f)); return () => { run = false; };
+}
 beats[8] = (d) => {
-  hide("#road"); at(700, () => { $("#road").style.display = "none"; $("#fin").style.display = "block"; $("#flogo").classList.add("go"); });
-  at(2600, () => flowLogo($("#flogo"), { speed: 0.5 }));
-  show("#lt", 2300); show("#lb", 2500); show("#fname", 3000); show("#ftag", d * 0.6);
+  hide("#cq");
+  [["#k1", 0], ["#k2", 1], ["#k3", 2]].forEach(([id, i]) => { const e = $(id); e.classList.remove("struck"); e.classList.add("mini", "on"); Object.assign(e.style, { left: SLOT[i] + "px", top: "150px", width: "200px", height: "84px" }); });
+  show("#lc", 900); show("#slab", d * 0.2); show("#lf", d * 0.3);
+  at(d * 0.32, () => { stopFlow = upflow(); });
+  show("#k4", d * 0.55); at(d * 0.62, () => $("#k4").classList.add("on"));
+  show("#k5", d * 0.68); at(d * 0.8, () => $("#k5").classList.add("on"));
+  show("#bo", d * 0.72);
+};
+beats[9] = (d) => {
+  ["#k1", "#k2", "#k3", "#k4", "#k5", "#slab", "#fw", "#lc", "#lf", "#bo"].forEach((sel) => hide(sel));
+  at(800, () => { $("#fin").style.display = "block"; $("#flogo").classList.add("go"); if (stopFlow) stopFlow(); });
+  at(2400, () => flowLogo($("#flogo"), { speed: 0.5 }));
+  show("#lt", 2100); show("#lb", 2300); show("#fname", 2700); show("#ftag", d * 0.6);
 };
 </script></body></html>
