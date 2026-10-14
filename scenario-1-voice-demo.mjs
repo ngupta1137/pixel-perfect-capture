@@ -407,7 +407,7 @@ await Promise.all([
 ]);
 
 // ---------- Part B: second document (retail refill rules) ----------
-const REFILL = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "demo-assets", "S01_source_Retail_Refill_Rules_2026.md");
+const REFILL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "demo-assets", "S01_source_Retail_Refill_Rules_2026.md");
 await sleep(1200);
 await clickWithSpot(page.getByRole("link", { name: "Ingest" }).first(), { zoom: 1.04 }, 400);
 {
