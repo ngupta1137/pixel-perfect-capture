@@ -3,7 +3,7 @@
 //   node stitch-master-demo.mjs --check        list which clips are present
 //   node stitch-master-demo.mjs --slates-only  render only the chapter slates (for review)
 //   node stitch-master-demo.mjs                build master-output/verity-master-demo.mp4
-// Env: SLATE_SECONDS (default 2.6), CHROME_PATH
+// Env: SLATE_SECONDS (default 5.5), CHROME_PATH
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -14,7 +14,7 @@ if (fs.existsSync(wingetLinks) && !process.env.PATH.includes(wingetLinks)) proce
 let chromium;
 try { ({ chromium } = await import("playwright")); } catch { ({ chromium } = await import("/opt/node-tools/node_modules/playwright/index.mjs")); }
 
-const SLATE_S = Number(process.env.SLATE_SECONDS || 2.6);
+const SLATE_S = Number(process.env.SLATE_SECONDS || 5.5);
 const OUT = path.resolve("master-output");
 const clip = (n) => `scenario${n}-output/scenario-${n}-with-voice.mp4`;
 const scene = (s) => `scene-output/${s}/scene-with-voice.mp4`;
@@ -82,7 +82,7 @@ for (const [n, d] of Object.entries(SLATES)) {
   const raw = await v.path();
   const mp4 = path.join(OUT, "slates", `slate${n}.mp4`);
   // skip the page-load lead-in, fade in and out
-  run("ffmpeg", ["-v", "error", "-y", "-ss", "0.6", "-i", raw, "-t", String(SLATE_S), "-vf", `fps=25,fade=t=in:st=0:d=0.3,fade=t=out:st=${SLATE_S - 0.3}:d=0.3`, "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", mp4]);
+  run("ffmpeg", ["-v", "error", "-y", "-ss", "0.6", "-i", raw, "-t", String(SLATE_S), "-vf", `fps=25,fade=t=in:st=0:d=0.5,fade=t=out:st=${SLATE_S - 0.5}:d=0.5`, "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", mp4]);
   slateFiles[n] = mp4;
 }
 await browser.close();
