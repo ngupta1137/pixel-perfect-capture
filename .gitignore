@@ -42,3 +42,4 @@ dist-ssr
 scenario*-video/
 *.webm
 *.mp4
+voice-preview/

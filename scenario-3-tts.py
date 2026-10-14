@@ -40,11 +40,15 @@ def elevenlabs():
         raise RuntimeError("Set ELEVENLABS_API_KEY and ELEVEN_VOICE_ID")
     base = os.environ.get("ELEVEN_BASE", "https://api.elevenlabs.io")
     model = os.environ.get("ELEVEN_MODEL", "eleven_multilingual_v2")
-    for l in lines:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import eleven_voice
+    for i, l in enumerate(lines):
+        text, vs, extra = eleven_voice.build(lines, i, model)
         body = json.dumps({
-            "text": l["tts"],
+            "text": text,
             "model_id": model,
-            "voice_settings": {"stability": 0.5, "similarity_boost": 0.8, "style": 0.0, "use_speaker_boost": True},
+            "voice_settings": vs,
+            **extra,
         }).encode()
         req = urllib.request.Request(
             f"{base}/v1/text-to-speech/{voice}?output_format=mp3_44100_128",
