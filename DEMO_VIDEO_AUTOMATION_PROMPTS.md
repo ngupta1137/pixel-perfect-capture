@@ -367,41 +367,46 @@ OUTPUT FILES REQUIRED:
 
 ### Claude Chat Prompt
 ```markdown
-Write a self-contained Playwright automation script `scenario-6-voice-demo.mjs` for Scenario 6 of the Verity demo.
+Write the production video automation scripts for Scenario 6 of the Verity demo: `scenario-6-voice-demo.mjs`, `scenario-6-tts.py`, and `make-scenario-6-video.mjs`.
 
-OBJECTIVE:
-Record a 45-second video demonstrating Verity's temporal precision: resolving plan year rules for 2026 versus the upcoming 2027 plan horizon without cross-year rule contamination.
+SCENARIO OBJECTIVE:
+Record a crisp ~40-45s video demonstrating Verity's temporal precision: resolving plan year rules for 2026 versus the upcoming 2027 plan horizon without cross-year rule contamination. In the advocate portal at `/`, Pharmacy Advocate Priya (`vty_sess_demo_priya`) asks "how many days supply can I get by mail" under 2026 plan rules (returning the 90-day maintenance limit citing unit `U-PH-007`). Then, Priya switches the plan year dropdown to 2027, and Verity automatically re-evaluates the query against the upcoming 2027 policy (returning the 84-day limit citing unit `U-PH-207`).
 
-CONFIGURATION:
-- App URL: http://localhost:8081 (fallback http://localhost:8080)
-- Route: /
-- Session Injection:
-  sessionStorage.setItem("verity_authenticated", "true");
-  sessionStorage.setItem("verity_active_persona", "priya");
-  sessionStorage.setItem("verity_session_token", "vty_sess_demo_priya");
-- Viewport: 1280x720, recordVideo into `scenario6-video/`
+PRODUCTION STANDARDS (Learned from Scenarios 1-5):
+- Voice: ElevenLabs custom voice ID `RfKtG66Co2EredaKMj6o` with `REUSE_AUDIO=1` caching.
+- Directing (Targeted Spotlight): Steady camera, smooth cursor gliding (`glideTo`), pulsing emerald spotlight ring (`#vty-ring`), subtle card elevation `scale(1.04)`, and teleprompter subtitles (`#vty-sub`).
+- Pacing: Trim lead-in silence before cue 0, accelerate un-narrated pauses 3× (`GAP_SPEED=3`), and auto-calibrate audio sync via subtitle luma detection.
+- Windows Resiliency: Auto-parse `.env`, auto-discover WinGet `ffmpeg`/`ffprobe` in `$env:LOCALAPPDATA\Microsoft\WinGet\Links`, and connect to `http://localhost:8081` (fallback `8080`).
 
-VISUAL DIRECTING & SPOTLIGHT OVERLAY:
-- Spotlight the Plan Year toggle/badge (2026 vs 2027).
-- Spotlight the copay rule differences in the generated answers.
+PERSONA & AUTHENTICATION:
+- Route: `http://localhost:8081/`
+- Inject into `sessionStorage` & `localStorage`:
+  - `verity_authenticated`: `"true"`
+  - `verity_active_persona`: `"priya"`
+  - `verity_session_token`: `"vty_sess_demo_priya"`
 
-VOICEOVER SCRIPT & SYNCHRONIZED VISUAL CUES:
+VOICEOVER SCRIPT & SYNCHRONIZED VISUAL ACTIONS:
 
 [Cue 0 - Announcement]
-- Spoken Words: "Now we will see Temporal Applicability across 2026 and 2027 plan years."
-- Visual Action: Priya lands on `/`. Glide cursor to the Plan Year context selector or search bar.
+- Subtitle: "Now we will see Temporal Applicability across 2026 and 2027 plan years."
+- Visual: Priya lands on `/`. Glide cursor across the ContextBar showing Line of Business ("MAPD"), State ("All states"), and Plan Year ("2026").
 
-[Cue 1 - Plan Year 2026 Rule Retrieval]
-- Spoken Words: "Querying insulin copays for plan year 2026 retrieves the active thirty-five dollar statutory cap."
-- Visual Action: Enter query "What is the insulin copay under 2026 plan rules?" and submit. Spotlight the answer card and unit citation confirming the 2026 effective date and $35 copay rule.
+[Cue 1 - Plan Year 2026 Query Execution]
+- Subtitle: "Priya asks about mail order supply limits under current 2026 guidelines."
+- Visual: Glide to `<input id="ask">`. Type: "how many days supply can I get by mail" and submit. Wait for `article.answer-focus`. Spotlight the approved answer card citing unit `U-PH-007` (90-day maintenance supply).
 
-[Cue 2 - Plan Year 2027 Future Horizon]
-- Spoken Words: "When asking about the 2027 plan horizon, Verity evaluates the future effective date, presenting updated terms without cross-year bleed."
-- Visual Action: Enter query "What is the insulin maintenance supply rule for plan year 2027?" and submit. Spotlight the updated 2027 unit citation showing ninety-day mail-order guidelines, noting the upcoming effective date.
+[Cue 2 - Switching Plan Year to 2027]
+- Subtitle: "When she toggles the context to plan year 2027, Verity isolates the future horizon without cross-year bleed."
+- Visual: Glide cursor to the Plan Year selector (`select[aria-label="Plan year"]`). Spotlight the dropdown pill, select "2027", and watch the live answer refresh.
 
-PACING & RUN INSTRUCTIONS:
-- Pacing must be governed by `window.speechSynthesis` utterance `onend` events.
-- Conclude gracefully, log summary, and exit.
+[Cue 3 - Future Horizon 2027 Rule Isolation]
+- Subtitle: "The platform instantly serves the updated eighty-four day rule, demonstrating strict temporal partitioning."
+- Visual: Spotlight the updated answer body and citation unit `U-PH-207` (84-day supply for 2027), highlighting the effective date boundary.
+
+OUTPUT FILES REQUIRED:
+1. `scenario-6-tts.py` (with `.env` loader, ElevenLabs `RfKtG66Co2EredaKMj6o`, Edge-TTS fallback)
+2. `scenario-6-voice-demo.mjs` (Playwright script reading `scenario6-output/manifest.json`, directing `#vty-layer`)
+3. `make-scenario-6-video.mjs` (one-click orchestrator with WinGet PATH fix, lead-in trim, `GAP_SPEED=3`, subtitle luma detector, outputting `scenario6-output/scenario-6-with-voice.mp4`)
 ```
 
 ---
