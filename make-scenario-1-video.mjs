@@ -50,17 +50,19 @@ const run = (cmd, args, opts = {}) => {
 // Every line the demo can speak. "tts" is what the voice reads; "text" is the subtitle and the lookup key.
 const LINES = [
   { id: "a0", text: "Now we will see the AI Extraction and Author Review scenario." },
-  { id: "c1", text: "In the author workspace, Dana loads the AEP sample policy and clicks Extract candidate units." },
+  { id: "c1", text: "In the author workspace, Dana loads the AEP policy and clicks Extract candidate units." },
   { id: "c2", text: "Verity lists the candidate knowledge units it extracted from the document." },
   { id: "c3x", text: "Dana inspects the pricing disclaimer candidate. The prototype links directly to the source passage in Section 1.0." },
   { id: "c3t", text: "Dana opens the pricing disclaimer candidate. Its unit details show the source reference." },
   { id: "c4x", text: "It flags a near-duplicate match against existing unit U-PH-003 with a sixty-seven percent similarity score.", tts: "It flags a near-duplicate match against existing unit U P H zero zero three, with a sixty-seven percent similarity score." },
   { id: "c4t", text: "The details list the type, content, key points and a suggested effective date." },
-  { id: "c5", text: "Dana proposes the selected unit. It appears under My drafts as Proposed." },
+  { id: "c5", text: "Dana proposes the selected unit." },
+  { id: "c5b", text: "It appears under My drafts as Proposed." },
   { id: "c6", text: "Dana cannot approve her own draft. It waits on a second person." },
   { id: "c7", text: "Next, Dana uploads a second document, the retail refill rules, with Choose file." },
   { id: "c8", text: "Verity extracts four units. Three are tagged Policy. The vaccine fee is tagged Legal, because it is verbatim wording." },
-  { id: "c9", text: "Dana proposes all four. On My drafts, the policy units wait on Pharmacy Ops, and the vaccine fee waits on Legal." },
+  { id: "c9", text: "Dana proposes all four." },
+  { id: "c9b", text: "On My drafts, the policy units wait on Pharmacy Ops, and the vaccine fee waits on Legal." },
 ];
 
 // 1. narration audio
@@ -85,24 +87,55 @@ const timelinePath = path.join(OUT, "timeline.json");
 if (process.env.VTY_SKIP_DEMO !== "1") run(process.execPath, ["scenario-1-voice-demo.mjs"], {
   env: { VTY_AUDIO_MANIFEST: path.join(OUT, "manifest.json"), VTY_TIMELINE: timelinePath, VIDEO_DIR: path.join(OUT, "video") },
 });
-const { timeline, cuts = [], videoPath } = JSON.parse(fs.readFileSync(timelinePath, "utf8"));
+let { timeline, cuts = [], endMs = 0, videoPath } = JSON.parse(fs.readFileSync(timelinePath, "utf8"));
 
-// Calibrate: find when the first subtitle pill really appears in the video and shift every cue by the difference.
+// Align: the demo paints a grey marker (level 20 x cue number) in the bottom-left corner at every cue.
+// Read it back from the recording so each clip starts exactly when its subtitle appears, even if the
+// recording clock drifts during slow server calls. Falls back to the first subtitle when no marker is found.
 {
-  const fps = 10;
-  const r = spawnSync("ffmpeg", ["-v", "error", "-i", videoPath, "-vf", `fps=${fps},crop=4:4:2:804,scale=1:1`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 26 });
-  const px = r.stdout;
-  let first = -1;
-  for (let i = 0; i + 2 < px.length; i += 3) {
-    const luma = 0.3 * px[i] + 0.59 * px[i + 1] + 0.11 * px[i + 2];
-    if (luma < 70) { first = i / 3; break; }
+  const fps = 25;
+  const r = spawnSync("ffmpeg", ["-v", "error", "-i", videoPath, "-vf", `fps=${fps},crop=4:4:2:804,scale=1:1`, "-f", "rawvideo", "-pix_fmt", "gray", "-"], { maxBuffer: 1 << 28 });
+  const g = r.stdout;
+  const raw = timeline.map((t) => t.startMs);
+  const found = [];
+  let from = 0;
+  for (let k = 0; k < timeline.length; k++) {
+    const want = 20 * (k + 1);
+    let hit = -1;
+    for (let f = from; f + 3 < g.length; f++) {
+      if (Math.abs(g[f] - want) <= 9 && Math.abs(g[f + 1] - want) <= 9 && Math.abs(g[f + 2] - want) <= 9 && Math.abs(g[f + 3] - want) <= 9) { hit = f; break; }
+    }
+    if (hit < 0) break;
+    found.push(hit / fps);
+    from = hit + 1;
   }
-  if (first >= 0) {
-    const shift = first / fps - 0.15 - timeline[0].startMs / 1000;
-    console.log(`sync: first subtitle at ${(first / fps).toFixed(1)}s in video, timeline said ${(timeline[0].startMs / 1000).toFixed(1)}s, shifting audio by ${shift.toFixed(2)}s`);
-    for (const t of timeline) t.startMs += shift * 1000;
-    for (const c of cuts) { c.startMs += shift * 1000; c.endMs += shift * 1000; }
-  } else console.log("sync: subtitle not detected, using raw timeline");
+  if (found.length === timeline.length) {
+    const lastDrift = found[found.length - 1] * 1000 - raw[raw.length - 1];
+    for (const c of cuts) {
+      const j = raw.findIndex((x) => x >= c.endMs - 500);
+      const drift = j >= 0 ? found[j] * 1000 - raw[j] : 0;
+      const pre = found.map((f, k) => f * 1000 - raw[k]);
+      const before = [...pre.keys()].filter((k) => raw[k] <= c.startMs).pop();
+      c.startMs += before !== undefined ? pre[before] : 0;
+      c.endMs += drift;
+    }
+    endMs += lastDrift;
+    timeline.forEach((t, k) => { t.startMs = found[k] * 1000; });
+    console.log("sync: cue starts read from the video marker; drift vs clock (s):", found.map((f, k) => (f - raw[k] / 1000).toFixed(2)).join(", "));
+  } else {
+    console.log(`sync: found ${found.length} of ${timeline.length} markers; falling back to first-subtitle calibration`);
+    const fps2 = 10;
+    const r2 = spawnSync("ffmpeg", ["-v", "error", "-i", videoPath, "-vf", `fps=${fps2},crop=4:4:2:804,scale=1:1`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 26 });
+    const px = r2.stdout;
+    let first = -1;
+    for (let i = 0; i + 2 < px.length; i += 3) { if (0.3 * px[i] + 0.59 * px[i + 1] + 0.11 * px[i + 2] < 70) { first = i / 3; break; } }
+    if (first >= 0) {
+      const shift = first / fps2 - 0.15 - timeline[0].startMs / 1000;
+      for (const t of timeline) t.startMs += shift * 1000;
+      for (const c of cuts) { c.startMs += shift * 1000; c.endMs += shift * 1000; }
+      endMs += shift * 1000;
+    }
+  }
 }
 
 // Never cut away while a narration line is still playing: start each cut after the line that overlaps it has finished.

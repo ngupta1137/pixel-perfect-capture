@@ -84,7 +84,7 @@ await context.addInitScript((SC) => {
       #vty-sub{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:920px;padding:12px 24px;border-radius:999px;
         background:rgba(12,24,17,.93);color:#fff;font-size:18px;line-height:1.35;text-align:center;border:1px solid #22c55e;
         box-shadow:0 6px 22px rgba(0,0,0,.4);opacity:0;transition:opacity .25s}
-      #vty-sub.on{opacity:1}
+      #vty-sub.on{opacity:0}
       #vty-sub{left:0 !important;bottom:0 !important;transform:none !important;width:8px;height:8px;max-width:8px !important;padding:0 !important;font-size:0 !important;border:0 !important;border-radius:0 !important;box-shadow:none !important;overflow:hidden;background:#0c1811 !important}
       #vty-click{position:fixed;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:3px solid #22c55e;opacity:0}
       #vty-click.go{animation:vtyc .5s ease-out}
@@ -153,11 +153,18 @@ const mark = (n) => log(`t=${((Date.now() - T0) / 1000).toFixed(1)}s ${n}`);
 
 // ---------- helpers ----------
 const speechResults = [];
+let cueSeq = 0;
 async function speak(text) {
   if (MANIFEST) {
     const m = MANIFEST[text];
     if (!m) throw new Error("No audio generated for line: " + text);
-    await page.evaluate((t) => { const s = document.getElementById("vty-sub"); if (s) { s.textContent = t; s.classList.add("on"); } }, text);
+    cueSeq += 1;
+    await page.evaluate(([t, g]) => {
+      const s = document.getElementById("vty-sub"); if (s) { s.textContent = t; s.classList.add("on"); }
+      let mk = document.getElementById("vty-mk");
+      if (!mk) { mk = document.createElement("div"); mk.id = "vty-mk"; mk.style.cssText = "position:fixed;left:0;bottom:0;width:8px;height:8px;z-index:2147483647;pointer-events:none"; (document.getElementById("vty-layer") || document.body).appendChild(mk); }
+      mk.style.background = `rgb(${g},${g},${g})`;
+    }, [text, 20 * cueSeq]);
     timeline.push({ id: m.id, file: m.file, startMs: Date.now() - T0 + LAG, durationMs: m.durationMs });
     await sleep(m.durationMs + 350);
     return;
@@ -255,7 +262,7 @@ await Promise.all([
 const firstRow = page.locator("tbody tr").first();
 const actionsBtn = firstRow.getByRole("button", { name: "Actions" });
 await Promise.all([
-  speak("In the author workspace, Dana loads the AEP sample policy and clicks Extract candidate units."),
+  speak("In the author workspace, Dana loads the AEP policy and clicks Extract candidate units."),
   (async () => {
     await hover(actionsBtn, { zoom: 1.25, pad: 4 }, 500);
     await actionsBtn.click();
@@ -335,7 +342,7 @@ mark("cue 4 done");
 const others = ["Fragment a", "Fragment b", "For plan year 2027, maintenance supply", "Mail order packages can be delivered"];
 const propose = page.getByRole("button", { name: /Propose selected/ });
 await Promise.all([
-  speak("Dana proposes the selected unit. It appears under My drafts as Proposed."),
+  speak("Dana proposes the selected unit."),
   (async () => {
     mark("cue 5 actions start");
     for (const name of others) {
@@ -376,6 +383,10 @@ if (!draftsVisible) {
 }
 await sleep(600);
 mark("drafts tab loaded");
+await Promise.all([
+  speak("It appears under My drafts as Proposed."),
+  hover(page.getByText(/Proposed/).first(), { zoom: 1.06, pad: 4 }, 1800),
+]);
 const needsLegal = page.getByText(/Needs Legal/i);
 const hasBadge = await visible(needsLegal, 1000);
 const gate = hasBadge
@@ -441,7 +452,7 @@ await Promise.all([
 mark("cue 8 done");
 const propose2 = page.getByRole("button", { name: /Propose selected/ });
 await Promise.all([
-  speak("Dana proposes all four. On My drafts, the policy units wait on Pharmacy Ops, and the vaccine fee waits on Legal."),
+  speak("Dana proposes all four."),
   (async () => {
     const { x, y } = await centerOf(propose2);
     await glideTo(x, y);
@@ -453,7 +464,12 @@ await Promise.all([
     await page.getByText(/My active draft proposals/).first().waitFor({ timeout: 60000 });
     const tB = Date.now() - T0;
     if (tB - tC > 4000) cuts.push({ startMs: tC + 1500, endMs: tB - 300 });
-    await sleep(500);
+  })(),
+]);
+await sleep(500);
+await Promise.all([
+  speak("On My drafts, the policy units wait on Pharmacy Ops, and the vaccine fee waits on Legal."),
+  (async () => {
     const pharm = page.locator("p").filter({ hasText: /Waiting on:\s*Pharmacy Ops/ }).first();
     await hover(pharm, { zoom: 1.06, pad: 4 }, 1500);
     const leg = page.locator("p").filter({ hasText: /Waiting on:\s*Legal/ }).first();
@@ -468,7 +484,7 @@ const video = page.video();
 await context.close();
 await browser.close();
 const vpath = video ? await video.path() : "(none)";
-if (process.env.VTY_TIMELINE) fs.writeFileSync(process.env.VTY_TIMELINE, JSON.stringify({ timeline, cuts, videoPath: vpath }, null, 2));
+if (process.env.VTY_TIMELINE) fs.writeFileSync(process.env.VTY_TIMELINE, JSON.stringify({ timeline, cuts, endMs: Date.now() - T0, videoPath: vpath }, null, 2));
 log("speech completion modes:", speechResults.join(", "));
 log("deviations from the requested script:", deviations.length ? "\n  - " + deviations.join("\n  - ") : "none");
 log("video:", vpath);
