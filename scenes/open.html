@@ -2,7 +2,6 @@
 <link rel="stylesheet" href="_base.css"><script src="_base.js"></script>
 <style>
 #logo{left:560px;top:52px;width:160px;height:160px}
-#eb{top:236px}
 #sent{top:272px;left:140px;right:140px;font-size:40px;line-height:1.28;font-weight:700;letter-spacing:-.02em}
 #sent .k{color:var(--leaf-2)}
 #sent .u{transition:color .5s,box-shadow .5s;border-radius:4px;padding:0 4px}
@@ -17,7 +16,6 @@
 #tag b{color:var(--text);font-weight:600}
 </style></head><body><div class="stage"></div>
 <div id="logoWrap"></div>
-<div id="eb" class="center hid"><div class="eyebrow">The one-sentence pitch</div></div>
 <div id="sent" class="center hid">Verity is one <span class="k">governed</span> source of <span class="k">approved</span> knowledge, used by <span class="u">AI</span> and by <span class="u">people</span>.</div>
 <div id="p1" class="pl card hid"><div><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z M14 3v4h4"/></svg></div><div><div class="a">Author once</div><div class="n">One source becomes governed units.</div></div></div>
 <div id="p2" class="pl card hid"><div><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></div><div><div class="a">Approve once</div><div class="n">A named human reviewer signs off.</div></div></div>
@@ -28,13 +26,10 @@
 $("#logoWrap").innerHTML = LOGO("abs hid").replace("<svg ", '<svg id="logo" ');
 beats[0] = (d) => {
   show("#logo"); at(500, () => flowLogo($("#logo"), { speed: 0.5 }));
-  show("#eb", 500);
+  show("#sent", 700);
+  at(700 + (d - 700) * 0.62, () => $("#sent").classList.add("who"));
 };
 beats[1] = (d) => {
-  show("#sent", 200);
-  at(d * 0.62, () => $("#sent").classList.add("who"));
-};
-beats[2] = (d) => {
   [0.04, 0.28, 0.52, 0.78].forEach((f, i) => {
     show("#p" + (i + 1), f * d);
     at(f * d + 150, () => $("#p" + (i + 1)).classList.add("lit"));
