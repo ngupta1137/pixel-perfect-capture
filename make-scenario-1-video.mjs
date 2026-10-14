@@ -6,11 +6,19 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 const OUT = path.resolve(process.env.OUT_DIR || "scenario1-output");
-fs.rmSync(OUT, { recursive: true, force: true });
+// REUSE_AUDIO=1 keeps narration clips from the previous run (saves voice credits when only the video step failed).
+const REUSE = process.env.REUSE_AUDIO === "1" && fs.existsSync(path.join(OUT, "audio", "tts.json"));
+if (REUSE) {
+  for (const f of ["video", "timeline.json", "video-cut.mp4", "scenario-1-with-voice.mp4"]) fs.rmSync(path.join(OUT, f), { recursive: true, force: true });
+  console.log("reusing existing narration clips in", path.join(OUT, "audio"));
+} else {
+  fs.rmSync(OUT, { recursive: true, force: true });
+}
 fs.mkdirSync(OUT, { recursive: true });
 const py = process.platform === "win32" ? "python" : "python3";
 const run = (cmd, args, opts = {}) => {
   const r = spawnSync(cmd, args, { stdio: opts.capture ? ["ignore", "pipe", "inherit"] : "inherit", encoding: "utf8", env: { ...process.env, ...(opts.env || {}) } });
+  if (r.error && r.error.code === "ENOENT") throw new Error(`"${cmd}" was not found. Install it and open a NEW terminal so PATH refreshes (ffmpeg includes ffprobe).`);
   if (r.status !== 0) throw new Error(`${cmd} ${args[0]} failed (${r.status})`);
   return r.stdout;
 };
@@ -30,7 +38,7 @@ const LINES = [
 
 // 1. narration audio
 fs.writeFileSync(path.join(OUT, "lines.json"), JSON.stringify(LINES.map((l) => ({ id: l.id, tts: l.tts || l.text }))));
-run(py, ["scenario-1-tts.py", path.join(OUT, "lines.json"), path.join(OUT, "audio"), process.env.TTS_ENGINE || "auto"]);
+if (!REUSE) run(py, ["scenario-1-tts.py", path.join(OUT, "lines.json"), path.join(OUT, "audio"), process.env.TTS_ENGINE || "auto"]);
 const tts = JSON.parse(fs.readFileSync(path.join(OUT, "audio", "tts.json"), "utf8"));
 const manifest = {};
 for (const l of LINES) {
