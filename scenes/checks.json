@@ -1,0 +1,6 @@
+{ "title": "Three checks", "tail": 1800,
+  "lines": [
+    { "text": "Every answer has to pass three checks." },
+    { "text": "Relevant. Approved. Applicable." },
+    { "text": "Only when all three pass does Verity answer. If one fails, it does not guess. It asks, declines, or points to related options." }
+  ] }

@@ -51,8 +51,6 @@ const run = (cmd, args, opts = {}) => {
 
 // Every line the demo can speak. "tts" is what the voice reads; "text" is the subtitle and the lookup key.
 const LINES = [
-  { id: "c0", text: "Same question, three answers: how long does mail order take?" },
-  { id: "c1", text: "The phone IVR script says five to seven days, the web chat bot says up to two weeks, and the agent cheat sheet says seven to ten business days." },
   { id: "c2", text: "The Annual Election Period opens October fifteenth, 2026. The 2027 content differs from 2026 content, and legal wording must be read exactly." },
   { id: "c3", text: "Let's see what Verity does." },
 ];

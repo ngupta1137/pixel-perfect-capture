@@ -1,0 +1,42 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Lifecycle</title>
+<link rel="stylesheet" href="_base.css"><script src="_base.js"></script>
+<style>
+#ttl{top:70px}
+#ttl .mid{font-size:38px;margin-top:8px}
+#rail{position:absolute;left:120px;top:288px;height:4px;width:0;background:linear-gradient(90deg,var(--leaf),var(--leaf-2));border-radius:4px;transition:width 5s linear;box-shadow:0 0 18px rgba(94,169,8,.6)}
+#rail0{position:absolute;left:120px;top:288px;height:4px;width:1040px;background:#2f3b50;border-radius:4px}
+.nd{position:absolute;top:240px;width:200px;text-align:center}
+.nd .c{width:100px;height:100px;margin:0 auto;border-radius:50%;background:var(--ink-2);border:2px solid #2f3b50;display:flex;align-items:center;justify-content:center;transition:all .6s var(--ease)}
+.nd.on .c{border-color:var(--leaf-2);box-shadow:0 0 0 8px rgba(94,169,8,.15),0 0 30px rgba(94,169,8,.35);background:#16301a}
+.nd svg{width:42px;height:42px;stroke:var(--leaf-2);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nd .t{margin-top:22px;font-size:24px;font-weight:700}
+.nd .s{margin-top:6px;font-size:13px;color:var(--muted);padding:0 10px;line-height:1.4}
+.nd .b{display:inline-block;margin-top:10px;font-size:11px;font-weight:800;letter-spacing:.1em;padding:4px 9px;border-radius:6px}
+.b.ai{background:rgba(31,111,178,.25);color:var(--blue-2)}
+.b.hu{background:rgba(94,169,8,.22);color:var(--leaf-2)}
+#loop{position:absolute;left:120px;top:430px;width:1040px;height:140px;overflow:visible}
+#loop path{fill:none;stroke:var(--amber-2);stroke-width:2.5;stroke-dasharray:1200;stroke-dashoffset:1200;transition:stroke-dashoffset 3s var(--ease)}
+#loop.go path{stroke-dashoffset:0}
+#lt{top:556px;font-size:17px;color:var(--amber-2)}
+</style></head><body><div class="stage"></div>
+<div id="ttl" class="center hid"><div class="eyebrow">What Verity does</div><div class="mid">Turn source documents into approved, reusable knowledge</div></div>
+<div id="rail0"></div><div id="rail"></div>
+<div id="n1" class="nd hid" style="left:20px"><div class="c"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z M14 3v4h4"/></svg></div><div class="t">1 Source</div><div class="s hid">Ingest policies, scripts and guidelines.</div></div>
+<div id="n2" class="nd hid" style="left:224px"><div class="c"><svg viewBox="0 0 24 24"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/></svg></div><div class="t">2 Extract</div><div class="s hid">AI suggests structured knowledge units.</div><span class="b ai hid">MODEL SUGGESTS</span></div>
+<div id="n3" class="nd hid" style="left:428px"><div class="c"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-5 4-7 8-7s8 2 8 7"/></svg></div><div class="t">3 Review</div><div class="s hid">Experts review, edit and approve.</div><span class="b hu hid">PEOPLE APPROVE</span></div>
+<div id="n4" class="nd hid" style="left:632px"><div class="c"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></div><div class="t">4 Publish</div><div class="s hid">Approved units go to a governed base.</div></div>
+<div id="n5" class="nd hid" style="left:836px"><div class="c"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l5 5"/></svg></div><div class="t">5 Find</div><div class="s hid">Cited answers from approved knowledge only.</div></div>
+<div id="n6" class="nd hid" style="left:1040px"><div class="c"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9M12 3l-3 3M12 3l3 3"/></svg></div><div class="t">6 Learn</div><div class="s hid">Unanswered questions become knowledge gaps.</div></div>
+<svg id="loop" viewBox="0 0 1040 140"><path d="M1000 0 C1000 130 40 130 40 10"/><path d="M30 24 L40 6 L52 22" style="stroke-dasharray:none;stroke-dashoffset:0"/></svg>
+<div id="lt" class="center hid">Feedback loop: gaps and search patterns inform updates</div>
+<script>
+beats[0] = (d) => { show("#ttl"); };
+beats[1] = (d) => {
+  $("#rail").style.transitionDuration = (d / 1000 * 0.95) + "s"; at(100, () => $("#rail").style.width = "1040px");
+  for (let i = 1; i <= 6; i++) { show("#n" + i, (i - 1) * d / 6.3); at((i - 1) * d / 6.3 + 300, () => $("#n" + i).classList.add("on")); }
+};
+beats[2] = (d) => {
+  $$(".nd .s,.nd .b").forEach((e, i) => show(e, 200 + i * 220));
+  at(d * 0.55, () => { $("#loop").classList.add("go"); show("#lt"); });
+};
+</script></body></html>

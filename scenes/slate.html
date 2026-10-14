@@ -1,0 +1,40 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Slate</title>
+<link rel="stylesheet" href="_base.css"><script src="_base.js"></script>
+<style>
+.top{position:absolute;left:80px;right:80px;top:56px;display:flex;justify-content:space-between;align-items:center}
+.brand{display:flex;align-items:center;gap:12px;font-weight:700;font-size:20px}
+.brand svg{width:30px;height:30px}
+.step{font-size:14px;letter-spacing:.16em;font-weight:800;color:var(--leaf-2)}
+#num{position:absolute;left:80px;top:150px;font-size:15px;font-weight:800;letter-spacing:.18em;color:var(--muted)}
+#ttl{position:absolute;left:80px;top:182px;width:1000px;font-size:54px;font-weight:800;letter-spacing:-.02em;line-height:1.08}
+#who{position:absolute;left:80px;top:340px;display:flex;align-items:center;gap:16px;background:var(--ink-2);border:1px solid #2f3b50;border-radius:999px;padding:10px 24px 10px 10px}
+#ini{width:48px;height:48px;border-radius:50%;background:var(--brand);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px}
+#nm{font-size:22px;font-weight:700}#rl{font-size:14px;color:var(--muted)}
+#rt{position:absolute;right:80px;top:350px;text-align:right}
+#rt .k{font-size:11px;letter-spacing:.16em;color:var(--muted);font-weight:800}
+#rt .v{font-size:22px;font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--leaf-2);margin-top:4px}
+#br{position:absolute;left:80px;top:440px;width:980px;font-size:28px;line-height:1.4;color:#dbe2ea}
+#rail{position:absolute;left:80px;right:80px;bottom:70px;display:flex;align-items:center}
+.st{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700;color:#5b687d;transition:color .5s}
+.st i{width:14px;height:14px;border-radius:50%;background:#2f3b50;transition:all .5s}
+.st.on{color:var(--text)}.st.on i{background:var(--leaf-2);box-shadow:0 0 0 6px rgba(94,169,8,.2),0 0 16px rgba(94,169,8,.6)}
+.ln{flex:1;height:2px;background:#2f3b50;margin:0 14px}
+</style></head><body><div class="stage"></div>
+<div class="top"><div class="brand" id="lg"></div><div class="step" id="st"></div></div>
+<div id="num" class="hid"></div><div id="ttl" class="hid"></div>
+<div id="who" class="hid"><div id="ini"></div><div><div id="nm"></div><div id="rl"></div></div></div>
+<div id="rt" class="hid"><div class="k">ROUTE</div><div class="v" id="rv"></div></div>
+<div id="br" class="hid"></div>
+<div id="rail" class="hid"></div>
+<script>
+const D = JSON.parse(decodeURIComponent(location.hash.slice(1)));
+const STAGES = ["Source", "Extract", "Review", "Publish", "Find", "Learn"];
+$("#lg").innerHTML = LOGO() + "<span>Verity</span>";
+$("#st").textContent = D.step;
+$("#num").textContent = D.num; $("#ttl").textContent = D.title;
+$("#ini").textContent = D.persona[0]; $("#nm").textContent = D.persona; $("#rl").textContent = D.role; $("#rv").textContent = D.route;
+$("#br").textContent = D.bridge;
+$("#rail").innerHTML = STAGES.map((s, i) => `<span class="st" id="s${i}"><i></i>${s}</span>` + (i < 5 ? '<span class="ln"></span>' : "")).join("");
+show("#num", 200); show("#ttl", 450); show("#who", 900); show("#rt", 1000); show("#br", 1400); show("#rail", 1700);
+(D.stages || []).forEach((i, k) => at(2000 + k * 200, () => $("#s" + i).classList.add("on")));
+</script></body></html>

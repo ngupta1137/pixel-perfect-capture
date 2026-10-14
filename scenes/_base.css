@@ -1,0 +1,17 @@
+/* Verity keynote scenes. Colors come from the app tokens (src/styles.css): ink, brand green, destructive. */
+:root{--ink:#111827;--ink-2:#1b2433;--ink-3:#273244;--muted:#9aa4b2;--text:#f9fafb;--brand:#2E7D32;--brand-dark:#1E5E2E;--leaf:#4E8416;--leaf-2:#5EA908;--glow:#22c55e;--danger:#b3261e;--danger-2:#ef6a62;--amber:#b26b00;--amber-2:#f0b04a;--blue:#1f6fb2;--blue-2:#6fb3ec;--ease:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box;margin:0}
+html,body{width:1280px;height:720px;overflow:hidden;background:var(--ink);color:var(--text);font-family:"Public Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+#vty-cursor,#vty-ring,#vty-click{display:none!important}
+.stage{position:absolute;inset:0;background:radial-gradient(900px 520px at 50% 42%,#18233a 0%,var(--ink) 70%)}
+.abs{position:absolute}
+.hid{opacity:0;transform:translateY(16px)}
+.in{opacity:1;transform:none;transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.out{opacity:0!important;transition:opacity .6s ease!important}
+.center{position:absolute;left:0;right:0;text-align:center}
+.big{font-size:60px;font-weight:700;letter-spacing:-.02em}
+.mid{font-size:30px;font-weight:600;letter-spacing:-.01em}
+.small{font-size:15px;color:var(--muted)}
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--leaf-2)}
+.card{background:var(--ink-2);border:1px solid #2f3b50;border-radius:14px;padding:18px 20px}
+#vty-sub{bottom:22px!important}

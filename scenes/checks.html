@@ -1,0 +1,43 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Checks</title>
+<link rel="stylesheet" href="_base.css"><script src="_base.js"></script>
+<style>
+#ttl{top:60px}
+.ck{position:absolute;top:150px;width:340px;height:170px}
+.ck .h{font-size:26px;font-weight:700;display:flex;align-items:center;gap:12px}
+.ck .tick{width:30px;height:30px;border-radius:50%;border:2px solid #3b4960;display:flex;align-items:center;justify-content:center;transition:all .5s}
+.ck .tick svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:3;opacity:0;transition:opacity .3s}
+.ck.ok .tick{background:var(--brand);border-color:var(--leaf-2)}
+.ck.ok .tick svg{opacity:1}
+.ck.ok{border-color:var(--leaf-2);box-shadow:0 0 24px rgba(94,169,8,.25)}
+.ck p{margin-top:14px;font-size:15px;color:var(--muted);line-height:1.5}
+#k1{left:100px}#k2{left:470px}#k3{left:840px}
+#ans{position:absolute;left:230px;top:360px;width:820px;border-color:var(--leaf-2);background:#122a18}
+#ans .lab{font-size:13px;font-weight:800;letter-spacing:.14em;color:var(--leaf-2)}
+#ans .t{font-size:27px;line-height:1.35;margin-top:10px;font-weight:500}
+#ans .src{margin-top:12px;font-size:14px;color:var(--muted)}
+.fb{position:absolute;top:372px;width:340px;height:150px}
+.fb .h{font-size:13px;font-weight:800;letter-spacing:.12em}
+.fb .t{margin-top:12px;font-size:20px;line-height:1.4}
+#f1{left:100px}#f1 .h{color:var(--blue-2)}
+#f2{left:470px}#f2 .h{color:var(--amber-2)}
+#f3{left:840px}#f3 .h{color:var(--muted)}
+#nog{top:318px;font-size:22px;color:var(--danger-2);font-weight:700}
+</style></head><body><div class="stage"></div>
+<div id="ttl" class="center hid"><div class="eyebrow">The decision principle</div><div class="mid" style="font-size:36px;margin-top:8px">An answer must be relevant, approved and applicable</div></div>
+<div id="k1" class="ck card hid"><div class="h"><span class="tick"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span>Relevant</div><p>Does the content address the question?</p></div>
+<div id="k2" class="ck card hid"><div class="h"><span class="tick"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span>Approved</div><p>Is the unit authorized and not retired?</p></div>
+<div id="k3" class="ck card hid"><div class="h"><span class="tick"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span>Applicable</div><p>Does the scope match the situation?</p></div>
+<div id="ans" class="card hid"><div class="lab">TRUSTED ANSWER</div><div class="t">“The prices I share today are estimates based on your current plan and may change.”</div><div class="src">Pricing Disclaimer (Rx) · Compliance</div></div>
+<div id="nog" class="center hid">If a check fails, Verity does not guess.</div>
+<div id="f1" class="fb card hid"><div class="h">CLARIFY</div><div class="t">“Can you confirm the plan type?”</div></div>
+<div id="f2" class="fb card hid"><div class="h">DECLINE</div><div class="t">“I don’t have an approved source for this question.”</div></div>
+<div id="f3" class="fb card hid"><div class="h">SHOW RELATED OPTIONS</div><div class="t">“You can refer to the Plan Change policy.”</div></div>
+<script>
+beats[0] = (d) => { show("#ttl"); };
+beats[1] = (d) => { [1, 2, 3].forEach((i) => { show("#k" + i, (i - 1) * d / 3.2); at((i - 1) * d / 3.2 + 500, () => $("#k" + i).classList.add("ok")); }); };
+beats[2] = (d) => {
+  show("#ans", 400);
+  at(d * 0.4, () => { hide("#ans"); show("#nog"); $$(".ck").forEach((c) => { c.classList.remove("ok"); }); });
+  show("#f1", d * 0.5); show("#f2", d * 0.65); show("#f3", d * 0.8);
+};
+</script></body></html>

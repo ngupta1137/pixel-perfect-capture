@@ -1,4 +1,4 @@
-// Verity demo automation, Scenario 0: Opening teaser (public /story).
+// Verity demo automation, Scenario 0: Live /story proof after the animated opening (public /story).
 // Run: node scenario-0-voice-demo.mjs
 // Env (optional): VERITY_URL, CHROME_PATH, VIDEO_DIR, SPEECH_WPS (fallback words per second, default 2.6)
 import fs from "node:fs";
@@ -237,35 +237,7 @@ await h1.waitFor({ timeout: 30000 });
 await page.mouse.click(640, 4).catch(() => {});
 await sleep(700);
 
-// [Cue 0] header and the question
-const question = page.getByText("How long does mail order take?").first();
-await Promise.all([
-  speak("Same question, three answers: how long does mail order take?"),
-  (async () => {
-    const a = await centerOf(h1);
-    await glideTo(a.x, a.y);
-    await spot(h1, { zoom: 1.03, pad: 8 });
-    await sleep(1800);
-    await unspot(h1);
-    await hover(question, { zoom: 1.03, pad: 6 }, 1800);
-  })(),
-]);
-mark("cue 0 done");
-
-// [Cue 1] three channel cards
-const cardFor = (name) => page.locator("article").filter({ hasText: name }).first();
-await Promise.all([
-  speak("The phone IVR script says five to seven days, the web chat bot says up to two weeks, and the agent cheat sheet says seven to ten business days."),
-  (async () => {
-    for (const [n, hold] of [["Phone IVR script", 1800], ["Web chat bot", 1800], ["Agent cheat sheet", 2200]]) {
-      const c = cardFor(n);
-      if (await visible(c, 2000)) await hover(c, { zoom: 1.04, pad: 4 }, hold);
-      else deviations.push(`Cue 1: card ${n} not found.`);
-    }
-  })(),
-]);
-mark("cue 1 done");
-
+// Cues 0 and 1 now live in the animated opening (scenes/open.html); this clip is the live /story proof.
 // [Cue 2] the three red callouts
 const facts = ["Annual Election Period opens Oct 15, 2026", "2027 content differs from 2026 content", "Legal wording must be read exactly"];
 await Promise.all([
