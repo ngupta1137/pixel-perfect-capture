@@ -22,14 +22,15 @@ const scene = (s) => `scene-output/${s}/scene-with-voice.mp4`;
 // ---- Slate text (edit here). Bridges describe only what the next clip shows. ----
 const S = (num, step, title, persona, role, route, bridge, stages) => ({ num, step, title, persona, role, route, bridge, stages });
 const SLATES = {
-  1: S("SCENARIO 1", "1 OF 8", "AI ingest and author review", "Dana", "Author", "/work", "Next: Dana turns source documents into candidate knowledge units for review.", [0, 1, 2]),
-  2: S("SCENARIO 2", "2 OF 8", "Legal impact gate and approval", "Rita", "Legal approver", "/legal", "Next: Rita reviews the draft. Under maker-checker, the proposer cannot approve.", [2, 3]),
-  3: S("SCENARIO 3", "3 OF 8", "Advocate search and governed answer", "Priya", "Pharmacy advocate", "/", "Next: Priya searches the prescription pricing disclaimer and gets an approved, verified answer.", [4]),
-  4: S("SCENARIO 4", "4 OF 8", "Role-scoped access", "Marcus", "Insurance advocate", "/", "Next: Marcus asks the same kind of question and meets his access boundary.", [4]),
-  5: S("SCENARIO 5", "5 OF 8", "Safe fallbacks and the gap queue", "Priya, then Dana", "Advocate, then author", "/ and /work", "Next: a question no approved unit covers. Verity does not guess, and the gap reaches the author's queue.", [4, 5]),
-  6: S("SCENARIO 6", "6 OF 8", "Plan year applicability", "Priya", "Pharmacy advocate", "/", "Next: the same benefit question under plan year 2026 and plan year 2027.", [4]),
-  7: S("SCENARIO 7", "7 OF 8", "Audit log and evaluation harness", "Casey and Nitin", "Auditor and AI product owner", "/audit and /evals", "Next: the read-only audit log and the automated evaluation harness.", []),
-  8: S("SCENARIO 8", "8 OF 8", "Platform architecture", "Nitin", "AI product owner", "/platform", "Next: the platform behind it, the 13-step pipeline and the change propagation mesh.", [0, 1, 2, 3, 4, 5]),
+  1: S("SCENARIO 1", "1 OF 9", "AI ingest and author review", "Dana", "Author", "/work", "Next: Dana turns source documents into candidate knowledge units for review.", [0, 1, 2]),
+  2: S("SCENARIO 2", "2 OF 9", "Legal impact gate and approval", "Rita", "Legal approver", "/legal", "Next: Rita reviews the draft. Under maker-checker, the proposer cannot approve.", [2, 3]),
+  3: S("SCENARIO 3", "3 OF 9", "Advocate search and governed answer", "Priya", "Pharmacy advocate", "/", "Next: Priya searches the prescription pricing disclaimer and gets an approved, verified answer.", [4]),
+  4: S("SCENARIO 4", "4 OF 9", "Role-scoped access", "Marcus", "Insurance advocate", "/", "Next: Marcus asks the same kind of question and meets his access boundary.", [4]),
+  safety: S("SCENARIO 5", "5 OF 9", "Safety escalation", "Priya", "Pharmacy advocate", "/", "Next: a member describes chest pain. Verity does not search for an answer. It escalates to a person.", [4]),
+  5: S("SCENARIO 6", "6 OF 9", "Safe fallbacks and the gap queue", "Priya, then Dana", "Advocate, then author", "/ and /work", "Next: a question no approved unit covers. Verity does not guess, and the gap reaches the author's queue.", [4, 5]),
+  6: S("SCENARIO 7", "7 OF 9", "Plan year applicability", "Priya", "Pharmacy advocate", "/", "Next: the same benefit question under plan year 2026 and plan year 2027.", [4]),
+  7: S("SCENARIO 8", "8 OF 9", "Audit log and evaluation harness", "Casey and Nitin", "Auditor and AI product owner", "/audit and /evals", "Next: the read-only audit log and the automated evaluation harness.", []),
+  8: S("SCENARIO 9", "9 OF 9", "Platform architecture", "Nitin", "AI product owner", "/platform", "Next: the platform behind it, the 13-step pipeline and the change propagation mesh.", [0, 1, 2, 3, 4, 5]),
 };
 
 // ---- Running order ----
@@ -41,10 +42,11 @@ const ORDER = [
   { slate: 2, chapter: "Scenario 2: Legal impact gate and approval", file: clip(2) },
   { slate: 3, chapter: "Scenario 3: Advocate search and governed answer", file: clip(3) },
   { slate: 4, chapter: "Scenario 4: Role-scoped access", file: clip(4) },
-  { slate: 5, chapter: "Scenario 5: Safe fallbacks and the gap queue", file: clip(5) },
-  { slate: 6, chapter: "Scenario 6: Plan year applicability", file: clip(6) },
-  { slate: 7, chapter: "Scenario 7: Audit log and evaluation harness", file: clip(7) },
-  { slate: 8, chapter: "Scenario 8: Platform architecture", file: clip(8) },
+  { slate: "safety", chapter: "Scenario 5: Safety escalation", file: "scenario-safety-output/scenario-safety-with-voice.mp4" },
+  { slate: 5, chapter: "Scenario 6: Safe fallbacks and the gap queue", file: clip(5) },
+  { slate: 6, chapter: "Scenario 7: Plan year applicability", file: clip(6) },
+  { slate: 7, chapter: "Scenario 8: Audit log and evaluation harness", file: clip(7) },
+  { slate: 8, chapter: "Scenario 9: Platform architecture", file: clip(8) },
   { chapter: "Knowledge as infrastructure", file: scene("close") },
 ];
 
