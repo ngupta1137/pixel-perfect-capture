@@ -252,7 +252,7 @@ await sleep(700);
 
 // [Announcement] header
 await Promise.all([
-  speak("Now we will see the platform architecture."),
+  speak("Now the platform view: how this scales beyond the prototype."),
   (async () => {
     const a = await centerOf(h1);
     await glideTo(a.x, a.y);
@@ -267,7 +267,7 @@ mark("cue 0 done");
 const gateCard = page.getByText("Deterministic Policy Gate", { exact: true }).first().locator("xpath=ancestor::div[1]");
 const protoCard = page.getByText("Supported Protocols", { exact: true }).first().locator("xpath=ancestor::div[1]");
 await Promise.all([
-  speak("The banner says the deterministic policy gate covers steps seven to nine, and the runtime supports REST, MCP and SSE."),
+  speak("The banner says the deterministic policy gate covers steps seven to nine, and the design supports REST, MCP and SSE."),
   (async () => {
     await hover(gateCard, { zoom: 1.04, pad: 4 }, 2200);
     await hover(protoCard, { zoom: 1.04, pad: 4 }, 2200);
@@ -301,7 +301,7 @@ mark("cue 2 done");
 const meshTab = page.getByRole("tab", { name: /Change Propagation & Maturity/ }).first();
 await page.evaluate(() => window.scrollTo(0, 0));
 await Promise.all([
-  speak("On the Change Propagation tab, the mesh lists four subscriber channels: Agent Assist, Member Chat, IVR Voice Bot and Advocate Portal."),
+  speak("On the Change Propagation tab, the mesh shows how a change would reach four subscriber channels: Agent Assist, Member Chat, IVR Voice Bot and Advocate Portal."),
   (async () => {
     await clickWithSpot(meshTab, { zoom: 1.08 }, 600);
     await page.getByText("Real-time Change Propagation & Invalidation Mesh").first().waitFor({ timeout: 10000 });
@@ -320,7 +320,7 @@ const row = page.locator("tr").filter({ hasText: /U-PH-003/ }).first();
 const rowText = ((await row.innerText().catch(() => "")) || "").replace(/\s+/g, " ");
 log("log row reads:", rowText);
 await Promise.all([
-  speak("The log lists U-PH-003, approved by Rita, with all four channels notified and the cache invalidated and refreshed."),
+  speak("The log illustrates the flow: U-PH-003 approved by Rita, with all four channels notified and the cache refreshed."),
   (async () => {
     if (await visible(row, 1500)) await hover(row, { zoom: 1.02, pad: 3 }, 4200);
     else deviations.push("Cue 4: no U-PH-003 row in the invalidation log.");
@@ -333,7 +333,7 @@ mark("cue 4 done");
 const certHead = page.getByText("Built & Certified in Production", { exact: true }).first();
 const certList = certHead.locator("xpath=ancestor::div[2]");
 await Promise.all([
-  speak("Below, the built and certified list names the engine, REST API, MCP, access control, drift detection and golden evals."),
+  speak("Below, the capability list names the engine, REST API, MCP, access control, drift detection and golden evals. Access control and drift detection are in this prototype. The REST API and MCP are the next build."),
   (async () => {
     const a = await centerOf(certHead);
     await glideTo(a.x, a.y);
