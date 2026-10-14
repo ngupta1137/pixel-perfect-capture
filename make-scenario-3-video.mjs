@@ -153,12 +153,16 @@ let acc = 0;
 for (const p of pieces) { p.o = acc; acc += (p.b - p.a) / p.speed; }
 const mapT = (t) => { for (const p of pieces) if (t >= p.a && t < p.b) return p.o + (t - p.a) / p.speed; return acc; };
 for (const t of timeline) t.startMs = mapT(t.startMs / 1000) * 1000;
+// Safety: the picture must outlast the last spoken word, so hold the final frame if the edit ends early.
+const audioEnd = Math.max(...timeline.map((t) => t.startMs / 1000 + t.durationMs / 1000));
+const holdLast = Math.max(0, audioEnd + 1.2 - acc);
+console.log(`edit: picture ${acc.toFixed(1)}s, last narration ends ${audioEnd.toFixed(1)}s, holding final frame ${holdLast.toFixed(1)}s`);
 const final = path.join(OUT, "scenario-3-with-voice.mp4");
 // Step A: video only
 const silent = path.join(OUT, "video-cut.mp4");
 const vgraph = `[0:v]fps=25,drawbox=x=0:y=712:w=8:h=8:color=white:t=fill,split=${pieces.length}${pieces.map((_, i) => `[s${i}]`).join("")};` +
   pieces.map((p, i) => `[s${i}]trim=start=${p.a.toFixed(3)}:end=${p.b.toFixed(3)},setpts=(PTS-STARTPTS)/${p.speed}[c${i}]`).join(";") +
-  `;${pieces.map((_, i) => `[c${i}]`).join("")}concat=n=${pieces.length}:v=1:a=0[v]`;
+  `;${pieces.map((_, i) => `[c${i}]`).join("")}concat=n=${pieces.length}:v=1:a=0[vc]` + (holdLast > 0 ? `;[vc]tpad=stop_mode=clone:stop_duration=${holdLast.toFixed(3)}[v]` : `;[vc]null[v]`);
 run("ffmpeg", ["-v", "error", "-y", "-i", videoPath, "-filter_complex", vgraph, "-map", "[v]", "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", silent]);
 const vdur = parseFloat(run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", silent], { capture: true }));
 // Step B: place each clip at its cue start, mix, and mux with the video

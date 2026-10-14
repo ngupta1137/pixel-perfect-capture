@@ -75,8 +75,8 @@ await context.addInitScript(() => {
       #vty-layer{position:fixed;inset:0;z-index:2147483647;pointer-events:none;font-family:Inter,system-ui,sans-serif}
       #vty-cursor{position:fixed;left:0;top:0;width:30px;height:30px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
       #vty-ring{position:fixed;display:none;border:3px solid #22c55e;border-radius:12px;
-        box-shadow:0 0 0 9999px rgba(8,20,12,.30),0 0 22px 6px rgba(34,197,94,.8);animation:vtyp 1s ease-in-out infinite}
-      @keyframes vtyp{0%,100%{box-shadow:0 0 0 9999px rgba(8,20,12,.30),0 0 14px 3px rgba(34,197,94,.6)}50%{box-shadow:0 0 0 9999px rgba(8,20,12,.30),0 0 30px 10px rgba(34,197,94,1)}}
+        box-shadow:0 0 0 9999px rgba(8,20,12,.25),0 0 22px 6px rgba(34,197,94,.8);animation:vtyp 1s ease-in-out infinite}
+      @keyframes vtyp{0%,100%{box-shadow:0 0 0 9999px rgba(8,20,12,.25),0 0 14px 3px rgba(34,197,94,.6)}50%{box-shadow:0 0 0 9999px rgba(8,20,12,.25),0 0 30px 10px rgba(34,197,94,1)}}
       #vty-sub{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:920px;padding:12px 24px;border-radius:999px;
         background:rgba(12,24,17,.93);color:#fff;font-size:18px;line-height:1.35;text-align:center;border:1px solid #22c55e;
         box-shadow:0 6px 22px rgba(0,0,0,.4);opacity:0;transition:opacity .25s}
@@ -184,13 +184,14 @@ async function glideTo(x, y, steps = 38) {
 }
 async function spot(loc, { zoom = 1.05, pad = 6 } = {}) {
   const { b } = await centerOf(loc);
+  if (b.width > 300) zoom = Math.min(zoom, 1.04); // large panels get only a subtle lift so text never blurs or crops
   await page.evaluate(([r, pad]) => {
     const ring = document.getElementById("vty-ring");
     Object.assign(ring.style, { display: "block", left: r.x - pad + "px", top: r.y - pad + "px", width: r.width + pad * 2 + "px", height: r.height + pad * 2 + "px" });
   }, [b, pad]);
   await loc.first().evaluate((el, z) => {
     el.__vtyPrev = [el.style.transform, el.style.transition, el.style.position];
-    el.style.transition = "transform .4s ease";
+    el.style.transition = "transform .3s ease";
     el.style.transformOrigin = "center";
     el.style.transform = `scale(${z})`;
   }, zoom).catch(() => {});
