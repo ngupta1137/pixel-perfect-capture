@@ -34,9 +34,9 @@ export const Route = createFileRoute("/platform")({
   head: () => ({
     meta: [
       { title: "Platform Architecture — Verity" },
-      { name: "description", content: "Who consumes Verity, the 13-step runtime pipeline, and what is built versus on the roadmap." },
+      { name: "description", content: "Who consumes Verity, the 13-step runtime pipeline, and what is working in the prototype versus on the roadmap." },
       { property: "og:title", content: "Platform Architecture — Verity" },
-      { property: "og:description", content: "Who consumes Verity, the 13-step runtime pipeline, and what is built versus on the roadmap." },
+      { property: "og:description", content: "Who consumes Verity, the 13-step runtime pipeline, and what is working in the prototype versus on the roadmap." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -286,15 +286,15 @@ const SPOKES = [
 ];
 
 const BUILT_CAPABILITIES = [
-  { name: "13-Step Serving Engine", desc: "Full deterministic-before-generative runtime kernel.", status: "Certified" },
-  { name: "REST API v1", desc: "OpenAPI compliant query, search, and audit telemetry endpoints.", status: "Certified" },
-  { name: "Model Context Protocol (MCP)", desc: "Standardized tools for Claude, OpenAI, and agentic workflows.", status: "Certified" },
-  { name: "Role-Based Persona RBAC", desc: "Centralized policy driving permissions, scoping, and UI views.", status: "Certified" },
-  { name: "Knowledge Drift Detection", desc: "Automated flagging for stale dates, conflicts, and gap tickets.", status: "Certified" },
-  { name: "Golden Benchmark Evals (S11)", desc: "100-scenario regression evaluation gate with automated scoring.", status: "Certified" },
+  { name: "13-Step Serving Engine", desc: "Full deterministic-before-generative runtime kernel.", status: "Working" },
+  { name: "Role-Based Persona RBAC", desc: "Centralized policy driving permissions, scoping, and UI views.", status: "Working" },
+  { name: "Knowledge Drift Detection", desc: "Automated flagging for stale dates, conflicts, and gap tickets.", status: "Working" },
+  { name: "Golden Benchmark Evals (S11)", desc: "100-scenario regression evaluation gate with automated scoring.", status: "Working" },
 ];
 
 const ROADMAP_CAPABILITIES = [
+  { name: "REST API v1", desc: "OpenAPI compliant query, search, and audit telemetry endpoints.", phase: "Next build" },
+  { name: "Model Context Protocol (MCP)", desc: "Standardized tools for Claude, OpenAI, and agentic workflows.", phase: "Next build" },
   { name: "Write-Once WORM Audit Storage", desc: "Hardware-enforced tamper-proof audit trails for legal discovery.", phase: "H1 2027" },
   { name: "Multi-Region Active-Active Availability", desc: "Zero-downtime geo-replicated truth cache with cross-region sync.", phase: "H1 2027" },
   { name: "Edge PHI Tokenization Hardware", desc: "Zero-trust enclave for tokenizing HIPAA records at gateway boundary.", phase: "H2 2027" },
@@ -330,7 +330,7 @@ function SubscriberChangePanel() {
             <h3 className="font-semibold text-lg text-ink">Real-time Change Propagation & Invalidation Mesh</h3>
           </div>
           <p className="mt-1 text-xs text-ink-muted">
-            When Legal or Knowledge Owners publish an approved unit, cache invalidation signals notify all subscriber channels in real-time.
+            When Legal or Knowledge Owners publish an approved unit, cache invalidation signals would notify all subscriber channels.
           </p>
         </div>
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold self-start sm:self-auto">
@@ -437,7 +437,7 @@ function PlatformPage() {
           </h1>
           <p className="mt-1.5 text-sm text-ink-muted max-w-3xl">
             Verity enforces a 13-stage deterministic governance pipeline before any generation occurs. Downstream products
-            consume approved truth through identical REST, MCP, and event contracts.
+            are designed to consume approved truth through identical REST, MCP, and event contracts.
           </p>
         </div>
 
@@ -478,7 +478,10 @@ function PlatformPage() {
         </div>
         <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
           <p className="text-xs font-semibold text-ink-muted">Supported Protocols</p>
-          <p className="mt-1 text-xl font-bold text-ink">REST · MCP · SSE</p>
+          <div className="mt-1 flex items-center gap-2">
+            <p className="text-xl font-bold text-ink">REST · MCP · SSE</p>
+            <span className="text-[10px] font-medium text-ink-muted px-1.5 py-0.5 rounded bg-surface-alt border border-border">Designed</span>
+          </div>
           <p className="mt-0.5 text-[11px] text-ink-muted font-medium">Unified downstream contracts</p>
         </div>
         <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
@@ -933,7 +936,7 @@ function PlatformPage() {
           <div className="rounded-xl border border-border bg-surface p-6 shadow-sm space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/70 pb-4">
               <div>
-                <h3 className="text-lg font-bold text-ink">Platform Capabilities: Certified vs Enterprise Roadmap</h3>
+                <h3 className="text-lg font-bold text-ink">Platform Capabilities: Working vs Roadmap</h3>
                 <p className="text-xs text-ink-muted mt-0.5">
                   Enterprise readiness matrix showing production-certified components and future-state infrastructure.
                 </p>
@@ -947,7 +950,7 @@ function PlatformPage() {
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
                     ✓
                   </span>
-                  <h4 className="font-bold text-sm text-ink">Built & Certified in Production</h4>
+                  <h4 className="font-bold text-sm text-ink">Working in this prototype</h4>
                 </div>
                 <div className="space-y-2.5">
                   {BUILT_CAPABILITIES.map((cap) => (
