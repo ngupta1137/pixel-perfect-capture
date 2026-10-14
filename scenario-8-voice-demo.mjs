@@ -304,7 +304,7 @@ await Promise.all([
   speak("On the Change Propagation tab, the mesh shows how a change would reach four subscriber channels: Agent Assist, Member Chat, IVR Voice Bot and Advocate Portal."),
   (async () => {
     await clickWithSpot(meshTab, { zoom: 1.08 }, 600);
-    await page.getByText(/Change Propagation getByText("Real-time Change Propagation & Invalidation Mesh") Invalidation Mesh/).first().waitFor({ timeout: 10000 });
+    await page.getByText(/Change Propagation & Invalidation Mesh/).first().waitFor({ timeout: 10000 });
     await sleep(500);
     for (const ch of ["Agent Assist", "Member Chat", "IVR Voice Bot", "Advocate Portal"]) {
       const card = page.getByText(ch, { exact: true }).first().locator("xpath=ancestor::div[2]");
