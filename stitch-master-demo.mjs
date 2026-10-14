@@ -88,7 +88,7 @@ for (const [n, d] of Object.entries(SLATES)) {
 await browser.close();
 if (arg === "--slates-only") { console.log("slates in", path.join(OUT, "slates")); process.exit(0); }
 
-// 2. normalise everything to 1280x720, 25 fps, AAC 48 kHz stereo
+// 2. normalise everything to 1920x1080, 25 fps, AAC 48 kHz stereo
 const parts = [];
 for (const o of ORDER) {
   if (o.slate) parts.push({ file: slateFiles[o.slate], silent: true, chapter: null });
@@ -97,7 +97,7 @@ for (const o of ORDER) {
 }
 parts.forEach((p, i) => {
   const out = path.join(OUT, "norm", String(i).padStart(2, "0") + ".mp4");
-  const vf = "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=0x111827,fps=25,format=yuv420p";
+  const vf = "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x111827,fps=25,format=yuv420p";
   const args = p.silent
     ? ["-v", "error", "-y", "-i", p.file, "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-shortest", "-vf", vf, "-c:v", "libx264", "-crf", "18", "-c:a", "aac", "-ar", "48000", "-ac", "2", out]
     : ["-v", "error", "-y", "-i", p.file, "-vf", vf, "-c:v", "libx264", "-crf", "18", "-c:a", "aac", "-ar", "48000", "-ac", "2", out];

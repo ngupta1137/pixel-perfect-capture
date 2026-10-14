@@ -54,12 +54,13 @@ const browser = await chromium.launch({
   ...(executablePath ? { executablePath } : {}),
   args: ["--start-maximized", "--autoplay-policy=no-user-gesture-required", "--no-sandbox"],
 });
-// Full-screen exception: lay the app out in a larger viewport (no scrolling) and record it scaled into 1280x720.
-const VIEW_W = Number(process.env.VIEW_W || 2560), VIEW_H = Number(process.env.VIEW_H || 1440);
+// Full-page exception: lay the app out at 100% size in a tall 16:9 viewport (no scrolling) and record it at 1920x1080.
+// The whole Review page needs about 1300px of height, so the viewport is 2400x1350; the video scales it by 0.8.
+const VIEW_W = Number(process.env.VIEW_W || 2400), VIEW_H = Number(process.env.VIEW_H || 1350);
 const SC = VIEW_W / 1280;
 const context = await browser.newContext({
   viewport: { width: VIEW_W, height: VIEW_H },
-  recordVideo: { dir: VIDEO_DIR, size: { width: 1280, height: 720 } },
+  recordVideo: { dir: VIDEO_DIR, size: { width: 1920, height: 1080 } },
 });
 
 // Session injection for Dana (Knowledge author), before any page script runs.
@@ -379,6 +380,72 @@ await Promise.all([
     if (await visible(lifecycle, 800)) await hover(lifecycle, { zoom: 1.04 }, 1800);
   })(),
 ]);
+
+// ---------- Part B: second document (retail refill rules) ----------
+const REFILL = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "demo-assets", "S01_source_Retail_Refill_Rules_2026.md");
+await sleep(1200);
+await clickWithSpot(page.getByRole("link", { name: "Ingest" }).first(), { zoom: 1.04 }, 400);
+{
+  const srcTab = page.getByRole("tab", { name: "Sources" });
+  if (!(await visible(page.getByRole("button", { name: /Choose file/ }), 1500)) && (await visible(srcTab, 1500))) await clickWithSpot(srcTab, { zoom: 1.06 }, 300);
+  await page.getByRole("button", { name: /Choose file/ }).first().waitFor({ timeout: 30000 });
+}
+await sleep(800);
+const chooseBtn = page.getByRole("button", { name: /Choose file/ }).first();
+await Promise.all([
+  speak("Next, Dana uploads a second document, the retail refill rules, with Choose file."),
+  (async () => {
+    const { x, y } = await centerOf(chooseBtn);
+    await glideTo(x, y);
+    await spot(chooseBtn, { zoom: 1.1 });
+    await sleep(900);
+    const [chooser] = await Promise.all([page.waitForEvent("filechooser"), chooseBtn.click()]);
+    await chooser.setFiles(REFILL);
+    await unspot(chooseBtn);
+    await sleep(1200);
+    await clickWithSpot(page.getByRole("button", { name: /Extract candidate units/ }).first(), { zoom: 1.06 }, 500);
+  })(),
+]);
+mark("cue 7 done");
+{
+  const tW = Date.now() - T0;
+  await page.getByText(/Extracted candidate units/).first().waitFor({ timeout: 90000 });
+  const tD = Date.now() - T0;
+  if (tD - tW > 4000) cuts.push({ startMs: tW + 1500, endMs: tD - 300 });
+}
+await sleep(800);
+const col2 = page.locator("div.overflow-y-auto").filter({ has: page.getByRole("checkbox") }).first();
+const legalBadge = col2.getByText("Legal", { exact: true }).first();
+await Promise.all([
+  speak("Verity extracts four units. Three are tagged Policy. The vaccine fee is tagged Legal, because it is verbatim wording."),
+  (async () => {
+    await hover(col2, { zoom: 1.02, pad: 4 }, 1800);
+    await hover(legalBadge, { zoom: 1.25, pad: 6 }, 1800);
+  })(),
+]);
+mark("cue 8 done");
+const propose2 = page.getByRole("button", { name: /Propose selected/ });
+await Promise.all([
+  speak("Dana proposes all four. On My drafts, the policy units wait on Pharmacy Ops, and the vaccine fee waits on Legal."),
+  (async () => {
+    const { x, y } = await centerOf(propose2);
+    await glideTo(x, y);
+    await spot(propose2, { zoom: 1.06 });
+    await sleep(800);
+    const tC = Date.now() - T0;
+    await propose2.first().click();
+    await unspot(propose2);
+    await page.getByText(/My active draft proposals/).first().waitFor({ timeout: 60000 });
+    const tB = Date.now() - T0;
+    if (tB - tC > 4000) cuts.push({ startMs: tC + 1500, endMs: tB - 300 });
+    await sleep(500);
+    const pharm = page.locator("p").filter({ hasText: /Waiting on:\s*Pharmacy Ops/ }).first();
+    await hover(pharm, { zoom: 1.06, pad: 4 }, 1500);
+    const leg = page.locator("p").filter({ hasText: /Waiting on:\s*Legal/ }).first();
+    await hover(leg, { zoom: 1.06, pad: 4 }, 1800);
+  })(),
+]);
+mark("cue 9 done");
 
 await sleep(2500);
 await page.evaluate(() => { document.getElementById("vty-sub")?.classList.remove("on"); });

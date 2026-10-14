@@ -57,6 +57,9 @@ const LINES = [
   { id: "c4t", text: "The unit details list the type, the content, the key points and a suggested effective date." },
   { id: "c5", text: "Dana proposes the selected unit. It appears under My drafts as Proposed." },
   { id: "c6", text: "Dana cannot approve her own draft. The lifecycle line says it is waiting on a second person to approve." },
+  { id: "c7", text: "Next, Dana uploads a second document, the retail refill rules, with Choose file." },
+  { id: "c8", text: "Verity extracts four units. Three are tagged Policy. The vaccine fee is tagged Legal, because it is verbatim wording." },
+  { id: "c9", text: "Dana proposes all four. On My drafts, the policy units wait on Pharmacy Ops, and the vaccine fee waits on Legal." },
 ];
 
 // 1. narration audio
@@ -86,7 +89,7 @@ const { timeline, cuts = [], videoPath } = JSON.parse(fs.readFileSync(timelinePa
 // Calibrate: find when the first subtitle pill really appears in the video and shift every cue by the difference.
 {
   const fps = 10;
-  const r = spawnSync("ffmpeg", ["-v", "error", "-i", videoPath, "-vf", `fps=${fps},crop=40:10:620:655,scale=1:1`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 26 });
+  const r = spawnSync("ffmpeg", ["-v", "error", "-i", videoPath, "-vf", `fps=${fps},crop=60:15:930:982,scale=1:1`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 26 });
   const px = r.stdout;
   let first = -1;
   for (let i = 0; i + 2 < px.length; i += 3) {
