@@ -3,6 +3,9 @@
   "private": true,
   "sideEffects": false,
   "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
@@ -48,7 +51,6 @@
     "@radix-ui/react-toggle": "^1.1.10",
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
-    "@rolldown/binding-win32-x64-msvc": "^1.2.13",
     "@shikijs/langs": "^4.5.0",
     "@streamdown/cjk": "^1.0.4",
     "@streamdown/code": "^2.0.0",

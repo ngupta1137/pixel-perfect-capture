@@ -71,7 +71,8 @@ export function getDatabasePath(): string {
   }
 
   // 3. Default local SQLite file (.data/verity.db)
-  const defaultDir = path.resolve(process.cwd(), ".data");
+  const baseDir = process.env.VERCEL ? "/tmp" : process.cwd();
+  const defaultDir = path.resolve(baseDir, ".data");
   if (!fs.existsSync(defaultDir)) {
     fs.mkdirSync(defaultDir, { recursive: true });
   }

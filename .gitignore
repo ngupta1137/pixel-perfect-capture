@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 .output
+.vercel
 .vinxi
 .tanstack/**
 .nitro
@@ -43,4 +44,5 @@ scenario*-video/
 *.webm
 *.mp4
 voice-preview/
+slate-audio/
 __pycache__/
