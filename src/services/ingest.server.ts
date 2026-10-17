@@ -83,75 +83,77 @@ export async function handleUploadAndIngest(
     let existingCandidates: CandidateUnitTable[] = [];
 
     if (existing) {
-      isDuplicate = true;
       existingJob = await repo.getLatestJobForDoc(existing.id);
       existingCandidates = await repo.getCandidatesByDocId(existing.id);
 
-      const mappedUnits = existingCandidates.map((c) => {
-        let annotations: any = {};
-        try {
-          annotations = JSON.parse(c.annotations_json || "{}");
-        } catch {}
+      if (existingCandidates.length > 0) {
+        isDuplicate = true;
+        const mappedUnits = existingCandidates.map((c) => {
+          let annotations: any = {};
+          try {
+            annotations = JSON.parse(c.annotations_json || "{}");
+          } catch {}
 
-        let diffArr: string[] = [];
-        try {
-          diffArr = JSON.parse(c.diff_json || "[]");
-        } catch {}
+          let diffArr: string[] = [];
+          try {
+            diffArr = JSON.parse(c.diff_json || "[]");
+          } catch {}
 
-        const isVerbatim = Boolean(c.verbatim === 1 || c.candidate_type === "Legal");
-        const isVerbatimDrift = Boolean(annotations.verbatim_drift || (isVerbatim && c.match_status === "changed"));
+          const isVerbatim = Boolean(c.verbatim === 1 || c.candidate_type === "Legal");
+          const isVerbatimDrift = Boolean(annotations.verbatim_drift || (isVerbatim && c.match_status === "changed"));
+
+          return {
+            id: c.id,
+            cid: c.cid,
+            annotated_id: c.annotated_id || undefined,
+            title: c.title,
+            type: c.candidate_type,
+            content: c.body,
+            current_text: annotations.current_text || null,
+            verbatim: isVerbatim ? 1 : 0,
+            verbatim_drift: isVerbatimDrift,
+            matched_unit_id: c.matched_unit_id || annotations.matched_unit_id || null,
+            diff: diffArr,
+            drift: annotations.drift || null,
+            hash_before: annotations.hash_before || undefined,
+            hash_after: annotations.hash_after || undefined,
+            sha256_before: annotations.sha256_before || undefined,
+            sha256_after: annotations.sha256_after || undefined,
+            key_points: JSON.parse(c.key_points_json || "[]"),
+            source_reference: c.source_reference,
+            suggested_effective_date: c.effective_date,
+            match_status: c.match_status,
+            similarity: c.similarity,
+            route_to: (isVerbatimDrift || isVerbatim) ? "legal" : c.route_to,
+            version: c.version || 1,
+            version_id: c.version_id || undefined,
+            supersedes: c.supersedes || undefined,
+            duplicate_of: c.duplicate_of || undefined,
+            is_duplicate_review: Boolean(c.duplicate_of || c.cid?.includes("DUP")),
+          };
+        });
 
         return {
-          id: c.id,
-          cid: c.cid,
-          annotated_id: c.annotated_id || undefined,
-          title: c.title,
-          type: c.candidate_type,
-          content: c.body,
-          current_text: annotations.current_text || null,
-          verbatim: isVerbatim ? 1 : 0,
-          verbatim_drift: isVerbatimDrift,
-          matched_unit_id: c.matched_unit_id || annotations.matched_unit_id || null,
-          diff: diffArr,
-          drift: annotations.drift || null,
-          hash_before: annotations.hash_before || undefined,
-          hash_after: annotations.hash_after || undefined,
-          sha256_before: annotations.sha256_before || undefined,
-          sha256_after: annotations.sha256_after || undefined,
-          key_points: JSON.parse(c.key_points_json || "[]"),
-          source_reference: c.source_reference,
-          suggested_effective_date: c.effective_date,
-          match_status: c.match_status,
-          similarity: c.similarity,
-          route_to: (isVerbatimDrift || isVerbatim) ? "legal" : c.route_to,
-          version: c.version || 1,
-          version_id: c.version_id || undefined,
-          supersedes: c.supersedes || undefined,
-          duplicate_of: c.duplicate_of || undefined,
-          is_duplicate_review: Boolean(c.duplicate_of || c.cid?.includes("DUP")),
+          ok: true,
+          isDuplicate: true,
+          duplicate_of: existing.id,
+          doc_id: existing.id,
+          source_id: existing.id,
+          filename: fileName,
+          file_hash: contentHash,
+          extracted_text: existing.raw_text,
+          job_id: existingJob?.id || "",
+          units: mappedUnits,
+          document: existing,
+          ...(existingJob ? { job: existingJob } : {}),
+          candidates: existingCandidates,
+          parsedText: existing.raw_text,
+          totalPages: 1,
+          warnings: [
+            `Document with identical SHA-256 hash (${contentHash.slice(0, 12)}...) was previously ingested as "${existing.title}". Loaded existing parsed records.`,
+          ],
         };
-      });
-
-      return {
-        ok: true,
-        isDuplicate: true,
-        duplicate_of: existing.id,
-        doc_id: existing.id,
-        source_id: existing.id,
-        filename: fileName,
-        file_hash: contentHash,
-        extracted_text: existing.raw_text,
-        job_id: existingJob?.id || "",
-        units: mappedUnits,
-        document: existing,
-        ...(existingJob ? { job: existingJob } : {}),
-        candidates: existingCandidates,
-        parsedText: existing.raw_text,
-        totalPages: 1,
-        warnings: [
-          `Document with identical SHA-256 hash (${contentHash.slice(0, 12)}...) was previously ingested as "${existing.title}". Loaded existing parsed records.`,
-        ],
-      };
+      }
     }
 
     // 4. Parse real document bytes
@@ -169,15 +171,16 @@ export async function handleUploadAndIngest(
     const extraction = extract(parsed.rawText, liveUnits, undefined, fallbackDocId);
 
     // Resolve doc ID, title, and metadata from extraction or upload inputs
-    const docId =
-      extraction.doc_id && extraction.doc_id !== "DOC-UPLOAD" && extraction.doc_id !== fallbackDocId
-        ? extraction.doc_id
-        : fallbackDocId;
+    const docId = existing
+      ? existing.id
+      : extraction.doc_id && extraction.doc_id !== "DOC-UPLOAD" && extraction.doc_id !== fallbackDocId
+      ? extraction.doc_id
+      : fallbackDocId;
 
     const docTitle =
       title?.trim() ||
       (extraction.title && extraction.title !== "Document" ? extraction.title : null) ||
-      fileName.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
+      (existing ? existing.title : fileName.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " "));
 
     const effectiveOwner =
       extraction.owner && extraction.owner !== "Unassigned"
@@ -187,24 +190,27 @@ export async function handleUploadAndIngest(
     const effectiveLob = extraction.plan_scope || lob;
     const effectiveSourceType = extraction.classification || sourceType;
 
-    // 6. Persist source document
-    const createdDoc = await repo.createSourceDocument({
-      id: docId,
-      title: docTitle,
-      file_type: parsed.detectedFormat,
-      file_size: parsed.fileSize,
-      content_hash: contentHash,
-      raw_text: parsed.rawText,
-      owner_team: effectiveOwner,
-      lob: effectiveLob,
-      plan_year: planYear || null,
-      state_code: stateCode || null,
-      source_type: effectiveSourceType,
-      description: description || null,
-      created_by: actor,
-      created_by_user_id: createdByUserId,
-      created_at: nowIso,
-    });
+    // 6. Persist source document if not already existing
+    let createdDoc = existing;
+    if (!existing) {
+      createdDoc = await repo.createSourceDocument({
+        id: docId,
+        title: docTitle,
+        file_type: parsed.detectedFormat,
+        file_size: parsed.fileSize,
+        content_hash: contentHash,
+        raw_text: parsed.rawText,
+        owner_team: effectiveOwner,
+        lob: effectiveLob,
+        plan_year: planYear || null,
+        state_code: stateCode || null,
+        source_type: effectiveSourceType,
+        description: description || null,
+        created_by: actor,
+        created_by_user_id: createdByUserId,
+        created_at: nowIso,
+      });
+    }
 
     // 7. Persist original binary file storage (Supabase Storage + Database record)
     let storageBucket: string | null = null;
@@ -232,23 +238,25 @@ export async function handleUploadAndIngest(
       // Graceful fallback if Supabase storage is unconfigured in test
     }
 
-    await repo.saveSourceFile({
-      id: `FILE-${docId}`,
-      source_doc_id: docId,
-      file_name: fileName,
-      mime_type:
-        parsed.detectedFormat === "pdf"
-          ? "application/pdf"
-          : parsed.detectedFormat === "docx"
-          ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          : "text/plain",
-      storage_bucket: storageBucket,
-      storage_path: storagePath,
-      file_size: parsed.fileSize,
-      content_hash: contentHash,
-      data_base64: fileBase64,
-      created_at: nowIso,
-    });
+    if (!existing) {
+      await repo.saveSourceFile({
+        id: `FILE-${docId}`,
+        source_doc_id: docId,
+        file_name: fileName,
+        mime_type:
+          parsed.detectedFormat === "pdf"
+            ? "application/pdf"
+            : parsed.detectedFormat === "docx"
+            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            : "text/plain",
+        storage_bucket: storageBucket,
+        storage_path: storagePath,
+        file_size: parsed.fileSize,
+        content_hash: contentHash,
+        data_base64: fileBase64,
+        created_at: nowIso,
+      });
+    }
 
     // 9. Persist ingestion job
     const createdJob = await repo.createIngestionJob({
@@ -427,8 +435,8 @@ export async function handleUploadAndIngest(
 
     return {
       ok: true,
-      isDuplicate: false,
-      duplicate_of: null,
+      isDuplicate: Boolean(existing),
+      duplicate_of: existing ? existing.id : null,
       doc_id: createdDoc.id,
       source_id: createdDoc.id,
       filename: fileName,
